@@ -1,6 +1,7 @@
 import { onUnmounted, watch } from 'vue'
 import { useEmulatorStore } from '@/stores/emulator'
 import { bootPayload } from '@/composables/useBoot'
+import { useConsole } from '@/composables/useConsole'
 import { RendererTarget } from '@/debug/RendererTarget'
 import { createMethods } from '@debug/server/Methods'
 import { ErrorCode, RpcMethodError } from '@debug/server/Protocol'
@@ -35,6 +36,9 @@ export function useDebugBridge(): void {
   const api = window.api
 
   const store = useEmulatorStore()
+  // The same buffer the Terminal panel draws — `serial.read` and the window are
+  // answering from one place, so they cannot disagree about what was said.
+  const serialConsole = useConsole()
 
   // Populated once store.session becomes available, and replaced wholesale
   // whenever it changes. Collected in one place so the single onUnmounted below
@@ -61,7 +65,7 @@ export function useDebugBridge(): void {
       const stale = (): boolean => unmounted || generation !== mine
       if (!session) return
 
-      const target = new RendererTarget(session, await api.app.getVersion())
+      const target = new RendererTarget(session, await api.app.getVersion(), serialConsole)
       // The component may have been torn down while that await was pending.
       if (stale()) return
 

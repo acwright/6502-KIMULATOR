@@ -50,12 +50,26 @@ export const useEmulatorStore = defineStore('emulator', () => {
   // Message from the most recent binary load; null when it went cleanly.
   const loadWarning = ref<string | null>(null)
 
-  // Callbacks set by composables / platform services
-  let onTransmit: ((data: number) => void) | undefined
+  /**
+   * Everything watching the byte stream the ACIA transmits.
+   *
+   * A set rather than one callback because the terminal panel is a *tap* on that
+   * stream, not a second device: what the machine says goes to the panel and,
+   * when a real port is open, down the cable as well. With a single slot the two
+   * would evict each other, and connecting a laptop would blank the window.
+   */
+  const transmitTaps = new Set<(data: number) => void>()
 
-  function setTransmitCallback(cb: (data: number) => void) {
-    onTransmit = cb
-    if (machine.value) machine.value.transmit = cb
+  const fanOut = (byte: number) => {
+    for (const tap of transmitTaps) tap(byte)
+  }
+
+  /** Watch the transmitted byte stream. Returns an unsubscribe. */
+  function onTransmit(tap: (data: number) => void): () => void {
+    transmitTaps.add(tap)
+    return () => {
+      transmitTaps.delete(tap)
+    }
   }
 
   /**
@@ -88,7 +102,7 @@ export const useEmulatorStore = defineStore('emulator', () => {
       isRunning.value = false
     })
 
-    m.transmit = onTransmit
+    m.transmit = fanOut
 
     serialCardFitted.value = serialCard
     isHalted.value = false
@@ -248,6 +262,6 @@ export const useEmulatorStore = defineStore('emulator', () => {
     getKeypad,
     getAccessory,
     getACIA,
-    setTransmitCallback,
+    onTransmit,
   }
 })

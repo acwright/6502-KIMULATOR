@@ -8,10 +8,15 @@ module.exports = {
     'src/core/**/*.ts',
     'src/debug/**/*.ts',
     'src/host/**/*.ts',
-    // The embed's URL parameter API. Named file by file rather than by
-    // directory: it is the only part of src/renderer that has no browser in it,
-    // and the rest of that directory would report as uncovered forever.
-    'src/renderer/src/embed/params.ts'
+    // The parts of src/renderer with no browser in them. Named file by file
+    // rather than by directory: the rest of that tree is components and
+    // composables that need a window, and would report as uncovered forever.
+    'src/renderer/src/embed/params.ts',
+    // The terminal's control-code handling and the pad's map-to-panel wiring.
+    // Both were kept out of their .vue files precisely so they could be tested.
+    'src/renderer/src/terminal/TerminalBuffer.ts',
+    'src/renderer/src/terminal/keys.ts',
+    'src/renderer/src/keypad/layout.ts'
   ],
   moduleNameMapper: {
     '^@core/(.*)$': '<rootDir>/src/core/$1',

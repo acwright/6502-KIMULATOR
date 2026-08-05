@@ -38,6 +38,11 @@ function createSerial(): Serial {
     }
   })
 
+  // Removes this composable's tap on the transmitted byte stream. The terminal
+  // panel holds one of its own for the life of the app, so disconnecting a port
+  // has to drop only ours — see the store's transmitTaps.
+  let untap: (() => void) | undefined
+
   service.onStatus((s) => {
     status.value = s
     store.serialConnected = s === 'connected'
@@ -47,7 +52,8 @@ function createSerial(): Serial {
       let txBuf: number[] = []
       let flushTimer: ReturnType<typeof setTimeout> | null = null
 
-      store.setTransmitCallback((byte: number) => {
+      untap?.()
+      untap = store.onTransmit((byte: number) => {
         txBuf.push(byte)
         if (!flushTimer) {
           flushTimer = setTimeout(() => {
@@ -60,7 +66,8 @@ function createSerial(): Serial {
         }
       })
     } else if (s === 'disconnected' || s === 'error') {
-      store.setTransmitCallback(() => {})
+      untap?.()
+      untap = undefined
     }
   })
 

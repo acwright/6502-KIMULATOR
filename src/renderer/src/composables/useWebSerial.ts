@@ -34,6 +34,11 @@ export function useWebSerial() {
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
   let readLoopActive = false
 
+  // Removes this composable's tap on the transmitted byte stream. The terminal
+  // panel holds one of its own for the life of the app, so disconnecting a port
+  // has to drop only ours — see the store's transmitTaps.
+  let untap: (() => void) | undefined
+
   async function connect() {
     if (!serialAvailable.value || port) return
 
@@ -41,7 +46,8 @@ export function useWebSerial() {
     await selected.open({ baudRate: BAUD_RATE, dataBits: 8, stopBits: 1, parity: 'none' })
     port = selected
 
-    store.setTransmitCallback((data: number) => {
+    untap?.()
+    untap = store.onTransmit((data: number) => {
       if (!port?.writable) return
       const writer = port.writable.getWriter()
       writer.write(new Uint8Array([data])).finally(() => writer.releaseLock())
@@ -64,7 +70,8 @@ export function useWebSerial() {
       port = null
     }
 
-    store.setTransmitCallback(() => {})
+    untap?.()
+    untap = undefined
     store.serialConnected = false
   }
 

@@ -137,17 +137,17 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 - [x] **2** — the Keypad Card
 - [x] **3** — debug core & protocol
 - [x] **4** — Electron shell
-- [ ] **5** — the interface
+- [x] **5** — the interface
 - [ ] **6** — accessories
 - [ ] **7** — command line
 - [ ] **8** — web build & embed
 - [ ] **9** — README, LICENSE & examples
 - [ ] **10** — release v1.0.0
 
-`src/renderer/src/App.vue` still draws the four regions of the finished layout
-with their names in them — phase 5 fills them in — but the machine behind them
-is real: it boots both ROMs and runs the KC Monitor. `npm run dev` opens a
-window onto a working KIM you cannot see yet.
+`npm run dev` opens a window onto a KIM you can use: it boots both ROMs, prints
+the KC Monitor's banner to the terminal, shows `KIM MONITOR v1.0` on the glass,
+and answers the pad. Only the accessory bay is still a placeholder, and that is
+phase 6's.
 
 The Electron shell is a lift, minus everything a KIM has no hardware for.
 `storage.ts` is gone entirely and `roms.ts` stands in its place: a KIM has no CF
@@ -169,17 +169,75 @@ new Machine and a new Session rather than mutating one. That is why
 holding the old Session would be answering a debug client about a machine that
 is no longer on the bench.
 
-`RendererTarget` reports `consoleMode` off the fitted ACIA, but implements no
-`serial.*` methods yet. Those need a buffered console with a stream cursor to
-read back from, which is the Terminal panel's own state — it arrives in phase 5,
-and a second invisible buffer in the meantime would mean a debug client and the
-window disagreeing about what the machine has said. Optional target methods are
-a host-capability question by design; the phase 3 test target does the same.
-
 `usePaste` no longer synthesises key presses the way the ACE's did — there is no
 matrix keyboard to synthesise them on. It feeds bytes to the ACIA paced at the
 line rate, which is why it takes `bin2woz` output for free: those are Wozmon
 deposit lines, and the machine cannot tell them from someone typing quickly.
+
+**There is one console buffer and everything reads it.** `useConsole` owns a
+`TerminalBuffer`; the Terminal panel draws it, the Paste box feeds it, and
+`RendererTarget`'s `serial.read` / `serial.write` / `onSerial` are that same
+buffer. A second, invisible one would mean a debug client and the window
+disagreeing about what the machine has said — which is why phase 4 left those
+methods unimplemented rather than wiring them to a private buffer.
+
+**The transmit tap is a fan-out, not a callback.** `store.onTransmit(cb)`
+returns an unsubscribe and the store keeps a set. The terminal holds one for the
+app's lifetime and `useSerial` / `useWebSerial` hold one each while a port is
+open; with the old single slot the two would evict each other and plugging in a
+laptop would blank the window. The panel is a *tap* on the ACIA's transmit line,
+not a second device, which is what makes both views show the same traffic.
+
+**Building the machine lives in `useMachine`, not in App.vue.** Fitting or
+pulling the Serial Card constructs a new Machine, so the firmware has to go back
+in — and the images live with whoever fetched them. Auto-boot and the Settings
+toggle are the same sequence with different arguments, and having one of them
+rather than two spelled out separately is what keeps a rebuilt machine identical
+to a freshly launched one.
+
+**The panels' logic is outside their `.vue` files, on purpose.** The terminal's
+control-code handling is `terminal/TerminalBuffer.ts`, its key mapping
+`terminal/keys.ts`, the pad's map-to-panel wiring `keypad/layout.ts`, and the
+LCD's drawing `lcd/render.ts`. All four are covered by `src/tests/renderer/` and
+named in `jest.config.cjs`'s `collectCoverageFrom`; the components are markup
+over them. Extracting the LCD's drawing is what made it possible to point the
+real renderer at a real pixel buffer and hold the result next to the photograph.
+
+**Two numbers in the LCD spec were wrong, and the reference says so.** PLAN.md's
+table was read off the image by eye; measuring it gives:
+
+- **Bezel is 3 dot pitches, not 5.** The reference panel is 98.4 × 23.2 pitches
+  around a 95 × 17 character area — 3.1 top and bottom, but only 1.7 at the
+  sides. The two disagree because that panel was stretched to fill its window
+  instead of keeping the character area's aspect ratio, so the horizontal figure
+  is the window's shape and not the design.
+- **The dot gutter is ~30%, not 20%.** Scanning a character row, dark runs come
+  out at ~4 px against a 6.99 px pitch. At 20% the unlit dots very nearly touch
+  and blank cells read as solid blocks; at 30% each dot is distinct with
+  backlight all round it, which is the texture the photograph has.
+
+The colours were already right: the reference's unlit dots sample at #8DA93D
+against the spec's #8AA33B, and the ratio to the backlight comes out at 80%,
+matching the 0.80 the plan recorded. Its *lit* pixels sample far brighter than
+#101B04, which is the blur — a photograph can only pull the two together, so the
+real contrast was at least this high.
+
+**The keypad is letterboxed by arithmetic, not by `aspect-ratio`.** A grid whose
+only sizing is a ratio plus max-width/max-height has nothing to compute a size
+*from* inside a centring flex box — the buttons have no intrinsic size either —
+so it collapses to nothing, which is exactly what it did the first time the app
+was run. `GRID_STYLE` sizes it with `min(100cqw, 100cqh * 4 / 6)`: container
+units are absolute lengths, so unlike percentages they can be compared across the
+two axes.
+
+**Nothing routes a key except `useFocusRouter`.** One `keydown` listener at the
+window, and it calls `preventDefault` only for keys the focused panel said it
+consumed — that is what keeps Cmd+C, Cmd+R and the rest working while the
+terminal has the keyboard. Fullscreen is answered before anything is routed,
+because it belongs to the window rather than to whatever holds the keyboard, and
+typing into any `input`/`textarea`/`select` is not input to the machine at all
+(without that, keying an address into Load Binary would also key it into the
+monitor).
 
 **`npm run typecheck` used to check nothing in the renderer.** The root
 `tsconfig.json` is references-only (`files: []`), and `vue-tsc --noEmit` does not
