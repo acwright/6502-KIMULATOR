@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+
+/* Bebas Neue — the keypad's legend face, bundled rather than fetched so the
+   pad looks right offline and in the Electron build. SIL Open Font License 1.1;
+   see src/renderer/src/assets/fonts/README.md. */
+@font-face {
+  font-family: 'Bebas Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./assets/fonts/BebasNeue-Regular.woff2') format('woff2');
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #000;
+  color: #fff;
+}
+
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+button {
+  outline: none;
+}

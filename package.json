@@ -1,0 +1,75 @@
+{
+  "name": "6502-kimulator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop (Electron) and web emulator for the A.C. Wright 6502-KIM",
+  "author": {
+    "name": "A.C. Wright",
+    "email": "acwrightdesign@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acwright/6502-KIMULATOR.git"
+  },
+  "homepage": "https://github.com/acwright/6502-KIMULATOR",
+  "license": "MIT",
+  "main": "./out/main/index.js",
+  "desktopName": "6502-kimulator.desktop",
+  "keywords": [
+    "6502",
+    "kim",
+    "emulator",
+    "8-bit",
+    "electron",
+    "assembly",
+    "typescript"
+  ],
+  "scripts": {
+    "postinstall": "node node_modules/electron/install.js",
+    "icons": "node build/gen-icon.mjs",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build && npm run build:cli",
+    "preview": "electron-vite preview",
+    "build:web": "vite build --config vite.web.config.ts",
+    "build:cli": "tsc -p tsconfig.cli.json",
+    "cli": "npm run build:cli --silent && node bin/6502-kim",
+    "preview:web": "vite preview --config vite.web.config.ts",
+    "pack": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && bash scripts/dist-win.sh",
+    "dist:linux": "bash scripts/dist-linux.sh",
+    "dist": "npm run dist:mac && npm run dist:win && npm run dist:linux",
+    "typecheck": "vue-tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "test": "NODE_OPTIONS='--no-experimental-webstorage' jest",
+    "test:watch": "NODE_OPTIONS='--no-experimental-webstorage' jest --watch",
+    "test:coverage": "NODE_OPTIONS='--no-experimental-webstorage' jest --coverage --coverageReporters=text-summary --coverageReporters=lcov"
+  },
+  "dependencies": {
+    "@electron-toolkit/utils": "^3.0.0",
+    "@heroicons/vue": "^2.2.0",
+    "buffer": "^6.0.3",
+    "pinia": "^3.0.4",
+    "serialport": "^13.0.0",
+    "vue": "^3.5.29"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.0",
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@tailwindcss/vite": "^4.2.4",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.3.5",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.15.2",
+    "electron-vite": "^5.0.0",
+    "jest": "^30.2.0",
+    "tailwindcss": "^4.2.1",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3",
+    "vite-plugin-node-polyfills": "^0.26.0",
+    "vue-tsc": "^2.2.0"
+  },
+  "bin": {
+    "6502-kim": "./bin/6502-kim"
+  }
+}

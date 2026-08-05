@@ -1,0 +1,57 @@
+appId: com.acwright.kimulator6502
+productName: 6502 KIMulator
+copyright: Copyright © 2026 A.C. Wright
+
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - out/**/*
+
+extraResources:
+  - from: assets
+    to: assets
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+  notarize: true
+
+dmg:
+  artifactName: ${name}-${version}-mac-${arch}.${ext}
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  artifactName: ${name}-${version}-win-${arch}.${ext}
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  category: Development
+  syncDesktopName: true
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+
+appImage:
+  artifactName: ${name}-${version}-linux-${arch}.${ext}
+
+asarUnpack:
+  - "**/*.node"
+
+npmRebuild: true

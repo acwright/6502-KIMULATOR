@@ -1,0 +1,41 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output (electron-vite compile + electron-builder distributables)
+dist/
+out/
+
+# TypeScript incremental build cache (composite project references)
+*.tsbuildinfo
+
+# The build/ dir contains electron-builder resources (icons, source PNG) — tracked.
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Optional: coverage reports
+coverage/
+*.lcov
+
+# Optional: logs
+logs/
+*.log
+
+# Optional: misc
+*.tgz
+*.prompt.md
