@@ -1,0 +1,583 @@
+import { Session } from '../../debug/Session'
+import { Scheduler } from '../../debug/Scheduler'
+import { Empty } from '../../core/IO/Empty'
+import { ACIA } from '../../core/IO/ACIA'
+import { CardROM } from '../../core/CardROM'
+
+/** A controllable clock, so pacing is tested without leaning on wall time. */
+function fakeClock(start = 0) {
+  let t = start
+  return {
+    now: () => t,
+    advance: (ms: number) => {
+      t += ms
+    }
+  }
+}
+
+/**
+ * Point RESET at $A000 through the Keypad Card's ROM.
+ *
+ * Not through the BIOS. On a KIM the card overlays $E000-$FFFF, so the vectors
+ * the CPU fetches at $FFFA are the card's own and writing $FFFC of `BIOS.bin`
+ * changes nothing the processor can see. Every test below that expects to start
+ * at $A000 depends on this, which makes it a standing check that the overlay is
+ * still in force.
+ */
+function loadResetVector(session: Session): void {
+  const card = new Array(CardROM.SIZE).fill(0xea)
+  card[0xfffc - CardROM.START] = 0x00
+  card[0xfffd - CardROM.START] = 0xa0
+  session.machine.loadCardROM(card)
+}
+
+/** Fill ROM with NOPs and point the reset vector at $A000 so the CPU just runs. */
+function loadNopROM(session: Session): void {
+  session.machine.loadROM(new Array(0x8000).fill(0xea))
+  loadResetVector(session)
+  session.machine.reset(true)
+}
+
+/**
+ * Fill ROM with NOPs, lay `blocks` of code into it and reset to $A000.
+ *
+ * $A000 is the Kernal window — the part of `BIOS.bin` the Keypad Card leaves
+ * reachable — but the BIOS itself is not involved: these tests are about what
+ * the Session does with a halted CPU, and a two-instruction program says that
+ * more clearly than anything that has to boot first.
+ */
+function loadProgramROM(session: Session, blocks: Record<number, number[]>): void {
+  const rom = new Array(0x8000).fill(0xea)
+  for (const [address, bytes] of Object.entries(blocks)) {
+    bytes.forEach((byte, i) => {
+      rom[Number(address) - 0x8000 + i] = byte
+    })
+  }
+  session.machine.loadROM(rom)
+  loadResetVector(session)
+  session.machine.reset(true)
+}
+
+describe('Session', () => {
+  let session: Session
+
+  beforeEach(() => {
+    session = new Session()
+  })
+
+  afterEach(() => {
+    session.pause()
+  })
+
+  describe('Run state', () => {
+    test('starts paused', () => {
+      expect(session.mode).toBe('paused')
+      expect(session.isRunning).toBe(false)
+    })
+
+    test('run() enters realtime by default', () => {
+      session.run()
+      expect(session.mode).toBe('realtime')
+      expect(session.isRunning).toBe(true)
+    })
+
+    test('run("turbo") enters turbo', () => {
+      session.run('turbo')
+      expect(session.mode).toBe('turbo')
+      expect(session.isRunning).toBe(true)
+    })
+
+    test('pause() stops the machine advancing', () => {
+      session.run()
+      session.pause()
+      expect(session.mode).toBe('paused')
+      expect(session.isRunning).toBe(false)
+    })
+
+    test('pause() on an already-paused session is harmless', () => {
+      expect(session.pause()).toEqual({ kind: 'paused' })
+      expect(session.mode).toBe('paused')
+    })
+
+    test('turbo is a run mode like any other', () => {
+      session.run('turbo')
+      expect(session.mode).toBe('turbo')
+      expect(session.isRunning).toBe(true)
+    })
+  })
+
+  describe('runCycles', () => {
+    test('advances exactly the requested number of cycles', () => {
+      const before = session.cycles
+      session.runCycles(1000)
+      expect(session.cycles - before).toBe(1000)
+    })
+
+    test('reports the budget it consumed', () => {
+      expect(session.runCycles(64)).toEqual({ kind: 'cycle-budget', cycles: 64 })
+    })
+
+    test('is deterministic — same budget, same end state', () => {
+      const a = new Session()
+      const b = new Session()
+      loadNopROM(a)
+      loadNopROM(b)
+
+      a.runCycles(50_000)
+      b.runCycles(50_000)
+
+      expect(a.machine.cpu.pc).toBe(b.machine.cpu.pc)
+      expect(a.machine.cpu.cycles).toBe(b.machine.cpu.cycles)
+      expect(a.machine.cpu.a).toBe(b.machine.cpu.a)
+      expect(a.machine.cpu.sp).toBe(b.machine.cpu.sp)
+    })
+
+    test('pauses a running session first', () => {
+      session.run()
+      session.runCycles(10)
+      expect(session.isRunning).toBe(false)
+    })
+  })
+
+  describe('Stepping', () => {
+    beforeEach(() => loadNopROM(session))
+
+    test('cycle stepping advances one cycle at a time', () => {
+      const before = session.cycles
+      session.step('cycle', 5)
+      expect(session.cycles - before).toBe(5)
+    })
+
+    test('instruction stepping lands on an instruction boundary', () => {
+      session.step('instruction')
+      expect(session.machine.cpu.cyclesRem).toBe(0)
+    })
+
+    test('instruction stepping advances the PC by one NOP', () => {
+      session.step('instruction') // clear the reset sequence
+      const pc = session.machine.cpu.pc
+      session.step('instruction')
+      expect(session.machine.cpu.pc).toBe((pc + 1) & 0xffff)
+    })
+
+    test('stepping N instructions matches N single steps', () => {
+      const other = new Session()
+      loadNopROM(other)
+
+      session.step('instruction', 5)
+      for (let i = 0; i < 5; i++) other.step('instruction')
+
+      expect(session.machine.cpu.pc).toBe(other.machine.cpu.pc)
+      expect(session.cycles).toBe(other.cycles)
+    })
+
+    // Stepping must not be a different execution path from running, or a
+    // debugger would show state the machine never actually reaches.
+    test('stepping leaves the same state as running the same cycles', () => {
+      const stepped = new Session()
+      const ran = new Session()
+      loadNopROM(stepped)
+      loadNopROM(ran)
+
+      stepped.step('instruction', 200)
+      ran.runCycles(stepped.cycles - ran.cycles)
+
+      expect(stepped.machine.cpu.pc).toBe(ran.machine.cpu.pc)
+      expect(stepped.machine.cpu.cycles).toBe(ran.machine.cpu.cycles)
+    })
+
+    test('pauses a running session first', () => {
+      session.run()
+      session.step()
+      expect(session.isRunning).toBe(false)
+    })
+  })
+
+  /**
+   * A STP'd processor cannot execute another instruction until it is reset, so
+   * leaving the scheduler pointed at it burns host CPU forever and step-over
+   * grinds through its whole 50 M-cycle budget waiting for an RTS that will
+   * never arrive. The reason is a `trap`, which the protocol already carries.
+   *
+   * WAI is deliberately not a stop: the machine is asleep on purpose and an
+   * interrupt will wake it.
+   */
+  describe('A halted CPU', () => {
+    const STP_TRAP = { kind: 'trap', detail: 'stp' }
+
+    test('run() stops on a STP rather than spinning', () => {
+      loadProgramROM(session, { 0xa000: [0xdb] })
+      const reasons: unknown[] = []
+      session.onStop((r) => reasons.push(r))
+
+      session.run('turbo')
+
+      expect(reasons).toEqual([STP_TRAP])
+      expect(session.isRunning).toBe(false)
+      expect(session.lastStop).toEqual(STP_TRAP)
+    })
+
+    test('run() stops on a STP with breakpoints armed too', () => {
+      loadProgramROM(session, { 0xa000: [0xdb] })
+      // Somewhere the program never reaches, so only the instrumented run loop
+      // — a different code path from the uninstrumented one — is exercised.
+      session.addBreakpoint({ address: 0xb000 })
+      const reasons: unknown[] = []
+      session.onStop((r) => reasons.push(r))
+
+      session.run('turbo')
+
+      expect(reasons).toEqual([STP_TRAP])
+      expect(session.isRunning).toBe(false)
+    })
+
+    test('WAI is not a stop', () => {
+      loadProgramROM(session, { 0xa000: [0xcb] })
+      const reasons: unknown[] = []
+      session.onStop((r) => reasons.push(r))
+
+      session.run('turbo')
+
+      expect(reasons).toEqual([])
+      expect(session.isRunning).toBe(true)
+      expect(session.machine.cpu.waiting).toBe(true)
+    })
+
+    test('step() reports the STP instead of stepping past it', () => {
+      loadProgramROM(session, { 0xa000: [0xdb] })
+
+      expect(session.step('instruction')).toEqual(STP_TRAP)
+      expect(session.machine.cpu.pc).toBe(0xa001)
+
+      // And says the same thing every time after, rather than reporting a step
+      // that did not happen.
+      expect(session.step('instruction', 10)).toEqual(STP_TRAP)
+      expect(session.machine.cpu.pc).toBe(0xa001)
+    })
+
+    test('cycle stepping still delivers its cycles, because the clock still runs', () => {
+      loadProgramROM(session, { 0xa000: [0xdb] })
+      session.step('instruction')
+
+      const before = session.cycles
+      expect(session.step('cycle', 100)).toEqual({ kind: 'step' })
+      expect(session.cycles - before).toBe(100)
+    })
+
+    test('step("over") gives up on a subroutine that halts', () => {
+      // JSR $A010, and $A010 is a STP — so the RTS never comes.
+      loadProgramROM(session, { 0xa000: [0x20, 0x10, 0xa0], 0xa010: [0xdb] })
+
+      const before = session.cycles
+      expect(session.step('over')).toEqual(STP_TRAP)
+      expect(session.cycles - before).toBeLessThan(1000)
+    })
+
+    test('a reset clears the halt and the machine runs again', () => {
+      loadProgramROM(session, { 0xa000: [0xdb] })
+      session.step('instruction')
+      expect(session.machine.cpu.stopped).toBe(true)
+
+      session.reset(false)
+
+      expect(session.machine.cpu.stopped).toBe(false)
+      expect(session.machine.cpu.pc).toBe(0xa000)
+    })
+  })
+
+  describe('Reset', () => {
+    test('preserves a paused session', () => {
+      session.reset(true)
+      expect(session.mode).toBe('paused')
+    })
+
+    test('preserves a running session and its mode', () => {
+      session.run('realtime')
+      session.reset(true)
+      expect(session.mode).toBe('realtime')
+
+      session.run('turbo')
+      session.reset(false)
+      expect(session.mode).toBe('turbo')
+    })
+  })
+
+  describe('Stop notifications', () => {
+    test('fire with the reason for stopping', () => {
+      const reasons: unknown[] = []
+      session.onStop((r) => reasons.push(r))
+
+      session.pause()
+      session.step()
+      session.runCycles(4)
+
+      expect(reasons).toEqual([
+        { kind: 'paused' },
+        { kind: 'step' },
+        { kind: 'cycle-budget', cycles: 4 }
+      ])
+    })
+
+    test('unsubscribe stops delivery', () => {
+      const listener = jest.fn()
+      const off = session.onStop(listener)
+      off()
+      session.pause()
+      expect(listener).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Slot configuration', () => {
+    test('defaults to the standard card layout — io5 alone is fitted', () => {
+      expect(session.machine.io5).toBeInstanceOf(ACIA)
+      for (const slot of ['io1', 'io2', 'io3', 'io4', 'io6', 'io7', 'io8'] as const) {
+        expect(session.machine[slot]).toBeInstanceOf(Empty)
+      }
+    })
+
+    test('an empty io5 is allowed — this is the keypad-only machine', () => {
+      const keypadOnly = new Session({ io5: new Empty() })
+      expect(keypadOnly.machine.io5).toBeInstanceOf(Empty)
+      expect(keypadOnly.machine.acia()).toBeUndefined()
+    })
+
+    test('runs without a Serial Card', () => {
+      const keypadOnly = new Session({ io5: new Empty() })
+      loadNopROM(keypadOnly)
+      expect(() => keypadOnly.runCycles(10_000)).not.toThrow()
+    })
+
+    // Callbacks are wired by what a card is, not which slot it sits in — and
+    // every slot is ticked, so a card works wherever it is placed.
+    test.each(['io1', 'io5', 'io7'] as const)(
+      'serial output reaches the host from slot %s',
+      (slot) => {
+        const transmitted: number[] = []
+        const moved = new Session({ io5: new Empty(), [slot]: new ACIA() })
+        moved.machine.transmit = (b) => transmitted.push(b)
+        ;(moved.machine[slot] as ACIA).write(0x00, 0x41)
+        moved.runCycles(200_000)
+        expect(transmitted).toContain(0x41)
+      }
+    )
+
+    test('onReceive is a no-op when no serial card is present', () => {
+      const noSerial = new Session({ io5: new Empty() })
+      expect(() => noSerial.machine.onReceive(0x41)).not.toThrow()
+    })
+
+    // Where 6502-EMULATOR asks whether the VIA's attachments are present, this
+    // asks the opposite question and expects the opposite answer. The Keypad
+    // Card is not in a slot and not optional — a machine without it is not a
+    // KIM — so no slot configuration can take the pad or the LCD away.
+    test('the Keypad Card is present whatever the slots hold', () => {
+      const stripped = new Session({ io5: new Empty(), io6: new Empty() })
+      expect(stripped.machine.pia).toBeDefined()
+      expect(stripped.machine.keypad).toBeDefined()
+      expect(stripped.machine.lcd).toBeDefined()
+    })
+  })
+})
+
+describe('Scheduler pacing', () => {
+  test('realtime runs the cycles the elapsed wall time paid for', () => {
+    const clock = fakeClock()
+    const session = new Session({}, clock.now)
+    loadNopROM(session)
+
+    const before = session.cycles
+    session.run('realtime')
+
+    // start() samples the clock; the first loop sees zero elapsed time.
+    expect(session.cycles).toBe(before)
+
+    session.pause()
+    expect(session.mode).toBe('paused')
+  })
+
+  /**
+   * Every loop iteration schedules the next, so resuming an already-running
+   * machine used to leave two self-perpetuating chains, and each further resume
+   * added another. `exec.run` and `wait.for --run turbo` both resume whether or
+   * not the machine was already going, so it was easy to reach.
+   *
+   * The cost was responsiveness, not speed: a turbo slice is bounded by wall
+   * time, so extra chains each hold the event loop for a full slice instead of
+   * making the machine faster. Measured against the debug server's reply
+   * latency — 8 ms with one chain, and 16, 24, 40, 72 ms as chains accumulated.
+   */
+  test('resuming an already-running machine replaces its loop rather than adding one', () => {
+    const clock = fakeClock()
+    const session = new Session({}, clock.now)
+    loadNopROM(session)
+
+    // Realtime, not turbo: a turbo slice runs until the clock passes its
+    // deadline, and this clock only moves when a test moves it.
+    const cancelled = jest.spyOn(global, 'clearImmediate')
+    try {
+      session.run('realtime')
+      expect(cancelled).not.toHaveBeenCalled()
+
+      session.run('realtime')
+      expect(cancelled).toHaveBeenCalledTimes(1)
+    } finally {
+      cancelled.mockRestore()
+      session.pause()
+    }
+  })
+
+  test('caps how much missed time it will make up', () => {
+    // A long stall must not turn into an unbounded burst — that is what floods
+    // the audio queue after the host has been busy.
+    const clock = fakeClock()
+    const session = new Session({}, clock.now)
+    loadNopROM(session)
+    session.machine.frequency = 1_000_000
+
+    const before = session.cycles
+    session.run('realtime')
+    clock.advance(60_000) // a minute of missed time
+
+    // Drive one loop iteration the way setImmediate would.
+    return new Promise<void>((resolve) => {
+      setImmediate(() => {
+        session.pause()
+        const executed = session.cycles - before
+        const cap = (Scheduler.MAX_CATCH_UP_MS / 1000) * 1_000_000
+        expect(executed).toBeLessThanOrEqual(cap)
+        resolve()
+      })
+    })
+  })
+})
+
+describe('Session observers', () => {
+  /**
+   * More than one thing legitimately wants the chunk cadence.
+   *
+   * The headless host feeds paced input on it and the debug server evaluates
+   * `wait.for` conditions on it, so a single callback slot would have meant one
+   * of them falling back to a wall-clock timer and losing determinism.
+   */
+  test('lets several listeners share the chunk cadence', async () => {
+    let fromOptions = 0
+    const session = new Session({}, undefined, {
+      chunkCycles: 1000,
+      onChunk: () => {
+        fromOptions++
+      }
+    })
+    loadNopROM(session)
+
+    let fromListener = 0
+    const off = session.onChunk(() => {
+      fromListener++
+    })
+
+    session.run('turbo')
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    session.pause()
+
+    expect(fromOptions).toBeGreaterThan(0)
+    expect(fromListener).toBe(fromOptions)
+
+    const settled = fromListener
+    off()
+    session.run('turbo')
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    session.pause()
+
+    expect(fromListener).toBe(settled)
+  })
+
+  // The counterpart to onStop, so a remote client can track transitions it did
+  // not cause without polling.
+  test('reports resuming as well as stopping', () => {
+    const session = new Session({})
+    loadNopROM(session)
+
+    const events: string[] = []
+    session.onResume((mode) => events.push(`resume:${mode}`))
+    session.onStop((reason) => events.push(`stop:${reason.kind}`))
+
+    session.run('turbo')
+    session.pause()
+
+    expect(events).toEqual(['resume:turbo', 'stop:paused'])
+  })
+
+  /**
+   * `Scheduler.resume()` runs a whole slice synchronously, so a breakpoint set
+   * before `run()` fires *inside* the call. Announcing the resume afterwards put
+   * `resumed` after the `stopped` it caused — telling every listener that a
+   * stopped machine was running, and clearing the stop reason with it.
+   */
+  test('announces resuming before a stop that happens inside the first slice', () => {
+    const session = new Session({})
+    loadNopROM(session)
+    session.addBreakpoint({ address: 0xa010 })
+
+    const events: string[] = []
+    session.onResume((mode) => events.push(`resume:${mode}`))
+    session.onStop((reason) => events.push(`stop:${reason.kind}`))
+
+    session.run('turbo')
+
+    expect(events).toEqual(['resume:turbo', 'stop:breakpoint'])
+    expect(session.isRunning).toBe(false)
+  })
+
+  /**
+   * Retained for the callers that cannot be listening at the moment it happens:
+   * a one-shot `6502-kim dbg` process routinely connects after the breakpoint it
+   * armed has already fired.
+   */
+  test('remembers why it last stopped, and forgets once it resumes', () => {
+    const session = new Session({})
+    loadNopROM(session)
+
+    expect(session.lastStop).toBeUndefined()
+
+    session.step('instruction')
+    expect(session.lastStop).toMatchObject({ kind: 'step' })
+
+    session.addBreakpoint({ address: 0xa010 })
+    session.run('turbo')
+    expect(session.lastStop).toMatchObject({ kind: 'breakpoint' })
+
+    session.clearBreakpoints()
+    session.run('turbo')
+    expect(session.lastStop).toBeUndefined()
+    session.pause()
+    expect(session.lastStop).toMatchObject({ kind: 'paused' })
+  })
+
+  test('reports a reset that leaves the machine running as a resume', () => {
+    const session = new Session({})
+    loadNopROM(session)
+
+    const modes: string[] = []
+    session.onResume((mode) => modes.push(mode))
+
+    session.run('turbo')
+    session.reset(true)
+    session.pause()
+
+    expect(modes).toEqual(['turbo', 'turbo'])
+  })
+
+  test('stops notifying once unsubscribed', () => {
+    const session = new Session({})
+    loadNopROM(session)
+
+    let count = 0
+    const off = session.onResume(() => count++)
+    session.run('turbo')
+    session.pause()
+    off()
+
+    session.run('turbo')
+    session.pause()
+    expect(count).toBe(1)
+  })
+})

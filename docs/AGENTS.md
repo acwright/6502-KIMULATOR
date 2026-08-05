@@ -7,6 +7,10 @@ the conventions the repository is held to.
 > The user-facing guide — *driving the emulator from an agent*, the direct
 > descendant of `6502-EMULATOR/docs/AGENTS.md` — lands with the CLI in phase 7.
 > It documents commands, and there are none yet. Do not write it early.
+>
+> [DEBUG-PROTOCOL.md](DEBUG-PROTOCOL.md) is the reference for the JSON-RPC
+> service, and is current as of phase 3. The service can be driven over HTTP
+> today; the `6502-kim dbg` client it describes arrives with phase 7.
 
 ---
 
@@ -102,6 +106,7 @@ src/tests/         everything, mirroring the tree above
 assets/roms/       ROMs for Electron and the CLI (extraResources)
 src/renderer/public/roms/   the same ROMs for the web build
 docs/reference/    source material — see lcd-reference.png
+docs/DEBUG-PROTOCOL.md      the JSON-RPC service, method by method
 ```
 
 Path aliases, in every config: `@core`, `@debug`, `@shared`, `@renderer`, and
@@ -130,7 +135,7 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 - [x] **0** — repository, toolchain, icon, CI
 - [x] **1** — core port
 - [x] **2** — the Keypad Card
-- [ ] **3** — debug core & protocol
+- [x] **3** — debug core & protocol
 - [ ] **4** — Electron shell
 - [ ] **5** — the interface
 - [ ] **6** — accessories
@@ -162,6 +167,48 @@ slow on purpose — `LcdInit` runs the HD44780 power-on ritual with four ~41 ms
 software delays in it, so the splash costs ~1.8 M cycles and there is no honest
 way to skip them.
 
-`src/debug/` holds one file early: `OpcodeTable.ts`, because `W65C02S.test.ts`
-needs the instruction widths and that test is a phase 1 exit criterion. It is
-static metadata with no imports. The rest of the tree arrives in phase 3.
+`src/debug/` is a lift from 6502-EMULATOR, and almost none of it is
+machine-specific — which is exactly why full parity was affordable. What did
+have to change is documented in
+[DEBUG-PROTOCOL.md](DEBUG-PROTOCOL.md#differences-from-6502-emulator); the short
+version:
+
+- **Gone with the hardware.** `PNG.ts` and `KeyCodes.ts`, and with them
+  `screen.*`, `input.*` and the `vram`/`nvram`/`cf` memory spaces. `adler32`
+  went with `PNG.ts` — it existed for the zlib trailer and nothing else.
+- **`keypad.press`** replaces the whole `input.*` group, and reads `KeypadMap`
+  like everything else. Sequences are paced **one key per execution chunk**: the
+  74C922 latches a single code and the CA1 handler's read is what clears it, so
+  two presses with no emulated time between them lose the first.
+- **`lcd.text` / `lcd.hash` / `lcd.pixels`** stand where `screen.*` did, and are
+  never `NOT_SUPPORTED` — the panel is on the Keypad Card, not in a slot.
+- **`Snapshot.ts`** carries `pia` (with the keypad and the LCD nested inside it)
+  beside `cpu` and `ram`, and the Keypad Card's ROM by **identity**, not content.
+  The format string is `6502-kim-snapshot` and the two emulators refuse each
+  other's files.
+- **The lock file is `~/.6502-kim/session.json`**, `$SIXTY5O2_KIM_HOME`. Sharing
+  `~/.6502` would mean whichever emulator started second could not serve, or that
+  a client attached to the wrong machine and never found out.
+- **`symbols/parse.ts` reads ca65 listings** (`format: 'lst'`). `cl65 -l` is what
+  builds `KC Monitor.bin`, and it emits a `.lst` and no `.dbg` — so without this
+  the ROM a KIM session spends most of its time in is the one with no symbols. A
+  listing counts from a segment start, so `KC_MONITOR_SEGMENTS` supplies the
+  bases out of the card's own `6502.cfg`; labels take the location counter,
+  equates take their right-hand side, and getting that backwards would put the
+  entire Kernal API at `$E000`.
+
+Two things every debug test has to respect, both of them the decode:
+
+**Test programs go at `$A000`, not `$C000`.** On a KIM `$C000` is the PIA,
+mirrored every four bytes, so 6502-EMULATOR's habit of assembling a program there
+would be writing to a 65C21. `$A000` is the Kernal window, which the card leaves
+reachable.
+
+**Reset vectors go in the card ROM.** `$FFFC` of `BIOS.bin` is not on this
+machine's bus. Every helper that sets one writes `CardROM` at `$1FFC`, and a test
+that starts at `$0000` is telling you the overlay has broken.
+
+`KCMonitorProtocol.test.ts` is phase 3's counterpart to `KCMonitor.test.ts`: it
+boots the real firmware and drives it entirely through `createMethods`, because
+the exit criterion is not "the monitor moves" — phase 2 settled that — but "a
+scripted client can move it and see that it moved."
