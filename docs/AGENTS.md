@@ -128,7 +128,7 @@ CI never has to run it.
 Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 
 - [x] **0** — repository, toolchain, icon, CI
-- [ ] **1** — core port
+- [x] **1** — core port
 - [ ] **2** — the Keypad Card
 - [ ] **3** — debug core & protocol
 - [ ] **4** — Electron shell
@@ -142,3 +142,11 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 `src/renderer/src/App.vue` is a scaffold: it draws the four regions of the
 finished layout with their names in them, so `npm run dev` shows the shape of
 the machine. Phase 5 fills them in.
+
+`src/core/Machine.ts` does not exist yet. The ACE's decode order is different
+enough that porting it first would only be undone, so it is written from
+scratch in phase 2 alongside the PIA, the keypad and the LCD.
+
+`src/debug/` holds one file early: `OpcodeTable.ts`, because `W65C02S.test.ts`
+needs the instruction widths and that test is a phase 1 exit criterion. It is
+static metadata with no imports. The rest of the tree arrives in phase 3.
