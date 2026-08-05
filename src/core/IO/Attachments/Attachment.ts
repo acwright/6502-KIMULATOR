@@ -1,0 +1,239 @@
+import { expectKind, readBoolean } from '../../DeviceState'
+import type { DeviceState } from '../../DeviceState'
+
+/**
+ * Interface for devices that can be attached to PIA ports
+ *
+ * Ported from 6502-EMULATOR, where the same interface hangs off a 6522 VIA.
+ * The shape survives the move because the two chips present the same thing to a
+ * peripheral: two 8-bit ports with a data direction register each, and two
+ * control lines per port. Only the chip driving them changed.
+ */
+export interface Attachment {
+  /**
+   * Reset the attachment to its initial state
+   */
+  reset(): void
+
+  /**
+   * Update the attachment state based on CPU clock ticks
+   * @param cpuFrequency - The CPU frequency in Hz
+   */
+  tick(cpuFrequency: number): void
+
+  /**
+   * Read data from Port A
+   * @param ddr - Data Direction Register value
+   * @param or - Output Register value
+   * @returns The data to be read from the port
+   */
+  readPortA(ddr: number, or: number): number
+
+  /**
+   * Read data from Port B
+   * @param ddr - Data Direction Register value
+   * @param or - Output Register value
+   * @returns The data to be read from the port
+   */
+  readPortB(ddr: number, or: number): number
+
+  /**
+   * Write data to Port A
+   * @param value - The value being written
+   * @param ddr - Data Direction Register value
+   */
+  writePortA(value: number, ddr: number): void
+
+  /**
+   * Write data to Port B
+   * @param value - The value being written
+   * @param ddr - Data Direction Register value
+   */
+  writePortB(value: number, ddr: number): void
+
+  /**
+   * Check if the attachment is enabled
+   * @returns true if enabled, false otherwise
+   */
+  isEnabled(): boolean
+
+  /**
+   * Get the priority of this attachment (lower values = higher priority)
+   * @returns The priority value
+   */
+  getPriority(): number
+
+  /**
+   * Clear interrupt flags
+   * @param ca1 - Clear CA1 interrupt
+   * @param ca2 - Clear CA2 interrupt
+   * @param cb1 - Clear CB1 interrupt
+   * @param cb2 - Clear CB2 interrupt
+   */
+  clearInterrupts(ca1: boolean, ca2: boolean, cb1: boolean, cb2: boolean): void
+
+  /**
+   * Update control line states
+   * @param ca1 - CA1 control line state
+   * @param ca2 - CA2 control line state
+   * @param cb1 - CB1 control line state
+   * @param cb2 - CB2 control line state
+   */
+  updateControlLines(ca1: boolean, ca2: boolean, cb1: boolean, cb2: boolean): void
+
+  /**
+   * Check if CA1 interrupt is pending
+   * @returns true if interrupt is pending
+   */
+  hasCA1Interrupt(): boolean
+
+  /**
+   * Check if CA2 interrupt is pending
+   * @returns true if interrupt is pending
+   */
+  hasCA2Interrupt(): boolean
+
+  /**
+   * Check if CB1 interrupt is pending
+   * @returns true if interrupt is pending
+   */
+  hasCB1Interrupt(): boolean
+
+  /**
+   * Check if CB2 interrupt is pending
+   * @returns true if interrupt is pending
+   */
+  hasCB2Interrupt(): boolean
+
+  /**
+   * This peripheral's state, for a snapshot.
+   *
+   * Small but not skippable: the encoder holds a keystroke the monitor has not
+   * yet read, and the LCD holds every character on the glass. Dropping either
+   * across a restore loses a keypress or blanks the display.
+   */
+  serialize(): DeviceState
+
+  deserialize(state: DeviceState): void
+}
+
+/**
+ * Base abstract class for PIA attachments with common functionality
+ */
+export abstract class AttachmentBase implements Attachment {
+  /** Names this peripheral in a snapshot. Every subclass sets its own. */
+  protected abstract readonly kind: string
+
+  protected priority: number
+  protected enabled: boolean
+  protected ca1Interrupt: boolean
+  protected ca2Interrupt: boolean
+  protected cb1Interrupt: boolean
+  protected cb2Interrupt: boolean
+
+  constructor(
+    priority: number,
+    ca1Interrupt: boolean = false,
+    ca2Interrupt: boolean = false,
+    cb1Interrupt: boolean = false,
+    cb2Interrupt: boolean = false
+  ) {
+    this.priority = priority
+    this.enabled = true
+    this.ca1Interrupt = ca1Interrupt
+    this.ca2Interrupt = ca2Interrupt
+    this.cb1Interrupt = cb1Interrupt
+    this.cb2Interrupt = cb2Interrupt
+  }
+
+  reset(): void {
+    this.enabled = true
+    this.ca1Interrupt = false
+    this.ca2Interrupt = false
+    this.cb1Interrupt = false
+    this.cb2Interrupt = false
+  }
+
+  tick(cpuFrequency: number): void {
+    // Default: no action
+  }
+
+  readPortA(ddr: number, or: number): number {
+    return 0xFF
+  }
+
+  readPortB(ddr: number, or: number): number {
+    return 0xFF
+  }
+
+  writePortA(value: number, ddr: number): void {
+    // Default: no action
+  }
+
+  writePortB(value: number, ddr: number): void {
+    // Default: no action
+  }
+
+  isEnabled(): boolean {
+    return this.enabled
+  }
+
+  getPriority(): number {
+    return this.priority
+  }
+
+  clearInterrupts(ca1: boolean, ca2: boolean, cb1: boolean, cb2: boolean): void {
+    if (ca1) this.ca1Interrupt = false
+    if (ca2) this.ca2Interrupt = false
+    if (cb1) this.cb1Interrupt = false
+    if (cb2) this.cb2Interrupt = false
+  }
+
+  updateControlLines(ca1: boolean, ca2: boolean, cb1: boolean, cb2: boolean): void {
+    // Default: no action
+  }
+
+  hasCA1Interrupt(): boolean {
+    return this.ca1Interrupt
+  }
+
+  hasCA2Interrupt(): boolean {
+    return this.ca2Interrupt
+  }
+
+  hasCB1Interrupt(): boolean {
+    return this.cb1Interrupt
+  }
+
+  hasCB2Interrupt(): boolean {
+    return this.cb2Interrupt
+  }
+
+  /**
+   * The interrupt and enable flags every peripheral has. Subclasses spread this
+   * and add their own fields, so a new peripheral gets the common half for free
+   * and cannot forget it.
+   *
+   * `priority` is not in here: it is wiring, fixed when the board is built, not
+   * state the machine changes as it runs.
+   */
+  serialize(): DeviceState {
+    return {
+      kind: this.kind,
+      enabled: this.enabled,
+      ca1Interrupt: this.ca1Interrupt,
+      ca2Interrupt: this.ca2Interrupt,
+      cb1Interrupt: this.cb1Interrupt,
+      cb2Interrupt: this.cb2Interrupt
+    }
+  }
+
+  deserialize(state: DeviceState): void {
+    expectKind(state, this.kind)
+    this.enabled = readBoolean(state, 'enabled')
+    this.ca1Interrupt = readBoolean(state, 'ca1Interrupt')
+    this.ca2Interrupt = readBoolean(state, 'ca2Interrupt')
+    this.cb1Interrupt = readBoolean(state, 'cb1Interrupt')
+    this.cb2Interrupt = readBoolean(state, 'cb2Interrupt')
+  }
+}
