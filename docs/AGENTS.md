@@ -118,7 +118,7 @@ Path aliases, in every config: `@core`, `@debug`, `@shared`, `@renderer`, and
 npm ci
 npm run typecheck        # vue-tsc over the renderer + tsc over main
 npm test                 # jest, with coverage, over core/debug/host
-npm run dev              # electron-vite — the desktop app          (phase 4)
+npm run dev              # electron-vite — the desktop app
 npm run build:web        # static site into dist/web                (phase 8)
 npm run icons            # regenerate every icon format from build/6502.png
 npm run build:cli        # tsc -p tsconfig.cli.json                 (phase 7)
@@ -136,7 +136,7 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 - [x] **1** — core port
 - [x] **2** — the Keypad Card
 - [x] **3** — debug core & protocol
-- [ ] **4** — Electron shell
+- [x] **4** — Electron shell
 - [ ] **5** — the interface
 - [ ] **6** — accessories
 - [ ] **7** — command line
@@ -144,9 +144,51 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 - [ ] **9** — README, LICENSE & examples
 - [ ] **10** — release v1.0.0
 
-`src/renderer/src/App.vue` is a scaffold: it draws the four regions of the
-finished layout with their names in them, so `npm run dev` shows the shape of
-the machine. Phase 5 fills them in.
+`src/renderer/src/App.vue` still draws the four regions of the finished layout
+with their names in them — phase 5 fills them in — but the machine behind them
+is real: it boots both ROMs and runs the KC Monitor. `npm run dev` opens a
+window onto a working KIM you cannot see yet.
+
+The Electron shell is a lift, minus everything a KIM has no hardware for.
+`storage.ts` is gone entirely and `roms.ts` stands in its place: a KIM has no CF
+card and no NVRAM, and loses its RAM when you switch it off, so the only file
+the renderer still needs main to read is a ROM image — **two** of them, since
+the Keypad Card carries its own. `IPC.ROMS_LOAD_DEFAULT` returns both together.
+
+**There is no save-before-quit.** The ACE intercepted the window close to give
+the renderer time to write its card out; with nothing to persist, the intercept
+and its `APP_BEFORE_QUIT` / `APP_SAVE_COMPLETE` channels are gone, and `close`
+does one thing — stops the debug bridge, so a client mid-call gets an answer
+instead of a timeout.
+
+`AppSettings` is down to four fields: `serialConfig`, `frequency`,
+`serialCardFitted` and `accessory`. The last two are the machine's *shape*, and
+a card cannot be fitted or pulled with the power on — so `store.init()` builds a
+new Machine and a new Session rather than mutating one. That is why
+`useDebugBridge` keeps its watch armed instead of firing once: a bridge still
+holding the old Session would be answering a debug client about a machine that
+is no longer on the bench.
+
+`RendererTarget` reports `consoleMode` off the fitted ACIA, but implements no
+`serial.*` methods yet. Those need a buffered console with a stream cursor to
+read back from, which is the Terminal panel's own state — it arrives in phase 5,
+and a second invisible buffer in the meantime would mean a debug client and the
+window disagreeing about what the machine has said. Optional target methods are
+a host-capability question by design; the phase 3 test target does the same.
+
+`usePaste` no longer synthesises key presses the way the ACE's did — there is no
+matrix keyboard to synthesise them on. It feeds bytes to the ACIA paced at the
+line rate, which is why it takes `bin2woz` output for free: those are Wozmon
+deposit lines, and the machine cannot tell them from someone typing quickly.
+
+**`npm run typecheck` used to check nothing in the renderer.** The root
+`tsconfig.json` is references-only (`files: []`), and `vue-tsc --noEmit` does not
+build referenced projects — so it silently passed on code it had never read. It
+now names `tsconfig.web.json` explicitly, which needed the same
+`noUnusedLocals` / `noUnusedParameters` relaxation `tsconfig.node.json` already
+carries and for the same reason: both reach into `src/core`, where an IO card's
+`tick(frequency)` matches the interface rather than using the argument. If you
+change the typecheck script, check it still fails on a deliberate type error.
 
 `src/core/Machine.ts` is the KIM's own, written rather than ported: the ACE's
 decode order is different enough that bringing it across would only have been
