@@ -129,7 +129,7 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 
 - [x] **0** — repository, toolchain, icon, CI
 - [x] **1** — core port
-- [ ] **2** — the Keypad Card
+- [x] **2** — the Keypad Card
 - [ ] **3** — debug core & protocol
 - [ ] **4** — Electron shell
 - [ ] **5** — the interface
@@ -143,9 +143,24 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 finished layout with their names in them, so `npm run dev` shows the shape of
 the machine. Phase 5 fills them in.
 
-`src/core/Machine.ts` does not exist yet. The ACE's decode order is different
-enough that porting it first would only be undone, so it is written from
-scratch in phase 2 alongside the PIA, the keypad and the LCD.
+`src/core/Machine.ts` is the KIM's own, written rather than ported: the ACE's
+decode order is different enough that bringing it across would only have been
+undone. The Keypad Card is not in a slot and not optional — `pia`, `keypad`,
+`lcd` and `cardROM` are plain fields, there is no `loadCart` or `unloadCart`,
+and the card's two windows are decoded *before* the BIOS ROM. That last line is
+the machine's identity; if a change makes `$E000` read out of `BIOS.bin`, it is
+not a KIM any more.
+
+`src/core/KeypadMap.ts` is the only description of the pad. The encoder code is
+not the key's value — `0` is `$0A` and `C`–`F` run backwards — so nothing may
+derive one from the other arithmetically. `KeypadMap.test.ts` transcribes
+6502-DOCS `docs/reference/keypad-map.md` a second time and compares; a test that
+imported the map and checked it against itself would pass whatever it said.
+
+`KCMonitor.test.ts` boots the real firmware and drives it from the pad. It is
+slow on purpose — `LcdInit` runs the HD44780 power-on ritual with four ~41 ms
+software delays in it, so the splash costs ~1.8 M cycles and there is no honest
+way to skip them.
 
 `src/debug/` holds one file early: `OpcodeTable.ts`, because `W65C02S.test.ts`
 needs the instruction widths and that test is a phase 1 exit criterion. It is
