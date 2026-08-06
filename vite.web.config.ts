@@ -28,12 +28,12 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       // Two entry points: the full app, and the iframe-sized embed. They share
-      // everything below the component layer, so Rollup splits the common chunk
-      // between them rather than shipping the emulator core twice.
-      //
-      // embed.html arrives in Phase 8; until then this is the app alone.
+      // everything below the component layer — the store, the composables, the
+      // four panels and the whole of src/core — so Rollup splits the common
+      // chunk between them rather than shipping the emulator twice.
       input: {
-        index: resolve('src/renderer/index.html')
+        index: resolve('src/renderer/index.html'),
+        embed: resolve('src/renderer/embed.html')
       }
     }
   },

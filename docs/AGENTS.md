@@ -102,6 +102,7 @@ src/debug/         session, scheduler, disassembler, snapshots, the debug server
 src/main/          Electron main process
 src/preload/       the contextBridge
 src/renderer/src/  the Vue app — panels, stores, composables
+src/renderer/src/embed/     the embed page's URL API, postMessage layer and pad
 src/shared/        types crossing the main/renderer boundary
 src/cli/           the 6502-kim command line
 src/host/headless/ the windowless host the CLI drives
@@ -111,6 +112,7 @@ src/renderer/public/roms/   the same ROMs for the web build
 docs/reference/    source material — see lcd-reference.png
 docs/DEBUG-PROTOCOL.md      the JSON-RPC service, method by method
 docs/DRIVING.md             how to drive the machine from a shell or an agent
+docs/EMBEDDING.md           the embed page's parameters, sizing and postMessage API
 ```
 
 Path aliases, in every config: `@core`, `@debug`, `@shared`, `@renderer`, and
@@ -123,7 +125,8 @@ npm ci
 npm run typecheck        # vue-tsc over the renderer + tsc over main
 npm test                 # jest, with coverage, over core/debug/host
 npm run dev              # electron-vite — the desktop app
-npm run build:web        # static site into dist/web                (phase 8)
+npm run build:web        # static site into dist/web — index.html + embed.html
+npm run preview:web      # serve it at localhost:4173/6502-KIMULATOR/
 npm run icons            # regenerate every icon format from build/6502.png
 npm run build:cli        # tsc -p tsconfig.cli.json — then bin/6502-kim runs it
 ```
@@ -148,7 +151,7 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 - [x] **5** — the interface
 - [x] **6** — accessories
 - [x] **7** — command line
-- [ ] **8** — web build & embed
+- [x] **8** — web build & embed
 - [ ] **9** — README, LICENSE & examples
 - [ ] **10** — release v1.0.0
 
@@ -158,7 +161,9 @@ answers the pad, and — with the KIM Demo wired to the bay — runs both of the
 DOCS type-in cards and lights the LEDs. `6502-kim run --headless` is the same
 machine with no window: `printf '\x1b0800: A9 41\r'` into it deposits a byte
 through the monitor's serial prompt, and `6502-kim dbg key`/`lcd` drive the pad
-and read the glass. What is left is the browser build and the embed page.
+and read the glass. `npm run build:web` is that window as two static pages, and
+an `<iframe>` on someone else's article is a machine they can key a program
+into. What is left is the README, the worked examples and the release.
 
 The Electron shell is a lift, minus everything a KIM has no hardware for.
 `storage.ts` is gone entirely and `roms.ts` stands in its place: a KIM has no CF
@@ -452,3 +457,70 @@ wire in both directions. Worth knowing if you repeat it: that rig delivers each
 write about half a second late, so a test that samples sooner than that sees
 nothing and looks like a failure. Nothing needs DTR/RTS asserted, which is why
 `serial.ts` does not.
+
+`vite.web.config.ts` builds two pages out of one tree: `index.html` is the app,
+`embed.html` is the same machine as a guest on someone else's page. They share
+everything below the component layer, so Rollup splits the emulator into a chunk
+they both load rather than shipping it twice — which is the reason the embed is
+a second *entry point* rather than a flag on `App.vue`, since above the panels
+the two have almost nothing in common. `docs/EMBEDDING.md` is the user-facing
+half of all of this.
+
+**The embed was verified in a browser, not reasoned about.** Headless Chrome
+over CDP against `vite preview`: the app boots to `KIM MONITOR v1.0` with the
+splash on the glass, ESC typed into the terminal starts the monitor,
+`panels=lcd,keys` shows exactly those two, `bin64=$0800=…&accessory=led-latch&
+keys=ESC,UP` runs the DOCS binary counter with the lamps counting, and a host
+page framing `embed.html` drove it to `$1234` entirely over `postMessage`. Do
+that again rather than trusting a build that merely compiles — three of the
+things fixed below looked fine until a real browser ran them.
+
+**`6502-kim:ready` fires about three seconds before the machine can hear
+anything**, and that is not a bug to fix by moving the event. The splash costs
+~1.8 M cycles to reach; `ready` means the firmware is in and the power is on,
+which is what a host page needs in order to send `run`. So `key` and `type` wait
+behind a gate (`whenReady` in `EmbedApp.vue`) and the four that *operate* the
+machine — run, pause, reset, powerCycle — do not. Without that gate a host page
+keying on `ready` presses ESC into `LcdInit` and the keystroke is simply gone,
+which is what the first browser run showed.
+
+**The prefixes are the KIM's own**: `6502-kim:` for messages and `data-kim-` for
+the loader's attributes, where 6502-EMULATOR uses `6502:` and `data-6502-`. The
+DOCS site will document both machines on one page, and identical prefixes would
+mean each loader claiming the other's containers and a mistargeted `postMessage`
+resetting the wrong emulator. Same reasoning as `~/.6502-kim` and
+`6502-kim-snapshot`.
+
+**The embed does not take the keyboard until it is clicked**, where `App.vue`
+gives the pad the keyboard as it mounts. The window *is* the machine; a frame
+halfway down an article is a guest, and one that swallowed the reader's
+page-down key on load would be a bad one. The same click-to-focus router runs in
+both, and `focus()` is simply never called before the first pointer event.
+
+**`params.ts` reaches into `@core` for two lookup tables** — `KeypadMap` through
+`embed/keys.ts`, and the accessory registry — which is a deliberate exception to
+its otherwise import-free rule. Both are pure data, they cost the node-only test
+suite nothing, and they are what let a mistyped key name or an unknown accessory
+be reported at parse time next to every other malformed parameter, rather than
+discovered silently three steps later. `keys=` and `6502-kim:key` read a bare
+token as a **name** (`0` is the zero key, reporting `$0A`) exactly as
+`6502-kim dbg key` does, and `autotype`'s escapes are character for character
+the CLI's `unescape`, `\xNN` included — the splash wants an ESC and an
+`<iframe>` tag is as awkward a place to put one as a shell argument.
+
+**Two things the web build was quietly missing**, both found by running it.
+`useFocusRouter` swallowed F11 unconditionally to call `window.api` — which in a
+browser took the fullscreen key away and gave nothing back, so it now returns
+early when there is no Electron window to answer for. And every page load 404'd
+on `/favicon.ico`; `src/renderer/public/favicon.png` is the app icon at 64 px,
+linked relatively so one line serves both pages, the Pages base path and the
+Electron renderer.
+
+**`useWebSerial.ts` is gone, and Web Serial still works.** It was an unused
+duplicate of `WebSerialService` in `services/serial.ts`, which is the live path —
+`useSerial` picks between that and Electron's IPC at construction, and the
+Settings panel's Connect button reaches `requestPort()` in a browser through it.
+Two implementations of one port would have been the transmit-tap problem again:
+whichever a future caller wired up second would have delivered every received
+byte twice. What did have to move is the Web Serial *ambient types*, which lived
+in that file and are now in `env.d.ts` where the rest of the globals are.

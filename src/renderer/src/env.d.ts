@@ -13,4 +13,33 @@ declare global {
     /** Present in the Electron renderer (set by contextBridge). Undefined in web builds. */
     api?: AppApi
   }
+
+  /**
+   * Web Serial, which the browser build's serial path is written against.
+   *
+   * Declared here rather than beside its one consumer because it is an ambient
+   * browser API and TypeScript's own `dom` lib does not carry it yet. `services/
+   * serial.ts` picks between this and Electron's IPC at construction, and the
+   * web half is the reason the KIMulator can bridge a real cable from a browser
+   * tab at all.
+   */
+  interface Serial {
+    requestPort(): Promise<SerialPort>
+  }
+
+  interface SerialPort {
+    open(options: {
+      baudRate: number
+      dataBits?: number
+      stopBits?: number
+      parity?: string
+    }): Promise<void>
+    close(): Promise<void>
+    readable: ReadableStream<Uint8Array> | null
+    writable: WritableStream<Uint8Array> | null
+  }
+
+  interface Navigator {
+    serial: Serial
+  }
 }

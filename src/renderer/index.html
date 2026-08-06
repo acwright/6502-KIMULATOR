@@ -7,6 +7,9 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:"
     />
+    <!-- Relative, so it resolves under the Pages base path and from the file the
+         Electron renderer is loaded as, without either one being written down. -->
+    <link rel="icon" type="image/png" href="./favicon.png" />
     <title>6502 KIMulator</title>
   </head>
   <body>

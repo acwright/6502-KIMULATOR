@@ -17,6 +17,16 @@ import type { Component } from 'vue'
 import { useAccessory } from '@/composables/useAccessory'
 import LEDLatchView from '@/components/LEDLatchView.vue'
 
+/**
+ * `fixed` names the bay rather than offering it — what the embed wants.
+ *
+ * A frame's machine is described by its URL, and changing the circuit rebuilds
+ * the machine: a reader who opened the dropdown out of curiosity would clear the
+ * RAM the page had just written its example program into, with nothing on screen
+ * to explain where it went.
+ */
+const props = withDefaults(defineProps<{ fixed?: boolean }>(), { fixed: false })
+
 const { options, card, fitted, selected, fit } = useAccessory()
 
 /**
@@ -45,6 +55,7 @@ function onSelect(event: Event): void {
          already says what this is. -->
     <div class="flex shrink-0 items-center gap-3 px-3 pt-2">
       <select
+        v-if="!props.fixed"
         class="accessory-select"
         :value="selected"
         title="What is wired to the bus at $9400. Changing it switches the machine off and on."
@@ -56,6 +67,10 @@ function onSelect(event: Event): void {
           {{ option.name }}
         </option>
       </select>
+
+      <span v-else class="text-[11px] text-neutral-400" aria-label="Accessory">
+        {{ fitted?.name ?? 'Empty' }}
+      </span>
 
       <span class="font-mono text-[10px] text-neutral-700">$9400</span>
     </div>

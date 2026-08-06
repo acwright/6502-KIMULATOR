@@ -47,10 +47,14 @@ function isEditing(target: EventTarget | null): boolean {
 
 function onWindowKeyDown(event: KeyboardEvent): void {
   // Fullscreen belongs to the window rather than to whatever holds the keyboard,
-  // so it is answered before anything is routed anywhere.
+  // so it is answered before anything is routed anywhere — but only where there
+  // is a window to answer for. In the browser build F11 is the *browser's*
+  // fullscreen key, and swallowing it there would take the shortcut away and
+  // give nothing back.
   if (event.key === 'F11' || (event.metaKey && event.key === 'Enter')) {
+    if (!window.api) return
     event.preventDefault()
-    window.api?.window.toggleFullscreen()
+    window.api.window.toggleFullscreen()
     return
   }
 
