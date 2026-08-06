@@ -63,10 +63,10 @@ port and token.
 One process in, one answer out. No server, no session.
 
 ```sh
-printf '\x1b0300: A9 41 EA\r0300.0302\r' | 6502-kim run --headless --input-after '>' --max-cycles 12e6
+printf '\x1b0800: A9 41 EA\r0800.0802\r' | 6502-kim run --headless --input-after '>' --max-cycles 12e6
 #   KIM MONITOR v1.0
 #   >
-#   0300: A9 41 EA
+#   0800: A9 41 EA
 ```
 
 Three things in that line are worth knowing:
@@ -76,11 +76,31 @@ Three things in that line are worth knowing:
 - **`--input-after '>'`** holds stdin back until the prompt appears. The
   firmware spends its first ~1.8 M cycles probing slots and running the
   HD44780's power-on ritual, and anything sent during it is swallowed.
-- **`$0300`, not `$0200`.** `$0200` is the monitor's own input buffer; a deposit
-  there is overwritten by the next line you type.
+- **`$0800`, and nowhere below it.** Low RAM belongs to the firmware, and it
+  does not defend itself — see [Where your bytes may go](#where-your-bytes-may-go).
 
-The monitor's syntax is Wozmon's: `0300` examines, `0300.0310` examines a range,
-`0300: A9 41` deposits, `0300R` runs.
+The monitor's syntax is Wozmon's: `0800` examines, `0800.0810` examines a range,
+`0800: A9 41` deposits, `0800R` runs.
+
+## Where your bytes may go
+
+`PROGRAM_START` is **`$0800`**, and program space runs from there to `$7FFF`.
+Below it is the machine's own workspace, straight out of `BIOS.inc`:
+
+| Range | What lives there |
+|---|---|
+| `$0000-$00FF` | Zero page — Kernal and BASIC scratch |
+| `$0100-$01FF` | The 6502 stack |
+| `$0200-$02FF` | `INPUT_BUFFER` — the 256-byte keyboard/serial ring buffer |
+| `$0300-$03FF` | `KERNAL_VARS` — and `$0300` itself is **`IRQ_PTR`** |
+| `$0800-$7FFF` | Yours |
+
+Nothing stops you writing to any of it, exactly as nothing stops you on the
+bench. Depositing three bytes at `$0300` overwrites the IRQ vector, and the next
+interrupt — the very next character you type at the serial port — sends the CPU
+into empty RAM. What you see then is a machine that has stopped answering, with
+the bytes you typed piling up unread in the ACIA. That is not the emulator
+failing; it is the emulator being accurate. Put programs at `$0800`.
 
 ## Loading your build output
 
@@ -160,7 +180,7 @@ sleep 1
 #   breakpoint #1 at $E062
 6502-kim dbg regs
 6502-kim dbg disasm
-6502-kim dbg mem 0x0300 16
+6502-kim dbg mem 0x0800 16
 ```
 
 `--pause` means *not started*: the machine sits on its reset vector — read out
@@ -200,9 +220,9 @@ Never `sleep` and hope. Every wait is measured in emulated cycles or in output,
 and reports whether it matched:
 
 ```sh
-6502-kim dbg send '0300: 5A\r' --wait '\r' --timeout 5s
+6502-kim dbg send '0800: 5A\r' --wait '\r' --timeout 5s
 6502-kim dbg wait --serial 'KIM MONITOR' --timeout 10s
-6502-kim dbg wait --expression '[$0300] == $5A' --timeout 5s
+6502-kim dbg wait --expression '[$0800] == $5A' --timeout 5s
 6502-kim dbg wait --stopped --timeout 30s
 ```
 

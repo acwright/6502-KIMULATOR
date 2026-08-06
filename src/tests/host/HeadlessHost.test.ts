@@ -105,21 +105,29 @@ describe('HeadlessHost', () => {
     })
 
     /**
-     * The monitor's own Wozmon syntax, over a TTY. `$0300` rather than `$0200`
-     * because the firmware's input buffer lives at `$0200` — a deposit there is
-     * overwritten by the next line typed.
+     * The monitor's own Wozmon syntax, over a TTY.
+     *
+     * `$0800` is `PROGRAM_START`, and everything below it belongs to the
+     * firmware: `$0200-$02FF` is the input ring buffer and `$0300-$03FF` is
+     * `KERNAL_VARS`, whose first two bytes are `IRQ_PTR`. A deposit at `$0300`
+     * therefore replaces the IRQ vector, and the next character to arrive sends
+     * the CPU into empty RAM — which looks exactly like a broken serial path
+     * and is not one. Asserting the machine is still in ROM afterwards is what
+     * tells those two apart.
      */
     it('takes a deposit typed at the prompt and reads it back', async () => {
       const { host: h, read } = host({
         maxCycles: 12_000_000,
         inputAfter: />/
       })
-      h.write(`${ESC}0300: A9 41 EA${CR}0300.0302${CR}`)
+      h.write(`${ESC}0800: A9 41 EA${CR}0800.0802${CR}`)
 
       await h.run('turbo')
 
-      expect(read()).toMatch(/0300: A9 41 EA/)
-      expect(h.session.machine.peek(0x0300)).toBe(0xa9)
+      expect(read()).toMatch(/0800: A9 41 EA/)
+      expect(h.session.machine.peek(0x0800)).toBe(0xa9)
+      // Still executing firmware, not wandering through RAM.
+      expect(h.session.machine.cpu.pc).toBeGreaterThanOrEqual(0x8000)
     })
 
     it('holds input back until the prompt appears', async () => {
@@ -127,11 +135,11 @@ describe('HeadlessHost', () => {
       // LCD's power-on ritual is swallowed. Without the gate this deposit lands
       // in the middle of the boot and the monitor never sees it.
       const { host: h } = host({ maxCycles: 12_000_000, inputAfter: />/ })
-      h.write(`${ESC}0300: 5A${CR}`)
+      h.write(`${ESC}0800: 5A${CR}`)
 
       await h.run('turbo')
 
-      expect(h.session.machine.peek(0x0300)).toBe(0x5a)
+      expect(h.session.machine.peek(0x0800)).toBe(0x5a)
     })
   })
 

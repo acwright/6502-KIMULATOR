@@ -156,7 +156,7 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 the KC Monitor's banner to the terminal, shows `KIM MONITOR v1.0` on the glass,
 answers the pad, and — with the KIM Demo wired to the bay — runs both of the
 DOCS type-in cards and lights the LEDs. `6502-kim run --headless` is the same
-machine with no window: `printf '\x1b0300: A9 41\r'` into it deposits a byte
+machine with no window: `printf '\x1b0800: A9 41\r'` into it deposits a byte
 through the monitor's serial prompt, and `6502-kim dbg key`/`lcd` drive the pad
 and read the glass. What is left is the browser build and the embed page.
 
@@ -432,3 +432,23 @@ vector and the most obvious thing to look at, comes back "expected a number".
 `readROM` wants 32 KB and `readCardROM` wants 8 KB, separately, because the
 mix-up is otherwise silent in one direction: an 8 KB image loaded as the BIOS
 gives a machine that boots and falls over the first time it calls the Kernal.
+
+**Deposits go at `$0800`, and a test that types one must check the machine
+survived it.** `PROGRAM_START` is `$0800`; below it is the firmware's own
+workspace — `$0200-$02FF` is `INPUT_BUFFER` and `$0300-$03FF` is `KERNAL_VARS`,
+whose first two bytes are **`IRQ_PTR`**. Depositing at `$0300` therefore
+rewrites the IRQ vector, and the next character to arrive vectors the CPU into
+empty RAM. The symptom is a machine that stops answering with bytes piling up
+unread in the ACIA's receive queue, which reads exactly like a broken serial
+path and is nothing of the kind — it was diagnosed once by finding the PC stuck
+at `$41A9`, which is `A9 41` byte-swapped, the very bytes the deposit wrote.
+`HeadlessHost.test.ts` asserts `cpu.pc >= $8000` after typing at the prompt for
+this reason: the read-back alone passes either way.
+
+**The `--serial` bridge is verified against real hardware**, not just reasoned
+about: two USB-serial adapters wired together, the emulator holding one and a
+script the other. Banner, prompt, ESC, deposit and read-back all crossed the
+wire in both directions. Worth knowing if you repeat it: that rig delivers each
+write about half a second late, so a test that samples sooner than that sees
+nothing and looks like a failure. Nothing needs DTR/RTS asserted, which is why
+`serial.ts` does not.
