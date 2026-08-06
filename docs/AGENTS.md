@@ -153,7 +153,7 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 - [x] **7** — command line
 - [x] **8** — web build & embed
 - [x] **9** — README, LICENSE & examples
-- [ ] **10** — release v1.0.0
+- [x] **10** — release v1.0.0
 
 `npm run dev` opens a window onto a KIM you can use: it boots both ROMs, prints
 the KC Monitor's banner to the terminal, shows `KIM MONITOR v1.0` on the glass,
@@ -164,8 +164,13 @@ through the monitor's serial prompt, and `6502-kim dbg key`/`lcd` drive the pad
 and read the glass. `npm run build:web` is that window as two static pages, and
 an `<iframe>` on someone else's article is a machine they can key a program
 into. [../examples/](../examples/) drives all of that from a shell and CI runs
-it, so a documented command that stops working stops the build. What is left is
-the release.
+it, so a documented command that stops working stops the build.
+
+**v1.0.0 is tagged and released.** The plan is delivered: everything above ships,
+and everything [../PLAN.md](../PLAN.md) said would be absent — video, sound,
+storage, RTC, RAM banks, joysticks, the matrix keyboard, BASIC, and a cartridge
+slot — is absent. From here the phases are done and the repository is on ordinary
+footing: changes are changes, and the next version number is earned by one.
 
 The Electron shell is a lift, minus everything a KIM has no hardware for.
 `storage.ts` is gone entirely and `roms.ts` stands in its place: a KIM has no CF

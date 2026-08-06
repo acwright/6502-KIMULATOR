@@ -1,6 +1,6 @@
 {
   "name": "6502-kimulator",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Desktop (Electron) and web emulator for the A.C. Wright 6502-KIM",
   "author": {
@@ -35,7 +35,7 @@
     "cli": "npm run build:cli --silent && node bin/6502-kim",
     "preview:web": "vite preview --config vite.web.config.ts",
     "pack": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "npm run build && bash scripts/dist-mac.sh",
     "dist:win": "npm run build && bash scripts/dist-win.sh",
     "dist:linux": "bash scripts/dist-linux.sh",
     "dist": "npm run dist:mac && npm run dist:win && npm run dist:linux",
