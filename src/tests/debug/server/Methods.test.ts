@@ -139,14 +139,16 @@ describe('session', () => {
     })
   })
 
-  it('changes the clock, and refuses one the hardware has no jumper for', async () => {
+  // The ACE's board carries a 2 MHz jumper; this one does not, so the clock is
+  // something a client is told about rather than something it sets.
+  it('reports the clock, and refuses to change it', async () => {
     const { methods, session } = target()
 
-    methods['session.config']!({ frequency: 2_000_000 })
-    expect(session.machine.frequency).toBe(2_000_000)
+    expect(methods['session.config']!({})).toMatchObject({ frequency: 1_000_000 })
 
-    const error = await errorOf(() => methods['session.config']!({ frequency: 3_000_000 }))
+    const error = await errorOf(() => methods['session.config']!({ frequency: 2_000_000 }))
     expect(error.code).toBe(ErrorCode.INVALID_PARAMS)
+    expect(session.machine.frequency).toBe(1_000_000)
   })
 
   it('resets', () => {

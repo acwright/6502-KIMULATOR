@@ -7,6 +7,7 @@ import {
   DEFAULT_ROM_LABEL,
   DEFAULT_CARD_ROM_LABEL
 } from '@/composables/useDefaultBIOS'
+import { createAccessory } from '@core/accessories/registry'
 import { DEFAULT_APP_SETTINGS } from '@shared/types'
 import type { AppSettings } from '@shared/types'
 
@@ -34,8 +35,25 @@ interface Image {
 const rom = ref<Image | null>(null)
 const cardROM = ref<Image | null>(null)
 
-/** The shape the machine was last built with. */
-const shape = ref<{ serialCard: boolean }>({ serialCard: true })
+/**
+ * The shape the machine was last built with — which cards are in it.
+ *
+ * The accessory is held as a registry id rather than as a card, because the card
+ * is built fresh for each machine: a shared instance would carry the last
+ * machine's latched byte into the new one, and swapping a circuit is exactly the
+ * moment the lamps should go out.
+ */
+export interface MachineShape {
+  serialCard: boolean
+  accessory: string | null
+}
+
+const shape = ref<MachineShape>({ serialCard: true, accessory: null })
+
+/** How the machine on the bench is built. Read by the Settings panel and the bay. */
+export function machineShape(): MachineShape {
+  return shape.value
+}
 
 export function useMachine() {
   const store = useEmulatorStore()
@@ -66,13 +84,14 @@ export function useMachine() {
    * Cold by definition: a new Machine has new RAM, which is exactly what pulling
    * a card and powering back up gives you on the bench.
    */
-  function rebuild(next: Partial<{ serialCard: boolean }> = {}): void {
+  function rebuild(next: Partial<MachineShape> = {}): void {
     const wasRunning = store.isRunning
     shape.value = { ...shape.value, ...next }
 
-    // The accessory bay stays empty until phase 6 supplies a registry to look
-    // `settings.accessory` up in.
-    store.init({ serialCard: shape.value.serialCard })
+    store.init({
+      serialCard: shape.value.serialCard,
+      accessory: createAccessory(shape.value.accessory)
+    })
 
     if (rom.value) store.loadROM(rom.value.bytes, rom.value.label)
     if (cardROM.value) store.loadCardROM(cardROM.value.bytes, cardROM.value.label)
@@ -95,9 +114,9 @@ export function useMachine() {
     const launch = await bootPayload()
     for (const problem of launch?.errors ?? []) console.error('[boot]', problem)
 
-    // 1. Settings, so the machine is built the right shape and at the right
-    //    frequency. Anything `6502-kim run` set — --freq, --baud, --accessory —
-    //    is already folded in here by main, for this launch only.
+    // 1. Settings, so the machine is built the right shape. Anything
+    //    `6502-kim run` set — --baud, --accessory — is already folded in here by
+    //    main, for this launch only.
     let settings: AppSettings = DEFAULT_APP_SETTINGS
     if (window.api) {
       try {
@@ -106,13 +125,17 @@ export function useMachine() {
         /* use defaults */
       }
     }
-    store.setFrequency(settings.frequency)
 
     // 2. Build the machine. The Serial Card is the one card that is genuinely
     //    optional — unfitting it is how the keypad-only path the KC Monitor
-    //    supports gets exercised.
-    shape.value = { serialCard: settings.serialCardFitted }
-    store.init({ serialCard: settings.serialCardFitted })
+    //    supports gets exercised — and io6 holds whatever was last wired to the
+    //    accessory bus. An id this build does not recognise leaves the bay empty
+    //    rather than failing the boot.
+    shape.value = { serialCard: settings.serialCardFitted, accessory: settings.accessory }
+    store.init({
+      serialCard: settings.serialCardFitted,
+      accessory: createAccessory(settings.accessory)
+    })
 
     // 3. Firmware. Both images; the command line's win over the bundled ones.
     const defaults = await loadDefaultROMs()

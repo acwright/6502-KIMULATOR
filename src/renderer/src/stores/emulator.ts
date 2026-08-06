@@ -39,8 +39,6 @@ export const useEmulatorStore = defineStore('emulator', () => {
    */
   const isHalted = ref(false)
   const serialConnected = ref(false)
-  // Reactive CPU frequency — drives machine.frequency; 1 MHz default.
-  const frequency = ref<number>(1_000_000)
   /** Whether the machine currently on the bench was built with a Serial Card. */
   const serialCardFitted = ref(true)
   // Display labels for currently loaded files (shown in SettingsPanel).
@@ -90,9 +88,10 @@ export const useEmulatorStore = defineStore('emulator', () => {
       io6: accessory ?? new Empty()
     }
 
+    // PHI2 is not configurable: 1 MHz is what this board runs at, and Machine
+    // starts there. The 2 MHz jumper belongs to the ACE.
     const s = new Session(slots)
     const m = s.machine
-    m.frequency = frequency.value
 
     s.onStop((reason) => {
       if (reason.kind !== 'trap' || reason.detail !== 'stp') return
@@ -193,12 +192,6 @@ export const useEmulatorStore = defineStore('emulator', () => {
     reset()
   }
 
-  /** Update the CPU frequency at runtime; persisted to settings by the caller. */
-  function setFrequency(f: number) {
-    frequency.value = f
-    if (machine.value) machine.value.frequency = f
-  }
-
   /**
    * Press a key on the pad, by its encoder code — see KeypadMap.
    *
@@ -240,7 +233,6 @@ export const useEmulatorStore = defineStore('emulator', () => {
     isRunning,
     isHalted,
     serialConnected,
-    frequency,
     serialCardFitted,
     romName,
     cardROMName,
@@ -255,7 +247,6 @@ export const useEmulatorStore = defineStore('emulator', () => {
     reset,
     powerCycle,
     resetCPU,
-    setFrequency,
     pressKey,
     getLCD,
     getPIA,

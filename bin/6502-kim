@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Dev entry point for the 6502-kim CLI.
 //
-// Once the desktop app ships the CLI (PLAN.md phase 7) the installed shim runs
-// the bundled build through Electron's own Node, so no separate runtime is
-// needed. From a checkout, build with `npm run build:cli` and this runs the
+// The installed shim runs the bundled build through Electron's own Node, so no
+// separate runtime is needed and the CLI can never be a different version from
+// the app. From a checkout, build with `npm run build:cli` and this runs the
 // output.
 'use strict'
 

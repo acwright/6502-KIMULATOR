@@ -49,8 +49,8 @@ export interface BootConfig {
   debug?: BootDebug
   /**
    * Settings the app would otherwise have been given through its own panel —
-   * CPU frequency, serial framing, whether the Serial Card is fitted, which
-   * accessory is on the bus.
+   * Serial framing, whether the Serial Card is fitted, which accessory is on
+   * the bus.
    *
    * Applied to this launch only. Someone trying a build out has not decided to
    * change their defaults, and `6502-kim run` is not where you would expect to;

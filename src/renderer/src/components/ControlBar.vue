@@ -9,6 +9,10 @@
  * does not exist. Load Program became Load Binary for the same kind of reason:
  * there is no BASIC to load a `.prg` into, only bytes at an address. Mute and
  * the joystick indicator went with the cards they reported on.
+ *
+ * **There is no clock switch either.** The ACE is the machine in the family with
+ * the 2 MHz jumper; PHI2 on this board is 1 MHz, so a button offering to change
+ * it would be offering hardware that does not exist.
  */
 import { computed, ref } from 'vue'
 import {
@@ -22,10 +26,12 @@ import {
   Cog6ToothIcon
 } from '@heroicons/vue/24/solid'
 import { useEmulatorStore } from '@/stores/emulator'
+import { useConsole } from '@/composables/useConsole'
 
 defineEmits<{ 'toggle-settings': []; 'toggle-paste': [] }>()
 
 const store = useEmulatorStore()
+const term = useConsole()
 
 /**
  * A machine halted by STP needs Reset, not Run — pressing Run gets a CPU that
@@ -43,10 +49,18 @@ function toggleRun(): void {
   else store.run()
 }
 
-function toggleFrequency(): void {
-  const next = store.frequency === 1_000_000 ? 2_000_000 : 1_000_000
-  store.setFrequency(next)
-  window.api?.settings.set({ frequency: next }).catch(() => {})
+/**
+ * Switching the machine off and on again, terminal included.
+ *
+ * The console is a tap on the ACIA, not a device with its own memory, so nothing
+ * makes it forget on its own — but a cold machine printing its splash underneath
+ * the previous session's output reads as one session continuing. A real terminal
+ * on the other end of the cable would still hold that text; this one is part of
+ * the machine, and goes off with it.
+ */
+function powerCycle(): void {
+  store.powerCycle()
+  term.clear()
 }
 
 // ── Load ROM ──────────────────────────────────────────────────────────────────
@@ -122,18 +136,8 @@ async function onLoadBinary(event: Event): Promise<void> {
     </button>
 
     <!-- Power cycle — a real KIM loses its RAM when you switch it off. -->
-    <button title="Power Cycle (clears RAM)" @click="store.powerCycle()">
+    <button title="Power Cycle (clears RAM)" @click="powerCycle">
       <PowerIcon class="size-6" />
-    </button>
-
-    <div class="h-6 w-px bg-white/20" />
-
-    <button
-      class="rounded border border-white/30 px-2 py-0.5 font-mono text-sm tabular-nums transition-colors hover:border-white/60"
-      :title="store.frequency === 1_000_000 ? 'Switch to 2 MHz' : 'Switch to 1 MHz'"
-      @click="toggleFrequency"
-    >
-      {{ store.frequency === 1_000_000 ? '1 MHz' : '2 MHz' }}
     </button>
 
     <div class="h-6 w-px bg-white/20" />

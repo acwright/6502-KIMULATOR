@@ -4,13 +4,15 @@ Read this before changing anything here. It is the short version of
 [../PLAN.md](../PLAN.md) — what the machine is, where the code comes from, and
 the conventions the repository is held to.
 
-> The user-facing guide — *driving the emulator from an agent*, the direct
-> descendant of `6502-EMULATOR/docs/AGENTS.md` — lands with the CLI in phase 7.
-> It documents commands, and there are none yet. Do not write it early.
+> [DRIVING.md](DRIVING.md) is the user-facing guide — *driving the emulator from
+> an agent*, the direct descendant of `6502-EMULATOR/docs/AGENTS.md`, written to
+> be copied into someone else's project. It documents commands, so it landed
+> with the CLI in phase 7. **This** file is the working notes for building the
+> emulator; that one is for using it.
 >
 > [DEBUG-PROTOCOL.md](DEBUG-PROTOCOL.md) is the reference for the JSON-RPC
-> service, and is current as of phase 3. The service can be driven over HTTP
-> today; the `6502-kim dbg` client it describes arrives with phase 7.
+> service, method by method. `6502-kim dbg` and `6502-kim attach` are clients of
+> it, and so is anything that can post JSON.
 
 ---
 
@@ -95,6 +97,7 @@ lines. A phase ends with its tests green and its work committed.
 
 ```
 src/core/          the machine — CPU, RAM, ROM, IO cards, attachments
+src/core/accessories/       the bay at $9400 and what plugs into it
 src/debug/         session, scheduler, disassembler, snapshots, the debug server
 src/main/          Electron main process
 src/preload/       the contextBridge
@@ -107,6 +110,7 @@ assets/roms/       ROMs for Electron and the CLI (extraResources)
 src/renderer/public/roms/   the same ROMs for the web build
 docs/reference/    source material — see lcd-reference.png
 docs/DEBUG-PROTOCOL.md      the JSON-RPC service, method by method
+docs/DRIVING.md             how to drive the machine from a shell or an agent
 ```
 
 Path aliases, in every config: `@core`, `@debug`, `@shared`, `@renderer`, and
@@ -121,8 +125,12 @@ npm test                 # jest, with coverage, over core/debug/host
 npm run dev              # electron-vite — the desktop app
 npm run build:web        # static site into dist/web                (phase 8)
 npm run icons            # regenerate every icon format from build/6502.png
-npm run build:cli        # tsc -p tsconfig.cli.json                 (phase 7)
+npm run build:cli        # tsc -p tsconfig.cli.json — then bin/6502-kim runs it
 ```
+
+`npm run typecheck` covers three projects, not two: the renderer, main, and
+`tsconfig.cli.json`. Without that third one nothing in `src/cli` or `src/host`
+is typechecked until somebody builds the CLI, and CI never does.
 
 `npm run icons` needs ImageMagick 7 (`magick`) and macOS `iconutil`/`sips`. The
 generated `icon.icns`, `icon.ico`, `icon.png` and `icon.iconset/` are tracked, so
@@ -138,16 +146,19 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 - [x] **3** — debug core & protocol
 - [x] **4** — Electron shell
 - [x] **5** — the interface
-- [ ] **6** — accessories
-- [ ] **7** — command line
+- [x] **6** — accessories
+- [x] **7** — command line
 - [ ] **8** — web build & embed
 - [ ] **9** — README, LICENSE & examples
 - [ ] **10** — release v1.0.0
 
 `npm run dev` opens a window onto a KIM you can use: it boots both ROMs, prints
 the KC Monitor's banner to the terminal, shows `KIM MONITOR v1.0` on the glass,
-and answers the pad. Only the accessory bay is still a placeholder, and that is
-phase 6's.
+answers the pad, and — with the KIM Demo wired to the bay — runs both of the
+DOCS type-in cards and lights the LEDs. `6502-kim run --headless` is the same
+machine with no window: `printf '\x1b0300: A9 41\r'` into it deposits a byte
+through the monitor's serial prompt, and `6502-kim dbg key`/`lcd` drive the pad
+and read the glass. What is left is the browser build and the embed page.
 
 The Electron shell is a lift, minus everything a KIM has no hardware for.
 `storage.ts` is gone entirely and `roms.ts` stands in its place: a KIM has no CF
@@ -161,8 +172,9 @@ and its `APP_BEFORE_QUIT` / `APP_SAVE_COMPLETE` channels are gone, and `close`
 does one thing — stops the debug bridge, so a client mid-call gets an answer
 instead of a timeout.
 
-`AppSettings` is down to four fields: `serialConfig`, `frequency`,
-`serialCardFitted` and `accessory`. The last two are the machine's *shape*, and
+`AppSettings` is down to three fields: `serialConfig`, `serialCardFitted` and
+`accessory`. There is no `frequency` — PHI2 on this board is 1 MHz and the ACE
+is the machine with the 2 MHz jumper. The last two are the machine's *shape*, and
 a card cannot be fitted or pulled with the power on — so `store.init()` builds a
 new Machine and a new Session rather than mutating one. That is why
 `useDebugBridge` keeps its watch armed instead of firing once: a bridge still
@@ -197,24 +209,43 @@ to a freshly launched one.
 
 **The panels' logic is outside their `.vue` files, on purpose.** The terminal's
 control-code handling is `terminal/TerminalBuffer.ts`, its key mapping
-`terminal/keys.ts`, the pad's map-to-panel wiring `keypad/layout.ts`, and the
-LCD's drawing `lcd/render.ts`. All four are covered by `src/tests/renderer/` and
-named in `jest.config.cjs`'s `collectCoverageFrom`; the components are markup
+`terminal/keys.ts`, its character generator and picture `terminal/font.ts` and
+`terminal/render.ts`, the pad's map-to-panel wiring `keypad/layout.ts`, and the
+LCD's drawing `lcd/render.ts`. All of them are covered by `src/tests/renderer/`
+and named in `jest.config.cjs`'s `collectCoverageFrom`; the components are markup
 over them. Extracting the LCD's drawing is what made it possible to point the
 real renderer at a real pixel buffer and hold the result next to the photograph.
+
+**The terminal is a screen, not a text box.** `terminal/render.ts` draws a fixed
+320 × 240 raster — 40 × 24 characters of 6 × 8 in the middle, overscan around
+them — and the panel scales that whole picture to fit, the way 6502-EMULATOR
+scales its video buffer. The glyphs in `terminal/font.ts` are the ACE's, base64
+of the 256 CP437 patterns the BIOS seeds its video card with, re-extracted from
+`6502-DOCS/data/charset.json` rather than edited. They are drawn five wide and
+left-aligned in the byte; bits 1-0 are clear in all 2,048 rows and bit 2 is set
+only in the box-drawing glyphs, which is how you know the cell is six wide and
+carries its own gap. Sizing the tube has the same trap the keypad had — see
+below — and the same fix: `width: min(100%, 100cqh * 4 / 3)`, because a box with
+a definite height and `max-width` on it does not re-derive its ratio, it just
+squashes.
 
 **Two numbers in the LCD spec were wrong, and the reference says so.** PLAN.md's
 table was read off the image by eye; measuring it gives:
 
-- **Bezel is 3 dot pitches, not 5.** The reference panel is 98.4 × 23.2 pitches
-  around a 95 × 17 character area — 3.1 top and bottom, but only 1.7 at the
-  sides. The two disagree because that panel was stretched to fill its window
-  instead of keeping the character area's aspect ratio, so the horizontal figure
-  is the window's shape and not the design.
-- **The dot gutter is ~30%, not 20%.** Scanning a character row, dark runs come
-  out at ~4 px against a 6.99 px pitch. At 20% the unlit dots very nearly touch
-  and blank cells read as solid blocks; at 30% each dot is distinct with
-  backlight all round it, which is the texture the photograph has.
+- **Bezel is 3 dot pitches, not 5.** About three pitches of backlight above and
+  below the character area in the reference. Its side margins are narrower, but
+  that panel was stretched to fill its window instead of keeping the character
+  area's aspect ratio, so the horizontal figure describes the window and not the
+  design.
+- **The dot gutter is ~30%, not 20%.** Scanning a character row, the dark runs
+  take about two thirds to three quarters of each pitch. At 20% the unlit dots
+  very nearly touch and blank cells read as solid blocks; at 30% each dot is
+  distinct with backlight all round it, which is the texture the photograph has.
+
+Both are written into `lcd/render.ts` as round numbers — 3 pitches, 30% — and
+should stay round. The reference is a blurred photograph of a screen; it can say
+"about a third", and a constant with more digits in it than that is reading its
+own noise rather than the hardware.
 
 The colours were already right: the reference's unlit dots sample at #8DA93D
 against the spec's #8AA33B, and the ratio to the backlight comes out at 80%,
@@ -238,6 +269,43 @@ because it belongs to the window rather than to whatever holds the keyboard, and
 typing into any `input`/`textarea`/`select` is not input to the machine at all
 (without that, keying an address into Load Binary would also key it into the
 monitor).
+
+**The accessory bay is one identifier all the way down.** A circuit's registry
+`id` *is* its `IO.kind` (`led-latch`) — the string settings persist, the one
+`--accessory` will take, and the one `Snapshot.ts`'s slot-layout check compares.
+So a snapshot taken with the LEDs fitted already refuses to restore into an empty
+bay, with no accessory-specific code in the snapshot at all. `registry.ts` is the
+only list; adding a circuit is an entry there plus one line in
+`AccessoryPanel.vue`'s `VIEWS` map, which is the single place a component *name*
+becomes a component — core knows nothing about Vue. An id this build has never
+heard of leaves the bay empty rather than failing the boot, because a settings
+file written by a later version should still give you a machine you can use.
+
+**`LEDLatch` reads back open bus, and that is load-bearing.** `ProbeGPIO` writes
+$AA to `GPIO_DDRB` — $9402, inside io6 — and reads it back; a card that echoed
+the write would set `HW_GPIO` on a machine with no VIA in it, and `SysDelay`
+would then wait on a hardware timer that is not there. That routine is the delay
+loop *both* DOCS programs are built on, so the convenient version of this card
+breaks the two things it exists to run. `LEDDemo.test.ts` checks the firmware
+agrees: `HW_PRESENT` still reads `HW_SC` alone with the latch fitted. The probe's
+own $AA does flicker the lamps on every boot, exactly as on the bench.
+
+**And a reset does not clear it.** A 74HC373 has no clear pin, so
+`reset(coldStart)` empties the latch on a cold start only. Pressing `ESC` to stop
+a program leaves the lamps holding whatever it last wrote; that is the hardware,
+not an oversight.
+
+**Fitting a circuit rebuilds the machine, and `useAccessory` is shared.** The bay
+in the window and the ACCESSORY section in Settings are two views of one choice —
+two dropdowns that could disagree about what is on the bus would be worse than
+either alone. What is *fitted* is read back off `machine.io6` rather than from the
+remembered selection, because after a rebuild the machine is the only thing that
+knows what actually went in.
+
+**`LEDDemo.test.ts` is the first test to take `Snapshot.ts` up on what it was
+written for**: boot the monitor once, save there, restore per case. Ten cases run
+in under two seconds, where paying the LCD's power-on ritual each time would have
+cost about 1.8 M cycles apiece.
 
 **`npm run typecheck` used to check nothing in the renderer.** The root
 `tsconfig.json` is references-only (`files: []`), and `vue-tsc --noEmit` does not
@@ -312,3 +380,55 @@ that starts at `$0000` is telling you the overlay has broken.
 boots the real firmware and drives it entirely through `createMethods`, because
 the exit criterion is not "the monitor moves" — phase 2 settled that — but "a
 scripted client can move it and see that it moved."
+
+`src/cli/` and `src/host/headless/` are a lift too, and the same rule decided
+what came across: the flag survives if the hardware behind it does.
+
+**`--freq` and `--rtc` are gone, and they are gone for opposite reasons.** PHI2
+on this board is 1 MHz, so there is nothing to select — `session.config` refuses
+a different one rather than ignoring it, and `dbg config --frequency` is kept
+precisely so a script ported from the ACE is *told*. `--rtc` existed to pin the
+one input the engine read from the host clock; a KIM has no clock card, so there
+is nothing to pin and **every headless run is already reproducible**. That is
+worth stating in the guide rather than leaving someone to discover it.
+
+**`--no-serial-card` replaces `--empty <cards>`.** Only two of the eight slots
+are ever filled here and each has its own flag, so a comma-separated list of
+slot aliases would be a general mechanism with two members. Pulling io5 is the
+one that changes behaviour: `HW_PRESENT` comes back without `HW_SC` and the KC
+Monitor takes its keypad-only path.
+
+**A keypad-only machine has no console, and `HeadlessTarget` says so.** Its
+`serial.*` methods are assigned in the constructor only when the card is fitted,
+so the method table answers NOT_SUPPORTED instead of accepting bytes and dropping
+them — and `attachStdin` does not even attach, which also stops a resumed stdin
+holding the process open after the run ends. `RendererTarget` differs here on
+purpose: the Terminal panel's buffer exists either way, so the window always has
+somewhere to put them.
+
+**The headless display is text, and `--lcd` writes it to stderr.** Sixteen by two
+is small enough to read as characters, so there is no PNG encoder and no
+framebuffer; `formatLCD` boxes the two lines because trailing blanks are a state
+of the panel rather than padding. stderr, because stdout is the machine's serial
+stream and belongs to it. `RunResult.lcd` is always populated for the same
+reason it exists at all: on a machine with no Serial Card it is the whole of what
+the run produced.
+
+**`dbg key` takes a bare number as a name, not a code.** `key 0` presses the zero
+key, which reports `$0A`; `key '$0A'` says the same thing the other way. Reading
+a bare `0` as an encoder code would press `◄`, and `KeypadMap` exists precisely
+so that nothing derives one from the other. A whole sequence goes to one call,
+because the pacing that keeps the 74C922's latch from losing a keystroke is
+measured in emulated cycles and separate processes cannot pace anything.
+
+**Two small divergences in the client, both earning themselves.** `unescape`
+learned `\xNN`, because the splash waits for ESC and a shell argument cannot hold
+one — the alternative was `--encoding base64 Gw==`. And `mem` converts a hex
+address to a number for every space but `cpu`, which takes an offset into an
+image over the wire: without it `mem 0x1FFC --space card`, the card's reset
+vector and the most obvious thing to look at, comes back "expected a number".
+
+**Both bundled images are found by the same walk, and both are checked.**
+`readROM` wants 32 KB and `readCardROM` wants 8 KB, separately, because the
+mix-up is otherwise silent in one direction: an 8 KB image loaded as the BIOS
+gives a machine that boots and falls over the first time it calls the Kernal.

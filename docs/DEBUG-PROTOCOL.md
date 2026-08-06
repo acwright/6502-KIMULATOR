@@ -9,8 +9,9 @@ machine with a keypad and a two-line LCD instead of a keyboard, a joystick and a
 video card — the differences are called out where they matter, because most
 readers arrive here already knowing the other one.
 
-> The CLI this documents lands in **phase 7**. The service itself is here now,
-> and can be driven over HTTP by anything that can post JSON.
+> This is the method-by-method reference. For how to actually drive a machine
+> with it — booting one, keying the pad, waiting on output rather than sleeping —
+> see [DRIVING.md](DRIVING.md).
 
 - [Turning it on](#turning-it-on)
 - [Finding it](#finding-it)
@@ -181,8 +182,11 @@ clock, for a sharper reason — see [keypad](#keypad).
 |---|---|---|
 | `session.info` | — | `protocol`, `host`, `version`, `console`, `frequency`, `baudRate?`, `serialCard`, `symbols`, plus [run state](#run-state) |
 | `session.reset` | `cold?` (default `true`) | Run state |
-| `session.config` | `frequency?` (1000000 or 2000000), `baudRate?` | `frequency`, `baudRate?`, `console` |
+| `session.config` | `baudRate?` | `frequency`, `baudRate?`, `console` |
 | `session.shutdown` | — | `{ok:true}`, then the host winds down |
+
+`frequency` is reported and not settable. PHI2 on this board is 1 MHz; the ACE
+is the machine in the family whose board carries the 2 MHz jumper.
 
 `console` is `serial` or `keypad`. `keypad` is not a lesser mode — it is the
 machine with io5 vacant, and the KC Monitor guards every ACIA access on

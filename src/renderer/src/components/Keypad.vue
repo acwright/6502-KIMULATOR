@@ -18,7 +18,7 @@
  * follows the mouse and the host key because that is feedback for the person
  * pressing it, not a signal the machine ever sees.
  */
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import type { Component } from 'vue'
 import { ChevronUpIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/solid'
 import { keyForHostCode } from '@core/KeypadMap'
@@ -26,6 +26,7 @@ import { KEY_FACES, GRID_STYLE } from '@/keypad/layout'
 import type { Arrow, KeyFace } from '@/keypad/layout'
 import { useEmulatorStore } from '@/stores/emulator'
 import { useFocusRegion } from '@/composables/useFocusRouter'
+import FocusBadge from '@/components/FocusBadge.vue'
 
 const store = useEmulatorStore()
 
@@ -77,18 +78,13 @@ const ARROW_ICONS: Readonly<Record<Arrow, Component>> = {
   left: ChevronLeftIcon,
   right: ChevronRightIcon
 }
-
-const ringClass = computed(() =>
-  isFocused.value ? 'outline outline-2 -outline-offset-2 outline-white/60' : 'outline-none'
-)
 </script>
 
 <template>
   <section
     ref="root"
     tabindex="0"
-    class="keypad-box flex min-h-0 min-w-0 items-center justify-center overflow-hidden bg-black p-3"
-    :class="ringClass"
+    class="keypad-box relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden bg-neutral-900 p-3 outline-none"
     aria-label="Keypad"
     @mousedown="take()"
     @focus="take()"
@@ -111,6 +107,8 @@ const ringClass = computed(() =>
         <span v-else class="key-label">{{ face.label }}</span>
       </button>
     </div>
+
+    <FocusBadge :active="isFocused" />
   </section>
 </template>
 

@@ -16,6 +16,7 @@ import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { ArrowPathIcon, XMarkIcon, ClipboardDocumentIcon } from '@heroicons/vue/24/solid'
 import { useEmulatorStore } from '@/stores/emulator'
 import { useMachine } from '@/composables/useMachine'
+import { useAccessory } from '@/composables/useAccessory'
 import { useSerial } from '@/composables/useSerial'
 import {
   loadDefaultBIOS,
@@ -70,7 +71,8 @@ async function resetCardROM(): Promise<void> {
 // ── Raw binary at an explicit address ─────────────────────────────────────────
 
 const binaryInput = ref<HTMLInputElement | null>(null)
-const binaryAddress = ref('')
+/** $0800 is where the monitor puts you and where user programs live — 6502.inc. */
+const binaryAddress = ref('0800')
 
 /** Parsed hex load address, or null while the field is empty or out of RAM. */
 const binaryLoadAddress = computed(() => {
@@ -90,19 +92,31 @@ async function onLoadBinary(event: Event): Promise<void> {
 
 /**
  * The Serial Card is not decoration: `KC Monitor.asm` guards every ACIA access
- * on `HW_PRESENT & HW_SC`, so unfitting it is the only way to exercise the
+ * on `HW_PRESENT & HW_SC`, so removing it is the only way to exercise the
  * keypad-only path the firmware explicitly supports.
  */
 function toggleSerialCard(event: Event): void {
-  const fitted = (event.target as HTMLInputElement).checked
-  machine.rebuild({ serialCard: fitted })
-  window.api?.settings.set({ serialCardFitted: fitted }).catch(() => {})
+  const installed = (event.target as HTMLInputElement).checked
+  machine.rebuild({ serialCard: installed })
+  window.api?.settings.set({ serialCardFitted: installed }).catch(() => {})
 }
 
-function setFrequency(event: Event): void {
-  const frequency = Number((event.target as HTMLSelectElement).value)
-  store.setFrequency(frequency)
-  window.api?.settings.set({ frequency }).catch(() => {})
+// ── Accessory ─────────────────────────────────────────────────────────────────
+
+/**
+ * The same choice the bay in the window offers, through the same composable —
+ * two dropdowns that could disagree about what is on the bus would be worse
+ * than either on its own.
+ */
+const {
+  options: accessories,
+  fitted: fittedAccessory,
+  selected: selectedAccessory,
+  fit: fitAccessory
+} = useAccessory()
+
+function onSelectAccessory(event: Event): void {
+  fitAccessory((event.target as HTMLSelectElement).value || null)
 }
 
 // ── Serial ────────────────────────────────────────────────────────────────────
@@ -288,22 +302,15 @@ onUnmounted(() => offDebugStatus?.())
             :checked="store.serialCardFitted"
             @change="toggleSerialCard"
           />
-          <span>Serial Card fitted (io5, <code>$9000</code>)</span>
+          <span>Serial Card installed (io5, <code>$9000</code>)</span>
         </label>
 
         <p class="hint">
-          Pulling it gives the keypad-only machine the KC Monitor supports — it
-          guards every ACIA access on <code>HW_PRESENT &amp; HW_SC</code>. Fitting
-          or pulling a card rebuilds the machine, so RAM is cleared.
+          Remove it and the machine runs from the keypad and LCD alone — the KC
+          Monitor is built for that, so nothing breaks; there is simply no serial
+          port. Adding or removing a card switches the machine off and on, so RAM
+          is cleared.
         </p>
-
-        <div class="config-item">
-          <label class="config-label">CPU Frequency</label>
-          <select class="field" :value="store.frequency" @change="setFrequency">
-            <option :value="1000000">1 MHz</option>
-            <option :value="2000000">2 MHz</option>
-          </select>
-        </div>
       </section>
 
       <!-- ── Accessory ─────────────────────────────────────────────────────── -->
@@ -312,16 +319,20 @@ onUnmounted(() => offDebugStatus?.())
 
         <div class="config-item">
           <label class="config-label">Wired to <code>$9400</code> (io6)</label>
-          <select class="field" disabled>
-            <option>Empty</option>
+          <select class="field" :value="selectedAccessory" @change="onSelectAccessory">
+            <option value="">Empty</option>
+            <option v-for="option in accessories" :key="option.id" :value="option.id">
+              {{ option.name }}
+            </option>
           </select>
         </div>
 
         <p class="hint">
-          The bay on the bus where a breadboard gets wired. The registry of
-          circuits to choose from — starting with the KIM Demo's eight LEDs
-          behind a 74HC373 — arrives with the accessories; until then the bay is
-          empty, which is what a KIM is with nothing plugged into it.
+          {{
+            fittedAccessory?.description ??
+            'Where a breadboard circuit plugs into the bus. An empty bay is how a KIM sits with nothing attached to it.'
+          }}
+          Wiring something in switches the machine off and on, so RAM is cleared.
         </p>
       </section>
 
@@ -343,7 +354,7 @@ onUnmounted(() => offDebugStatus?.())
         </div>
 
         <p v-if="!store.serialCardFitted" class="load-warning">
-          No Serial Card fitted — there is no ACIA for a port to bridge to.
+          No Serial Card installed — there is no serial port to connect to.
         </p>
 
         <!-- Electron: port selector + config -->

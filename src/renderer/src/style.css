@@ -11,12 +11,15 @@
   src: url('./assets/fonts/BebasNeue-Regular.woff2') format('woff2');
 }
 
+/* The window is a shade or two off black so the things that *are* black — the
+   terminal's tube, the caps on the pad — read as objects sitting on it rather
+   than as holes in it. */
 html,
 body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #000;
+  background: #171717;
   color: #fff;
 }
 

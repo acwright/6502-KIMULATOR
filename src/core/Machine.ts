@@ -60,13 +60,14 @@ export class Machine {
   io8!: IO
 
   /**
-   * PHI2, the CPU clock — 1 MHz or 2 MHz, selected by a jumper on the real board.
+   * PHI2, the CPU clock. 1 MHz, and not selectable: the ACE is the machine in
+   * the family whose board carries the 2 MHz jumper.
    *
-   * A 16 MHz oscillator is divided down and the jumper picks which tap becomes
-   * PHI2 for the 65C02, the 65C21 and the 6551. Cards receive PHI2 through
+   * Still a field rather than a constant because it is what paces a realtime
+   * run and what a snapshot records, and because cards receive PHI2 through
    * tick() and are responsible for their own clock.
    */
-  frequency: number = 1000000
+  frequency: number = 1_000_000
 
   /**
    * Clock cycles elapsed since the machine was created.

@@ -12,11 +12,15 @@ module.exports = {
     // rather than by directory: the rest of that tree is components and
     // composables that need a window, and would report as uncovered forever.
     'src/renderer/src/embed/params.ts',
-    // The terminal's control-code handling and the pad's map-to-panel wiring.
-    // Both were kept out of their .vue files precisely so they could be tested.
+    // The terminal's control-code handling, its picture, the pad's
+    // map-to-panel wiring and the accessory's lamp order. All kept out of their
+    // .vue files precisely so they could be tested.
     'src/renderer/src/terminal/TerminalBuffer.ts',
     'src/renderer/src/terminal/keys.ts',
-    'src/renderer/src/keypad/layout.ts'
+    'src/renderer/src/terminal/font.ts',
+    'src/renderer/src/terminal/render.ts',
+    'src/renderer/src/keypad/layout.ts',
+    'src/renderer/src/accessory/leds.ts'
   ],
   moduleNameMapper: {
     '^@core/(.*)$': '<rootDir>/src/core/$1',

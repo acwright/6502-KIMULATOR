@@ -1,0 +1,108 @@
+import type { Machine } from '../../core/Machine'
+
+/**
+ * Bridges a byte stream to the emulated 6551 ACIA, so the host's stdio becomes
+ * the machine's terminal.
+ *
+ * This works with no firmware changes because the KC Monitor already does the
+ * hard part: `KernalInit` probes the slots, finds the Serial Card and sets
+ * `HW_SC` in `HW_PRESENT`, and from then on the monitor echoes its prompt and
+ * reads its commands over the ACIA. Boot a machine with io5 fitted and a TTY on
+ * the other end is the serial monitor described in `KC Monitor.asm` — which is
+ * exactly the laptop-plugged-into-the-board experience the real thing needs.
+ *
+ * With the card pulled there is no serial path at all and nothing constructs
+ * one: that machine is driven from the pad, and read off the LCD.
+ */
+export class SerialConsole {
+  /**
+   * Bytes waiting to be handed to the ACIA, released at the configured baud
+   * rate rather than all at once.
+   *
+   * The pacing is not cosmetic. The ACIA's receive queue is unbounded and
+   * drains a byte per CPU tick, but the firmware's input buffer is not, and its
+   * RTS flow control has nothing to push back on here. Dumping a pasted program
+   * in one go would overrun that buffer and silently lose input — which is the
+   * same reason the Paste box in the window paces its bytes.
+   */
+  private readonly pending: number[] = []
+
+  /** Emulated cycles owed before the next byte may be released. */
+  private cycleDebt = 0
+
+  private lastCycles = 0
+
+  /** Serial line rate; the real machine boots at 19200 8-N-1. */
+  private rate: number
+
+  constructor(
+    private readonly machine: Machine,
+    baudRate = 19200
+  ) {
+    this.rate = baudRate
+    this.lastCycles = machine.cycles
+  }
+
+  get baudRate(): number {
+    return this.rate
+  }
+
+  set baudRate(value: number) {
+    if (!Number.isFinite(value) || value <= 0) return
+    this.rate = value
+    // Credit banked at the old rate would release a burst at the new one.
+    this.resync()
+  }
+
+  /** Cycles per byte on the wire: 8 data bits plus a start and a stop bit. */
+  private get cyclesPerByte(): number {
+    return (this.machine.frequency * 10) / this.rate
+  }
+
+  /** Queue host bytes for delivery to the machine. */
+  write(data: Uint8Array | string): void {
+    const bytes = typeof data === 'string' ? Buffer.from(data, 'binary') : data
+    for (const byte of bytes) this.pending.push(byte & 0xff)
+  }
+
+  get pendingBytes(): number {
+    return this.pending.length
+  }
+
+  /**
+   * Restart the pacing clock from now, discarding banked credit.
+   *
+   * Needed when input has been held back — otherwise the first pump after the
+   * hold sees every cycle that passed during it and releases the whole backlog
+   * at once, which is exactly the overrun the pacing exists to prevent.
+   */
+  resync(): void {
+    this.lastCycles = this.machine.cycles
+    this.cycleDebt = 0
+  }
+
+  /**
+   * Release however many bytes the elapsed emulated time has paid for.
+   *
+   * Call this between chunks of execution. Because the budget is measured in
+   * emulated cycles rather than wall time, input arrives at the same point in
+   * the program whether the machine is running in real time or flat out.
+   */
+  pump(): void {
+    const elapsed = this.machine.cycles - this.lastCycles
+    this.lastCycles = this.machine.cycles
+    if (elapsed <= 0) return
+
+    this.cycleDebt += elapsed
+
+    const perByte = this.cyclesPerByte
+    while (this.pending.length > 0 && this.cycleDebt >= perByte) {
+      this.cycleDebt -= perByte
+      this.machine.onReceive(this.pending.shift()!)
+    }
+
+    // Don't bank credit while idle, or a long quiet stretch would let a later
+    // paste through in one unpaced burst.
+    if (this.pending.length === 0) this.cycleDebt = 0
+  }
+}

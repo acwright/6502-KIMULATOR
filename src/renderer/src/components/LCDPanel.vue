@@ -129,7 +129,7 @@ const title = computed(() =>
 
 <template>
   <section
-    class="flex min-h-0 min-w-0 items-center justify-center overflow-hidden bg-black p-3"
+    class="flex min-h-0 min-w-0 items-center justify-center overflow-hidden bg-neutral-900 p-3"
     :class="expanded ? 'fixed inset-0 z-150 p-8' : ''"
     aria-label="LCD"
     :title="title"

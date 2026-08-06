@@ -19,6 +19,7 @@ import { focus } from '@/composables/useFocusRouter'
 import Terminal from '@/components/Terminal.vue'
 import LCDPanel from '@/components/LCDPanel.vue'
 import Keypad from '@/components/Keypad.vue'
+import AccessoryPanel from '@/components/AccessoryPanel.vue'
 import ControlBar from '@/components/ControlBar.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import PasteModal from '@/components/PasteModal.vue'
@@ -41,33 +42,34 @@ const showPaste = ref(false)
 
 onMounted(async () => {
   await machine.boot()
-  // Something has to hold the keyboard to begin with, and the serial console is
-  // where a machine with a Serial Card in it is usually driven from. Clicking
-  // the pad — or Tab — moves it.
-  focus('terminal')
+  // The pad holds the keyboard to begin with, because the pad is the machine.
+  // It is also what the KC Monitor's splash is waiting for: the terminal accepts
+  // keys from the first frame, but nothing echoes until the firmware is past
+  // that gate, so a window that started on the terminal looked broken. Clicking
+  // the terminal — or Tab — moves it.
+  focus('keypad')
 })
 </script>
 
 <template>
-  <div class="flex h-full flex-col bg-black text-white">
+  <div class="flex h-full flex-col bg-neutral-900 text-white">
     <!--
       Two columns, each with its own split, rather than one two-by-two grid: the
       terminal wants most of the left column and the pad most of the right, and
       a shared row line would force one of them to give.
+
+      The gaps between the panels are the dividers — the container's colour
+      showing through. There is no padding around the outside on purpose: that
+      drew a grey hairline down the window's left and right edges, which reads as
+      a rendering fault rather than as a division between two panels.
     -->
-    <div class="flex min-h-0 flex-1 gap-px bg-neutral-800 p-px">
+    <div class="flex min-h-0 flex-1 gap-px bg-neutral-800">
       <div class="flex min-w-0 flex-3 flex-col gap-px">
         <Terminal class="flex-4" />
 
-        <!-- The accessory bay. The registry of circuits arrives with the
-             accessories; an empty bay is what a KIM is with nothing wired in. -->
-        <section
-          class="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-black"
-          aria-label="Accessory"
-        >
-          <h1 class="text-sm tracking-[0.3em] text-neutral-600">ACCESSORY</h1>
-          <p class="mt-1 font-mono text-xs text-neutral-700">the bus at $9400 — empty</p>
-        </section>
+        <!-- The accessory bay: the bus at $9400, and whatever is wired to it.
+             An empty bay is what a KIM is with nothing plugged in. -->
+        <AccessoryPanel class="flex-1" />
       </div>
 
       <div class="flex min-w-0 flex-2 flex-col gap-px">
@@ -82,14 +84,3 @@ onMounted(async () => {
     <PasteModal v-if="showPaste" @close="showPaste = false" />
   </div>
 </template>
-
-<style scoped>
-.kim-grid {
-  display: grid;
-  grid-template-columns: 3fr 2fr;
-  grid-template-rows: 3fr 2fr;
-  grid-template-areas:
-    'terminal lcd'
-    'accessory keys';
-}
-</style>

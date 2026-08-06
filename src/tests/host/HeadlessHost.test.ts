@@ -1,0 +1,451 @@
+/**
+ * End-to-end tests for the headless host.
+ *
+ * These boot the real bundled BIOS and the real KC Monitor, so nothing here is
+ * stubbed — if the firmware stops booting, or the serial path or the LCD
+ * breaks, these fail.
+ */
+import { readFileSync } from 'fs'
+import { join } from 'path'
+import { HeadlessHost, readROM, readCardROM } from '../../host/headless/HeadlessHost'
+import type { HeadlessOptions } from '../../host/headless/HeadlessHost'
+import { SerialConsole } from '../../host/headless/SerialConsole'
+import { Machine } from '../../core/Machine'
+import { ACIA } from '../../core/IO/ACIA'
+import { Empty } from '../../core/IO/Empty'
+import { LEDLatch } from '../../core/accessories/LEDLatch'
+import { CardROM } from '../../core/CardROM'
+
+const ROOT = join(__dirname, '../../..')
+const BIOS = new Uint8Array(readFileSync(join(ROOT, 'assets/roms/BIOS.bin')))
+const KC_MONITOR = new Uint8Array(readFileSync(join(ROOT, 'assets/roms/KCMonitor.bin')))
+
+/**
+ * Enough emulated time to boot and drive the monitor, with room to spare.
+ *
+ * Generous because `LcdInit` runs the HD44780's power-on ritual with four
+ * ~41 ms software delays in it — about 1.8 M cycles before the splash appears,
+ * and there is no honest way to skip them.
+ */
+const BOOT_BUDGET = 6_000_000
+
+// These boot real ROMs, and under parallel workers they contend for CPU with
+// every other suite. The work is bounded in emulated cycles, not wall time, so
+// a generous ceiling avoids a flaky timeout without hiding a real hang.
+jest.setTimeout(60_000)
+
+/** ESC at the splash starts the monitor, on the pad and on the wire alike. */
+const ESC = '\x1b'
+const CR = '\r'
+
+function host(options: Partial<HeadlessOptions> = {}) {
+  let output = ''
+  const h = new HeadlessHost({
+    rom: BIOS,
+    cardROM: KC_MONITOR,
+    maxCycles: BOOT_BUDGET,
+    onOutput: (data) => {
+      output += Buffer.from(data).toString('binary')
+    },
+    ...options
+  })
+  return { host: h, read: () => output }
+}
+
+describe('HeadlessHost', () => {
+  describe('the machine it builds', () => {
+    it('fits the Serial Card by default, and leaves the bay empty', () => {
+      const { host: h } = host()
+      expect(h.session.machine.io5).toBeInstanceOf(ACIA)
+      expect(h.session.machine.io6).toBeInstanceOf(Empty)
+      expect(h.consoleMode).toBe('serial')
+    })
+
+    /**
+     * Not a degraded machine: `KC Monitor.asm` guards every ACIA access on
+     * `HW_PRESENT & HW_SC`, so this is the keypad-only path the firmware was
+     * written to support, and the only way to exercise it.
+     */
+    it('leaves io5 vacant when the Serial Card is pulled, and builds no console', () => {
+      const { host: h } = host({ serialCard: false })
+      expect(h.session.machine.io5).toBeInstanceOf(Empty)
+      expect(h.session.machine.acia()).toBeUndefined()
+      expect(h.serial).toBeUndefined()
+      expect(h.consoleMode).toBe('keypad')
+    })
+
+    it('wires an accessory into the bay by its registry id', () => {
+      expect(host({ accessory: 'led-latch' }).host.session.machine.io6).toBeInstanceOf(LEDLatch)
+      // An id this build has never heard of leaves the bay empty rather than
+      // failing the boot — the CLI is what refuses a typo.
+      expect(host({ accessory: 'nope' }).host.session.machine.io6).toBeInstanceOf(Empty)
+    })
+
+    /**
+     * The reset vectors come out of the Keypad Card, not the BIOS: `$FFFC` of
+     * `BIOS.bin` is not on this machine's bus. A host that reset onto the BIOS
+     * image would start somewhere that is not the monitor.
+     */
+    it('resets through the Keypad Card vectors', () => {
+      const { host: h } = host()
+      const vector =
+        KC_MONITOR[0xfffc - CardROM.START]! | (KC_MONITOR[0xfffd - CardROM.START]! << 8)
+      expect(h.session.machine.cpu.pc).toBe(vector)
+    })
+  })
+
+  describe('serial console', () => {
+    it('boots to the KC Monitor and answers on the wire', async () => {
+      const { host: h, read } = host()
+
+      const result = await h.run('turbo')
+
+      expect(read()).toContain('KIM MONITOR')
+      expect(result.reason).toBe('max-cycles')
+    })
+
+    /**
+     * The monitor's own Wozmon syntax, over a TTY. `$0300` rather than `$0200`
+     * because the firmware's input buffer lives at `$0200` — a deposit there is
+     * overwritten by the next line typed.
+     */
+    it('takes a deposit typed at the prompt and reads it back', async () => {
+      const { host: h, read } = host({
+        maxCycles: 12_000_000,
+        inputAfter: />/
+      })
+      h.write(`${ESC}0300: A9 41 EA${CR}0300.0302${CR}`)
+
+      await h.run('turbo')
+
+      expect(read()).toMatch(/0300: A9 41 EA/)
+      expect(h.session.machine.peek(0x0300)).toBe(0xa9)
+    })
+
+    it('holds input back until the prompt appears', async () => {
+      // Anything sent while the firmware is still probing slots and running the
+      // LCD's power-on ritual is swallowed. Without the gate this deposit lands
+      // in the middle of the boot and the monitor never sees it.
+      const { host: h } = host({ maxCycles: 12_000_000, inputAfter: />/ })
+      h.write(`${ESC}0300: 5A${CR}`)
+
+      await h.run('turbo')
+
+      expect(h.session.machine.peek(0x0300)).toBe(0x5a)
+    })
+  })
+
+  describe('the LCD', () => {
+    it('reports the panel as two lines of text', async () => {
+      const { host: h } = host()
+      await h.run('turbo')
+
+      const lines = h.lcdText()
+      expect(lines).toHaveLength(2)
+      expect(lines[0]).toContain('KIM MONITOR')
+      // Sixteen columns, blanks included — trailing spaces are a state of the
+      // panel, not padding to be trimmed.
+      expect(lines[0]).toHaveLength(16)
+    })
+
+    it('tells a watcher only when what the panel says changes', async () => {
+      const seen: string[] = []
+      const { host: h } = host({ onLCD: (lines) => seen.push(lines.join('|')) })
+
+      await h.run('turbo')
+
+      expect(seen.length).toBeGreaterThan(0)
+      expect(seen.some((text) => text.includes('KIM MONITOR'))).toBe(true)
+      // Sampled at the chunk cadence, so two consecutive reports are never the
+      // same panel twice.
+      expect(new Set(seen).size).toBe(seen.length)
+    })
+
+    /**
+     * On a keypad-only machine this is the whole of what a run produced, which
+     * is why the result carries it whether or not anyone asked.
+     */
+    it('carries the panel in the run result', async () => {
+      const { host: h } = host({ serialCard: false })
+      const result = await h.run('turbo')
+      expect(result.lcd).toEqual(h.lcdText())
+    })
+  })
+
+  describe('the pad', () => {
+    it('runs to the splash with no console at all', async () => {
+      const { host: h } = host({ serialCard: false, maxCycles: 3_000_000 })
+      await h.run('turbo')
+      expect(h.lcdText()[1]).toContain('ESC TO START')
+    })
+
+    /**
+     * The pad is the only way into a machine with no Serial Card, and the
+     * splash is what it is waiting for. Pressed from the chunk cadence — the
+     * same clock `keypad.press` paces a sequence on — because the 74C922
+     * latches one code and the monitor's interrupt handler reading it is what
+     * makes room for the next.
+     */
+    it('starts the monitor from a keypress on the pad', async () => {
+      const { host: h } = host({ serialCard: false, maxCycles: 9_000_000 })
+
+      let pressed = false
+      const off = h.session.onChunk(() => {
+        if (pressed || !h.lcdText()[1]?.includes('ESC TO START')) return
+        pressed = true
+        h.session.machine.onKeypadDown(0x10) // ESC
+      })
+      await h.run('turbo')
+      off()
+
+      expect(pressed).toBe(true)
+      // The monitor's own display: an address and the byte at it.
+      expect(h.lcdText()[0]).toMatch(/\$[0-9A-F]{4}: \$[0-9A-F]{2}/)
+    })
+  })
+
+  describe('exit conditions', () => {
+    it('stops on a cycle budget', async () => {
+      const { host: h } = host({ maxCycles: 100_000 })
+      const result = await h.run('turbo')
+
+      expect(result.reason).toBe('max-cycles')
+      expect(result.cycles).toBeGreaterThanOrEqual(100_000)
+    })
+
+    it('stops when output matches, long before the budget', async () => {
+      const { host: h } = host({ exitOn: /KIM MONITOR/, maxCycles: BOOT_BUDGET })
+
+      const result = await h.run('turbo')
+
+      expect(result.reason).toBe('exit-on')
+      expect(result.cycles).toBeLessThan(BOOT_BUDGET)
+    })
+
+    it('stops when asked to', async () => {
+      const { host: h } = host({ maxCycles: 1e9 })
+      setTimeout(() => h.stop(), 5)
+
+      const result = await h.run('turbo')
+      expect(result.reason).toBe('stopped')
+    })
+
+    it('ends the run when the program halts the processor', async () => {
+      // A card ROM that STPs straight away rather than the monitor: the point is
+      // which exit condition fires, and a one-instruction program leaves no
+      // doubt.
+      const card = new Uint8Array(CardROM.SIZE).fill(0xea)
+      card[0] = 0xdb // STP at $E000
+      card[0xfffc - CardROM.START] = 0x00
+      card[0xfffd - CardROM.START] = 0xe0
+
+      const { host: h } = host({ cardROM: card, maxCycles: 1e9, timeoutMs: 10_000 })
+      const result = await h.run('turbo')
+
+      // Not 'timeout', which would exit 2 and fail a CI job for a program that
+      // did exactly what it was written to do.
+      expect(result.reason).toBe('halted')
+      expect(result.cycles).toBeLessThan(100_000)
+    })
+
+    it('reports a timeout', async () => {
+      const { host: h } = host({ maxCycles: 1e12, timeoutMs: 20 })
+      const result = await h.run('turbo')
+      expect(result.reason).toBe('timeout')
+    })
+  })
+
+  describe('media loading', () => {
+    it('loads a binary into RAM before the machine boots', () => {
+      const bytes = Uint8Array.of(0xa9, 0x41, 0x60)
+      const { host: h } = host({ binaries: [{ address: 0x0800, bytes }] })
+
+      expect(h.session.machine.peek(0x0800)).toBe(0xa9)
+      expect(h.session.machine.peek(0x0802)).toBe(0x60)
+    })
+
+    it('rejects a binary that would run past the top of RAM', () => {
+      // RAM ends at $7FFF; $8000 and up is I/O.
+      expect(() => host({ binaries: [{ address: 0x7ff0, bytes: new Uint8Array(64) }] })).toThrow(
+        /out-of-range/
+      )
+    })
+  })
+
+  describe('reading the images from disk', () => {
+    it('checks each one is the size its chip holds', () => {
+      const bios = join(ROOT, 'assets/roms/BIOS.bin')
+      const card = join(ROOT, 'assets/roms/KCMonitor.bin')
+
+      expect(readROM(bios)).toHaveLength(0x8000)
+      expect(readCardROM(card)).toHaveLength(CardROM.SIZE)
+
+      // The mix-up worth catching: a 32 KB BIOS in the card's slot would be
+      // refused anyway, but the card's 8 KB image loaded as the BIOS leaves a
+      // machine that boots and falls over the first time it calls the Kernal.
+      expect(() => readROM(card)).toThrow(/exactly 32768/)
+      expect(() => readCardROM(bios)).toThrow(/exactly 8192/)
+    })
+  })
+
+  describe('determinism', () => {
+    /**
+     * A KIM needs no `--rtc`. Nothing in this machine reads the host clock —
+     * there is no clock card to read — so the same ROMs, the same input and the
+     * same cycle budget land in the same state every time, which is what makes
+     * an emulator-based test trustworthy in CI.
+     */
+    it('two runs of the same program produce identical machines', async () => {
+      const once = async (): Promise<string> => {
+        const { host: h } = host({ maxCycles: 3_000_000 })
+        await h.run('turbo')
+        return JSON.stringify(h.session.machine.ram.serialize())
+      }
+
+      expect(await once()).toBe(await once())
+    })
+  })
+
+  describe('serving a debugger', () => {
+    /**
+     * Starting paused has to mean not started at all.
+     *
+     * Scheduler.start() runs a whole turbo slice synchronously, so pausing
+     * after calling run() would already be tens of thousands of cycles into the
+     * firmware — and a debugger attaching at reset has to see the reset vector.
+     */
+    it('starts paused at the reset vector, having run nothing', async () => {
+      const { host: h } = host()
+      const pending = h.run('turbo', true)
+
+      expect(h.session.cycles).toBe(0)
+      expect(h.session.isRunning).toBe(false)
+      // $FFFC/$FFFD, read straight off the bus — which is the card, not the BIOS.
+      const vector = h.session.machine.peek(0xfffc) | (h.session.machine.peek(0xfffd) << 8)
+      expect(h.session.machine.cpu.pc).toBe(vector)
+
+      h.stop('stopped')
+      await pending
+    })
+
+    it('retains output only while somebody has asked for it', async () => {
+      const { host: h } = host({ maxCycles: 3_000_000 })
+
+      // No retain request and no exit-on: nothing is kept.
+      await h.run('turbo')
+      expect(h.readOutput().data).toBe('')
+
+      const second = host({ maxCycles: 3_000_000 })
+      const release = second.host.retainOutput()
+      await second.host.run('turbo')
+
+      expect(second.host.readOutput().data).toContain('KIM MONITOR')
+      release()
+    })
+
+    /**
+     * The cursor is what makes "wait for the reply to what I just sent" work.
+     *
+     * A one-shot client writes, exits, and a later process waits — by which
+     * time the machine has run far enough in turbo to have printed and scrolled
+     * past the reply. An absolute stream position survives that; "from now"
+     * cannot.
+     */
+    it('reads output from an absolute position in the stream', async () => {
+      const { host: h } = host({ maxCycles: 3_000_000 })
+      const release = h.retainOutput()
+      await h.run('turbo')
+
+      const all = h.readOutput()
+      expect(all.cursor).toBe(all.data.length)
+
+      const tail = h.readOutput({ since: all.cursor - 4 })
+      expect(tail.data).toBe(all.data.slice(-4))
+      expect(tail.truncated).toBe(false)
+      release()
+    })
+
+    it('says when the output it was asked for has already been dropped', async () => {
+      const { host: h } = host({ maxCycles: 3_000_000 })
+      const release = h.retainOutput()
+      await h.run('turbo')
+
+      h.readOutput({ clear: true })
+      expect(h.readOutput({ since: 0 }).truncated).toBe(true)
+      release()
+    })
+
+    it('reports console output to every subscriber', async () => {
+      const { host: h } = host({ maxCycles: 3_000_000 })
+      let seen = ''
+      const off = h.onSerialOutput((data) => {
+        seen += Buffer.from(data).toString('binary')
+      })
+
+      await h.run('turbo')
+
+      expect(seen).toContain('KIM MONITOR')
+      off()
+    })
+  })
+})
+
+describe('SerialConsole', () => {
+  const machine = () => new Machine()
+
+  it('paces input at the line rate rather than delivering it at once', () => {
+    const m = machine()
+    const received: number[] = []
+    const acia = m.acia()!
+    jest.spyOn(acia, 'onData').mockImplementation((byte: number) => received.push(byte))
+
+    const console_ = new SerialConsole(m, 19200)
+    console_.write('ABCD')
+
+    // 10 bits per byte at 19200 baud is 520.83 cycles at 1 MHz.
+    const perByte = Math.ceil((1_000_000 * 10) / 19200)
+    m.runCycles(perByte)
+    console_.pump()
+    expect(received.length).toBe(1)
+
+    m.runCycles(perByte * 3)
+    console_.pump()
+    expect(received.length).toBe(4)
+  })
+
+  it('holds bytes until enough emulated time has passed', () => {
+    const m = machine()
+    const console_ = new SerialConsole(m, 19200)
+    console_.write('AB')
+
+    m.runCycles(100) // well under one byte time
+    console_.pump()
+    expect(console_.pendingBytes).toBe(2)
+  })
+
+  it('does not bank credit while idle, so a later write is still paced', () => {
+    const m = machine()
+    const console_ = new SerialConsole(m, 19200)
+
+    // A long quiet stretch with nothing queued.
+    m.runCycles(1_000_000)
+    console_.pump()
+
+    console_.write('ABCD')
+    console_.pump()
+    expect(console_.pendingBytes).toBe(4)
+  })
+
+  it('resync discards banked time, so held-back input is not released in a burst', () => {
+    const m = machine()
+    const console_ = new SerialConsole(m, 19200)
+    console_.write('ABCD')
+
+    // Time passes while the gate is shut and pump() is not being called.
+    m.runCycles(1_000_000)
+    console_.resync()
+    console_.pump()
+
+    expect(console_.pendingBytes).toBe(4)
+  })
+})

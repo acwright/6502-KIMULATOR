@@ -39,8 +39,8 @@ export class SettingsService {
   /**
    * Apply settings for this launch alone, leaving the file untouched.
    *
-   * `6502-kim run --freq 2 --card-rom build/KCMonitor.bin` is someone trying a
-   * build out, not changing what the app does tomorrow. Kept apart from the saved settings
+   * `6502-kim run --baud 9600 --card-rom build/KCMonitor.bin` is someone trying
+   * a build out, not changing what the app does tomorrow. Kept apart from the saved settings
    * rather than merged into them: everything reading `get()` — the machine, the
    * Settings panel — sees what is actually in effect, while a later `set()`
    * writes only what was really chosen.

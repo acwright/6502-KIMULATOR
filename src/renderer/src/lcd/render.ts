@@ -16,12 +16,11 @@
  * reads as a *display*, because you can see the matrix it is written on even
  * where nothing is written.
  *
- * The numbers were measured off the reference rather than estimated: over 1,904
- * blank 6 × 6 tiles containing no lit pixel, the darkest dot against the
- * brightest backlight in the same tile averages 0.80 and medians 0.77. It is a
- * much stronger grid than "a shade darker" suggests, and it is why the matrix
- * reads so clearly. Blur in the photograph can only have pulled the two
- * *together*, so if anything the real contrast was higher still.
+ * The numbers came off the reference rather than out of the air: across every
+ * blank tile in it, an unlit dot sits at roughly four fifths of the backlight
+ * beside it. That is a much stronger grid than "a shade darker" suggests, and it
+ * is why the matrix reads so clearly. Blur in the photograph can only have
+ * pulled the two *together*, so if anything the real contrast was higher still.
  *
  * The reference is a photograph of a screen, though: it carries the camera's
  * white balance, is upscaled 2×, and is blurred enough that the dot geometry
@@ -47,15 +46,16 @@ export const DOT_LIT = '#101B04'
 /**
  * Gutter between dots within a cell, as a fraction of the dot pitch.
  *
- * Measured off the reference rather than taken from the estimate: scanning
- * horizontally through a character row, dark runs come out at ~4 px and the
- * gaps between them at ~2-4 px against a 6.99 px pitch, which is a gutter
- * around 30% and a dot around 70% — not the 20% that was guessed from looking.
+ * Roughly 30%, from the reference: scanning across a character row, the dark
+ * runs take up around two thirds to three quarters of each pitch and the gaps
+ * the rest. Not the 20% that was guessed from looking, and the difference is
+ * the difference between a display and a chequerboard — at 20% the unlit dots
+ * nearly touch and blank cells read as solid blocks, where at 30% each dot has
+ * backlight visible all round it.
  *
- * It is the difference between a display and a chequerboard. At 20% the unlit
- * dots very nearly touch and blank cells read as solid blocks; at 30% each dot
- * is distinct with backlight visible all round it, which is the texture the
- * photograph actually has.
+ * A round 30% rather than whatever the measurement averaged to. The reference is
+ * a blurred photograph of a screen; it can say "about a third", and a figure
+ * with more digits in it than that would be reading its own noise.
  */
 export const DOT_GUTTER = 0.3
 
@@ -66,12 +66,12 @@ export const DOT_RADIUS = 0.15
  * Backlight around the character area, in dot pitches. The glass extends well
  * past the text.
  *
- * Measured off the reference, which is 98.4 × 23.2 pitches of panel around a
- * 95 × 17 character area: 3.1 pitches top and bottom, but only 1.7 at the sides.
- * The two disagree because that panel was stretched to fill its window rather
- * than keeping the character area's aspect ratio, so the horizontal figure is
- * the window's shape and not the design. The vertical one is the design, and it
- * is taken here for all four sides.
+ * About three pitches, from the reference's top and bottom margins. Its side
+ * margins are narrower, but that panel was stretched to fill its window instead
+ * of keeping the character area's aspect ratio, so the horizontal figure
+ * describes the window rather than the part. The vertical one is the design, and
+ * it is taken here for all four sides — as a round three, because the reference
+ * is a photograph and cannot honestly say more than that.
  */
 export const BEZEL_PITCHES = 3
 

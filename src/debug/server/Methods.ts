@@ -305,15 +305,19 @@ export function createMethods(target: DebugTarget): MethodTable {
       return state()
     },
 
+    /**
+     * `frequency` is reported here and cannot be set. PHI2 on this board is
+     * 1 MHz; the 2 MHz jumper is the ACE's. Asking for a different one is
+     * refused rather than ignored — a client ported from 6502-EMULATOR's
+     * tooling would otherwise believe it had changed the clock.
+     */
     'session.config': (raw) => {
       const params = asObject(raw, 'session.config')
 
-      const frequency = optionalNumber(params, 'frequency')
-      if (frequency !== undefined) {
-        if (frequency !== 1_000_000 && frequency !== 2_000_000) {
-          throw invalidParams(`frequency: the hardware supports 1000000 or 2000000, got ${frequency}`)
-        }
-        machine.frequency = frequency
+      if (params.frequency !== undefined && params.frequency !== machine.frequency) {
+        throw invalidParams(
+          `frequency: PHI2 on this machine is fixed at ${machine.frequency} — only the ACE has the 2 MHz jumper`
+        )
       }
 
       const baudRate = optionalNumber(params, 'baudRate')

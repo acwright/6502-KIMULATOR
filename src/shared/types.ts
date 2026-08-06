@@ -97,7 +97,6 @@ export interface CliShimStatus {
 
 export interface AppSettings {
   serialConfig: SerialConfig
-  frequency: number       // 1_000_000 or 2_000_000
   /**
    * Whether the Serial Card is in io5.
    *
@@ -107,18 +106,24 @@ export interface AppSettings {
    */
   serialCardFitted: boolean
   /**
-   * The accessory wired to the bus at $9400, by its registry `id` — null for an
-   * empty bay, which is what a KIM is without a breadboard plugged into it.
+   * The accessory wired to the bus at $9400, by its `id` in
+   * `core/accessories/registry` — null for an empty bay, which is what a KIM is
+   * without a breadboard plugged into it.
    *
-   * The registry itself arrives with the accessories in phase 6; until then an
-   * unrecognised id leaves io6 vacant rather than failing the boot.
+   * An id this build does not recognise leaves io6 vacant rather than failing
+   * the boot: a settings file written by a later version should give you a
+   * machine you can still use.
    */
   accessory: string | null
 }
 
+/**
+ * There is no CPU frequency here. PHI2 on this board is 1 MHz — the ACE is the
+ * machine in the family with the 2 MHz jumper — so there is nothing to choose
+ * and nothing to remember.
+ */
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   serialConfig: DEFAULT_SERIAL_CONFIG,
-  frequency: 1_000_000,
   serialCardFitted: true,
   accessory: null
 }

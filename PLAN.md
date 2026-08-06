@@ -305,7 +305,15 @@ same traffic, which is what "follows exactly what the serial port sees" means.
 
 40 columns × 24 rows. Handles `CR`, `LF`, `BS` and printable ASCII; anything
 else is dropped rather than rendered as a glyph. Scrolls at the bottom. Block
-cursor, shown only when the terminal has focus.
+cursor, shown only when the terminal has focus. Clearable, and cleared by a
+power cycle — the terminal is part of the machine, not a laptop on the far end
+of the cable.
+
+Drawn as a screen, not as a text box: a fixed 320 × 240 raster with the
+characters in the middle of it and overscan around them, scaled up whole to
+whatever room the panel has. The glyphs are the ACE's own character generator
+(the 8 × 8 CP437 set the BIOS seeds its video card with, in a 6 × 8 cell), so a
+line of text here and a line of text in 6502-EMULATOR are the same picture.
 
 ### The LCD panel
 
@@ -371,10 +379,16 @@ already reports them, and they are drawn as lit pixels like anything else.
 
 ### Focus
 
-Terminal and keypad are focusable regions. Clicking one gives it the keyboard
-and a visible ring; `Tab` cycles. No global mode, nothing to remember, and it
-mirrors the machine — the serial port and the pad really are two independent
-input paths, and on the real thing you choose by moving your hands.
+Terminal and keypad are focusable regions. Clicking one gives it the keyboard;
+`Tab` cycles. No global mode, nothing to remember, and it mirrors the machine —
+the serial port and the pad really are two independent input paths, and on the
+real thing you choose by moving your hands.
+
+Which one has it is shown by a small keyboard in the corner of each panel, lit
+on the one holding the keys and dim on the other, rather than by an outline
+around the panel: these panels stand for physical objects, and an LCD or a
+keypad does not get selected. The pad holds the keyboard at launch — it is the
+machine, and it is what the KC Monitor's splash is waiting for.
 
 The keypad, when focused, accepts `0`–`9`, `A`–`F`, the arrow keys, `Esc`,
 `Insert`, `Delete`, `PageUp`, `PageDown` and `Enter` (as `▲`). Mouse clicks work
@@ -382,11 +396,12 @@ regardless of focus, and both routes converge on the same keycode.
 
 ### Control bar
 
-Kept from 6502-EMULATOR: Load ROM, Run/Stop, Reset, Power Cycle, frequency
-toggle, Paste, Settings. **Load Program** becomes **Load Binary** (bytes at an
-address — there is no BASIC to load a `.prg` into, but keying in a type-in card
-by hand is optional, not compulsory). **Dropped:** Load Cart (see above), mute,
-joystick indicator.
+Kept from 6502-EMULATOR: Load ROM, Run/Stop, Reset, Power Cycle, Paste,
+Settings. **Load Program** becomes **Load Binary** (bytes at an address — there
+is no BASIC to load a `.prg` into, but keying in a type-in card by hand is
+optional, not compulsory). **Dropped:** Load Cart (see above), mute, joystick
+indicator, and the frequency toggle — PHI2 on this board is 1 MHz, and the ACE
+is the machine in the family with the 2 MHz jumper.
 
 Paste accepts bin2woz output directly, typed into the terminal at a rate the
 ACIA can absorb.
@@ -395,8 +410,8 @@ ACIA can absorb.
 
 Kept: **FILES** (BIOS ROM, Keypad Card ROM, binary), **SERIAL** (port, baud/parity/data/
 stop, connect), **DEBUG SERVER**, **COMMAND LINE** (shim install).
-New: **MACHINE** (Serial Card fitted, frequency), **ACCESSORY** (which circuit
-is wired to `$9400`).
+New: **MACHINE** (whether the Serial Card is installed), **ACCESSORY** (which
+circuit is wired to `$9400`). No CPU frequency: there is nothing to choose.
 Dropped: **STORAGE**, **JOYSTICK**.
 
 ---
@@ -405,7 +420,7 @@ Dropped: **STORAGE**, **JOYSTICK**.
 
 | Question | Decision |
 |---|---|
-| Keyboard between terminal and keypad | **Click-to-focus panels.** Focused panel takes the keyboard and shows a ring; `Tab` cycles. No global mode. |
+| Keyboard between terminal and keypad | **Click-to-focus panels.** Focused panel takes the keyboard and lights the keyboard badge in its corner; `Tab` cycles. No global mode, and no ring — an outline reads as a selection, and these panels stand for physical objects. The pad holds the keyboard at launch. |
 | CLI name | **`6502-kim`.** Matches the hardware repo, and cannot collide with the `6502` shim 6502-EMULATOR installs. |
 | Port scope | **Full parity.** Core, `debug/`, CLI, headless host, web build and embed page all ship in v1.0.0, so the DOCS embed works the day it lands. |
 | Icon | Black 6502 on **white**, against 6502-EMULATOR's white-on-black — distinguishable at a glance in the Applications folder. |
@@ -595,7 +610,7 @@ none of it is machine-specific.
 1. Copy `src/main/` — `index.ts`, `boot.ts`, `serial.ts`, `settings.ts`,
    `debugBridge.ts`, `cliShim.ts`. Delete `storage.ts`.
 2. Copy `src/preload/` and `src/shared/`. Strip `AppSettings` down to
-   `serialConfig`, `frequency`, `serialCardFitted`, `accessory`; strip the IPC
+   `serialConfig`, `serialCardFitted`, `accessory`; strip the IPC
    channel list of everything under `STORAGE_*` except `LOAD_DEFAULT_ROM`
    (which now loads two images).
 3. Rename the CLI shim to `6502-kim` throughout, including the installer paths
@@ -627,10 +642,11 @@ none of it is machine-specific.
    (bottom-right), accessory (bottom-left), control bar beneath. Panels keep
    their aspect ratios as the window resizes; the LCD and the pad never
    distort.
-2. **`Terminal.vue`** — 40×24 canvas, white on black, monospace bitmap
-   rendering. Fed by the store's transmit tap; emits typed bytes back.
-   `CR`/`LF`/`BS`/printable only. Scrollback of a few hundred lines, with a
-   copy-to-clipboard action. Block cursor while focused.
+2. **`Terminal.vue`** — a fixed 320 × 240 raster carrying 40×24 characters in
+   the ACE's character generator, white on black, scaled up whole. Fed by the
+   store's transmit tap; emits typed bytes back. `CR`/`LF`/`BS`/printable only.
+   Scrollback of a few hundred lines, with copy and clear actions. Block cursor
+   while focused.
 3. **`LCDPanel.vue`** — draws `LCDAttachment`'s pixel buffer to a canvas, to the
    specification in [The LCD panel](#the-lcd-panel). Every dot position drawn,
    lit and unlit; `-1` left as backlight; dot pitch snapped to whole device
@@ -712,10 +728,18 @@ A plug-in bay on the bus, and the first thing to plug into it.
 2. `bin/6502-kim` dev entry point.
 3. Commands and flags, adapted:
    - `6502-kim run [--rom] [--card-rom] [--bin addr=file] [--serial port]
-     [--freq] [--pause] [--debug] [--accessory <id>]`
+     [--no-serial-card] [--accessory <id>] [--pause] [--debug] [--lcd]`
    - `6502-kim dbg` — attach, break, step, memory, disassemble, plus
-     `key <name>` to press a pad key
-   - Dropped: `--cart`, `--cf`, `--nvram`, `--rtc`, `--prg`
+     `key <name>` to press a pad key and `lcd` to read the panel
+   - Dropped: `--cart`, `--cf`, `--nvram`, `--rtc`, `--prg`, and `--freq` —
+     PHI2 on this board is 1 MHz, so there is nothing to select. `--rtc` goes
+     with the clock card, and takes the reason for its existence with it: it
+     was there to pin the one input the engine read from the host clock, and a
+     KIM reads none, so every headless run is already reproducible.
+   - `--no-serial-card` replaces 6502-EMULATOR's `--empty <cards>`. Only two of
+     the eight slots are ever filled on this machine and each has its own flag:
+     `--accessory` fits io6, and this pulls io5, which is the one configuration
+     the firmware branches on.
 4. `SerialConsole.ts` becomes the headless terminal — stdin to the ACIA, ACIA to
    stdout — which is exactly the KC Monitor's serial monitor on a TTY.
 5. A headless LCD renderer: the 16×2 text content as two lines, for scripted
@@ -737,8 +761,9 @@ A plug-in bay on the bus, and the first thing to plug into it.
 1. `vite.web.config.ts` port; Web Serial through `useWebSerial`; both ROMs
    fetched from `public/roms/`.
 2. `embed.html` / `EmbedApp.vue` / `EmbedControlBar.vue` port. Embed parameters
-   trimmed to what a KIM has: `rom`, `bin`, `accessory`, `freq`,
-   `autostart`, `panels` (which of terminal/lcd/keys/accessory are shown).
+   trimmed to what a KIM has: `rom`, `bin`, `accessory`, `autostart`, `panels`
+   (which of terminal/lcd/keys/accessory are shown). **No `freq`** — same
+   reason as the CLI's `--freq` and the control bar's toggle: one clock.
 3. `embed/messaging.ts` — keep the postMessage API; add a message to press a
    keypad key, so a docs page can demonstrate a keying sequence.
 4. Port `docs/EMBEDDING.md`, rewritten for the KIM's parameters.
