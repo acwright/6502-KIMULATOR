@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>6502 KIMulator — embedding demo</title>
+    <!--
+      A runnable demo of docs/EMBEDDING.md. Unlike the .sh examples, this one is
+      not something CI can assert on — it is the manual check for the embed:
+
+        npm run build:web && npm run preview:web
+        open examples/embed.html
+
+      The preview server's URL is the default below; pass ?base=<url> to point
+      this page at a different build (a deployed Pages site, say).
+
+      Everything here is deliberately plain HTML with no build step, so what you
+      read is what runs.
+    -->
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        padding: 1.5rem;
+        background: #101014;
+        color: #e6e6ea;
+        font: 15px/1.5 system-ui, sans-serif;
+      }
+      h1 { font-size: 1.3rem; margin: 0 0 0.25rem; }
+      h2 { font-size: 1rem; margin: 2rem 0 0.5rem; }
+      p { margin: 0.4rem 0; color: #a8a8b4; }
+      code { font-family: ui-monospace, monospace; font-size: 0.85em; color: #9ecbff; }
+      .row { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+      .panel { border: 1px solid #2a2a34; border-radius: 8px; padding: 0.75rem; }
+      iframe { border: 0; display: block; border-radius: 4px; background: #000; }
+      button, input[type='file'] {
+        font: inherit;
+        color: inherit;
+        background: #22222c;
+        border: 1px solid #3a3a48;
+        border-radius: 5px;
+        padding: 0.3rem 0.7rem;
+        cursor: pointer;
+      }
+      button:hover { border-color: #6a6a80; }
+      .controls { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0; }
+      #log {
+        height: 11rem;
+        overflow-y: auto;
+        background: #08080b;
+        border: 1px solid #2a2a34;
+        border-radius: 5px;
+        padding: 0.5rem;
+        font: 12px/1.4 ui-monospace, monospace;
+        white-space: pre-wrap;
+        color: #b9d5b9;
+      }
+      .hint { font-size: 0.85em; }
+    </style>
+  </head>
+  <body>
+    <h1>Embedding the 6502 KIMulator</h1>
+    <p>
+      Reference: <code>docs/EMBEDDING.md</code>. Serving from
+      <code id="base-label"></code> — override with <code>?base=…</code>.
+    </p>
+
+    <h2>1. Two embeds on one page</h2>
+    <p class="hint">
+      Click into one and type: only the focused frame takes the keyboard, and
+      inside a frame the pad and the terminal are separate focus regions with a
+      lit keyboard badge on whichever holds it. Click the page background to give
+      the keyboard back to this document — arrow keys and space should scroll
+      here, not disappear into a machine.
+    </p>
+    <p class="hint">
+      They are also two different machines. A is the whole KIM. B is
+      <code>panels=lcd,keys</code> on a machine with <code>serialcard=0</code>:
+      no Serial Card in io5, no terminal to show, and the KC Monitor on the path
+      the firmware guards behind <code>HW_PRESENT &amp; HW_SC</code> — which is
+      the machine a docs page about the pad actually wants.
+    </p>
+    <div class="row">
+      <div class="panel">
+        <strong>A</strong> — all four panels, <code>controls=full</code>, LEDs fitted
+        <div id="embed-a"></div>
+      </div>
+      <div class="panel">
+        <strong>B</strong> — <code>panels=lcd,keys</code>, <code>serialcard=0</code>
+        <div id="embed-b"></div>
+      </div>
+    </div>
+
+    <h2>2. Driving a frame over postMessage</h2>
+    <p class="hint">
+      Every button below targets embed A. The log shows what comes back:
+      <code>6502-kim:ready</code> once, then <code>6502-kim:serial</code> and
+      <code>6502-kim:stopped</code> as they happen. There is no
+      <code>lcd</code> event — the glass is on screen, and a page that needs to
+      <em>read</em> it wants the debug protocol and a real machine.
+    </p>
+    <div class="controls">
+      <button data-send='{"type":"6502-kim:run"}'>run</button>
+      <button data-send='{"type":"6502-kim:pause"}'>pause</button>
+      <button data-send='{"type":"6502-kim:reset"}'>reset</button>
+      <button data-send='{"type":"6502-kim:powerCycle"}'>power cycle</button>
+      <button data-send='{"type":"6502-kim:key","keys":"ESC"}'>key ESC</button>
+      <button data-send='{"type":"6502-kim:key","keys":"0,8,0,0"}'>key 0 8 0 0</button>
+      <button data-send='{"type":"6502-kim:key","keys":"UP"}'>key ▲ (run)</button>
+      <button data-send='{"type":"6502-kim:type","text":"0800.0810\r"}'>type 0800.0810</button>
+      <button id="clear-log">clear log</button>
+    </div>
+    <p class="hint">
+      <code>6502-kim:key</code> presses and never releases, because the MM74C922
+      reports the press and nothing else. A sequence goes in one message so the
+      embed can pace it in emulated time — the encoder latches one code, and the
+      interrupt handler's read is what makes room for the next.
+    </p>
+
+    <h2>3. Loading a binary, two ways</h2>
+    <p class="hint">
+      The same file at <code>$0800</code>, sent as a
+      <code>6502-kim:load</code> message (no reload) or baked into a fresh frame
+      as <code>bin64=</code> (no network fetch at all — this is the form a docs
+      site wants for inline samples, and a type-in card is a few dozen bytes).
+      There is no <code>cart</code>: the Keypad Card is this machine's cartridge
+      and it is soldered in.
+    </p>
+    <div class="controls">
+      <input type="file" id="file" accept=".bin" />
+      <button id="send-load">postMessage it to A</button>
+      <button id="reframe">rebuild A with bin64=</button>
+      <button id="counter">rebuild A with the DOCS binary counter</button>
+    </div>
+
+    <div id="log"></div>
+
+    <script>
+      const params = new URLSearchParams(location.search)
+      const base = params.get('base') || 'http://localhost:4173/6502-KIMULATOR/'
+      document.getElementById('base-label').textContent = base
+
+      const log = document.getElementById('log')
+      function say(text) {
+        log.textContent += `${new Date().toLocaleTimeString()}  ${text}\n`
+        log.scrollTop = log.scrollHeight
+      }
+
+      // ── The two frames ─────────────────────────────────────────────────────
+      //
+      // Built in script only so this page can rebuild frame A with a different
+      // program below; a static <iframe src="…"> is the normal way to do this.
+
+      function frame(container, query, width = 720, height = 480) {
+        container.innerHTML = ''
+        const el = document.createElement('iframe')
+        el.src = `${base}embed.html?${query}`
+        el.width = width
+        el.height = height
+        el.allow = 'fullscreen'
+        container.appendChild(el)
+        return el
+      }
+
+      // The binary counter from the 6502-DOCS type-in card, byte for byte:
+      //   stz $36 / lda $36 / sta $9400 / lda #50 / ldx #0 / jsr $A075 /
+      //   inc $36 / bra
+      const COUNTER_BASE64 = 'ZDalNo0AlKkyogAgdaDmNoDw'
+
+      let embedA = frame(
+        document.getElementById('embed-a'),
+        'controls=full&accessory=led-latch&keys=ESC'
+      )
+
+      // panels= drops what a page does not need. The pad is 4 x 6 and wants
+      // height, so this one is taller than it is wide; see the sizing table in
+      // EMBEDDING.md.
+      frame(
+        document.getElementById('embed-b'),
+        'panels=lcd,keys&serialcard=0&controls=minimal&keys=ESC,0,8,0,0',
+        360,
+        520
+      )
+
+      // ── Inbound events ─────────────────────────────────────────────────────
+
+      window.addEventListener('message', (event) => {
+        const message = event.data
+        if (!message || typeof message.type !== 'string') return
+        if (!message.type.startsWith('6502-kim:')) return
+
+        const which = event.source === embedA.contentWindow ? 'A' : 'B'
+        switch (message.type) {
+          case '6502-kim:serial':
+            // Coalesced by the embed, so this is a run of characters.
+            say(`${which} serial: ${JSON.stringify(message.text)}`)
+            break
+          case '6502-kim:stopped':
+            say(`${which} stopped: ${JSON.stringify(message.reason)}`)
+            break
+          default:
+            say(`${which} ${message.type}: ${JSON.stringify(message)}`)
+        }
+      })
+
+      // ── Outbound commands ──────────────────────────────────────────────────
+
+      for (const button of document.querySelectorAll('[data-send]')) {
+        button.addEventListener('click', () => {
+          const message = JSON.parse(button.dataset.send)
+          embedA.contentWindow.postMessage(message, '*')
+          say(`→ A ${JSON.stringify(message)}`)
+        })
+      }
+
+      document.getElementById('clear-log').addEventListener('click', () => {
+        log.textContent = ''
+      })
+
+      // ── A file, as a message and as a URL ──────────────────────────────────
+
+      const fileInput = document.getElementById('file')
+
+      async function chosenFileAsBase64() {
+        const file = fileInput.files && fileInput.files[0]
+        if (!file) {
+          say('pick a .bin first')
+          return null
+        }
+        const bytes = new Uint8Array(await file.arrayBuffer())
+        let binary = ''
+        for (const byte of bytes) binary += String.fromCharCode(byte)
+        return { name: file.name, base64: btoa(binary) }
+      }
+
+      document.getElementById('send-load').addEventListener('click', async () => {
+        const file = await chosenFileAsBase64()
+        if (!file) return
+        embedA.contentWindow.postMessage(
+          {
+            type: '6502-kim:load',
+            kind: 'bin',
+            address: '$0800',
+            data: file.base64,
+            label: file.name
+          },
+          '*'
+        )
+        say(`→ A 6502-kim:load bin (${file.name}, ${file.base64.length} base64 chars)`)
+      })
+
+      // bin64 takes <address>=<payload>, split on the first "=" so base64
+      // padding survives.
+      function rebuildWithBinary(payload, note) {
+        // URL-safe, so nothing here depends on how the query string escapes.
+        const safe = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+        embedA = frame(
+          document.getElementById('embed-a'),
+          `controls=full&accessory=led-latch&bin64=$0800=${safe}&keys=ESC,0,8,0,0,UP`
+        )
+        say(`rebuilt A with bin64= (${safe.length} chars in the URL) — ${note}`)
+      }
+
+      document.getElementById('reframe').addEventListener('click', async () => {
+        const file = await chosenFileAsBase64()
+        if (!file) return
+        rebuildWithBinary(file.base64, file.name)
+      })
+
+      // The whole demo in one URL: the program, the breadboard it drives, and
+      // the keys that start it. Nothing is fetched.
+      document.getElementById('counter').addEventListener('click', () => {
+        rebuildWithBinary(COUNTER_BASE64, 'the LEDs should start counting')
+      })
+    </script>
+  </body>
+</html>

@@ -152,7 +152,7 @@ Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
 - [x] **6** — accessories
 - [x] **7** — command line
 - [x] **8** — web build & embed
-- [ ] **9** — README, LICENSE & examples
+- [x] **9** — README, LICENSE & examples
 - [ ] **10** — release v1.0.0
 
 `npm run dev` opens a window onto a KIM you can use: it boots both ROMs, prints
@@ -163,7 +163,9 @@ machine with no window: `printf '\x1b0800: A9 41\r'` into it deposits a byte
 through the monitor's serial prompt, and `6502-kim dbg key`/`lcd` drive the pad
 and read the glass. `npm run build:web` is that window as two static pages, and
 an `<iframe>` on someone else's article is a machine they can key a program
-into. What is left is the README, the worked examples and the release.
+into. [../examples/](../examples/) drives all of that from a shell and CI runs
+it, so a documented command that stops working stops the build. What is left is
+the release.
 
 The Electron shell is a lift, minus everything a KIM has no hardware for.
 `storage.ts` is gone entirely and `roms.ts` stands in its place: a KIM has no CF

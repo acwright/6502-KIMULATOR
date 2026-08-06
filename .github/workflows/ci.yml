@@ -37,7 +37,7 @@ jobs:
       # The examples in examples/ are the documented way to drive the emulator,
       # so they are run rather than trusted. A command that stops working stops
       # the build instead of quietly misleading whoever copies it out of the docs.
-      # They arrive with the CLI in phase 9; until then there is nothing to run.
+      # They boot the real BIOS and the real KC Monitor, so this step is also the
+      # end-to-end check that the bundled ROMs and the machine still agree.
       - name: Worked examples
-        if: hashFiles('examples/run-all.sh') != ''
         run: bash examples/run-all.sh

@@ -5,9 +5,9 @@ This file is written to be **copied into your own 6502 project** — into its
 code knows how to test that code on a real emulated machine instead of writing a
 throwaway simulator.
 
-The full method reference is [DEBUG-PROTOCOL.md](DEBUG-PROTOCOL.md). Worked
-scripts land in `examples/` in phase 9; every command below was run against a
-real machine as it was written.
+The full method reference is [DEBUG-PROTOCOL.md](DEBUG-PROTOCOL.md), and
+[../examples/](../examples/) holds the same recipes as scripts that CI runs.
+Every command below was run against a real machine as it was written.
 
 ---
 
@@ -146,7 +146,7 @@ Start a machine that serves the protocol, then key it:
 
 ```sh
 6502-kim run --headless --debug --timeout 5m --quiet &
-sleep 1
+until 6502-kim dbg info >/dev/null 2>&1; do sleep 0.1; done
 
 6502-kim dbg key ESC             # start the monitor
 6502-kim dbg key 1 2 3 4         # key an address, nibble at a time
@@ -171,7 +171,7 @@ sleep 1
 
 ```sh
 6502-kim run --headless --debug --pause --symbols "KC Monitor.lst" --quiet &
-sleep 1
+until 6502-kim dbg info >/dev/null 2>&1; do sleep 0.1; done
 
 6502-kim dbg break MonitorLoop       # by name, in the card's own ROM
 6502-kim dbg run
@@ -221,14 +221,36 @@ and reports whether it matched:
 
 ```sh
 6502-kim dbg send '0800: 5A\r' --wait '\r' --timeout 5s
-6502-kim dbg wait --serial 'KIM MONITOR' --timeout 10s
 6502-kim dbg wait --expression '[$0800] == $5A' --timeout 5s
 6502-kim dbg wait --stopped --timeout 30s
+6502-kim dbg runcycles 500000            # exact, from a paused machine
+6502-kim dbg wait --cycles 500000        # at least that many, then the chunk ends
 ```
 
 `send --wait` waits from the position in the output stream where its own write
 landed, so a reply that arrives before the wait is set up still counts. In turbo
 that is not a rare race, it is the normal case.
+
+**`wait --serial` looks back to that same position and no further**, which is the
+other half of the same rule and the one that surprises people. A script that
+launches a machine and *then* waits for its banner waits forever: the banner was
+printed 50 ms ago, and nothing was written for the wait to look back from. Boot
+with `--pause` and buy the boot in cycles instead:
+
+```sh
+6502-kim run --headless --debug --pause --quiet &
+6502-kim dbg runcycles 3000000           # slot probes + the LCD's power-on ritual
+6502-kim dbg key ESC                     # a single press is allowed while paused
+6502-kim dbg run
+```
+
+`runcycles` is the exact one and `wait --cycles` is not: the second stops at the
+first execution-chunk boundary past the budget, and how much a chunk covers is
+wall-clock business. Reach for `runcycles` whenever two runs have to match byte
+for byte, and for `wait` when the point is just to let the machine get on with
+it. The pad has the same split — a keyed sequence is paced in emulated time but
+delivered one key per chunk, whereas a single press into a paused machine lands
+exactly where you put it.
 
 `\r`, `\n`, `\t` and `\xNN` in a `send` argument are turned into the bytes they
 name, because a shell string cannot hold a real carriage return or a real ESC.
@@ -257,13 +279,15 @@ to do, and reporting that as a timeout would fail a passing CI job.
 set -euo pipefail
 
 # One machine, one boot, driven from the pad.
-6502-kim run --headless --debug --accessory led-latch \
+6502-kim run --headless --debug --pause --accessory led-latch \
   --bin 0x0800=build/counter.bin --timeout 2m --quiet &
 emulator=$!
 trap 'kill $emulator 2>/dev/null || true' EXIT
 
-6502-kim dbg wait --serial 'KIM MONITOR' --timeout 20s
+until 6502-kim dbg info >/dev/null 2>&1; do sleep 0.1; done
+6502-kim dbg runcycles 3000000
 6502-kim dbg key ESC
+6502-kim dbg run
 6502-kim dbg state save ready.state
 
 # Per case: restore, key an address in, look at the glass.

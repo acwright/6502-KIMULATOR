@@ -80,7 +80,7 @@ Examples
   6502-kim dbg regs
   6502-kim dbg key 0 8 0 0        # key an address into the monitor
   6502-kim dbg lcd
-  6502-kim dbg break KcMain --condition 'A == 0xFF'
+  6502-kim dbg break MonitorLoop --condition 'A == 0xFF'
   6502-kim dbg send '0200: A9 41\\r' --wait '\\.' --timeout 5s
 
   # Boot once, then restore per test case instead of re-booting.
