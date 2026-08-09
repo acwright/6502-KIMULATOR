@@ -176,7 +176,10 @@ the same traffic.
 
 **DEBUG SERVER** (Electron only) — starts the JSON-RPC service on a loopback port
 so `6502-kim dbg` and `6502-kim attach` can drive *this* window. Off until you
-start it; a shipped build never opens a socket on its own.
+start it; a shipped build never opens a socket on its own. While it runs the
+panel shows the connection URL, token included, with a button to copy it —
+`6502-kim dbg` and `6502-kim attach` find a local server on their own, so the
+URL is for anything else that speaks the protocol.
 
 **COMMAND LINE** (Electron only) — installs the `6502-kim` command on your
 `PATH`.
