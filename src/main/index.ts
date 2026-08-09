@@ -59,6 +59,11 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // A hidden renderer is throttled hard — measured here, setTimeout(0) goes
+      // from ~186/s to 2.6/s. Scheduler paces the machine with setTimeout (no
+      // setImmediate in the renderer), so that is not a slower app: it is a
+      // 1 MHz KIM running at a few cycles a second whenever it is not in front.
+      backgroundThrottling: false,
       // Required for serialport's native Node.js bindings.
       sandbox: false
     }
