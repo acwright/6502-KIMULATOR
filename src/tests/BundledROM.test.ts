@@ -31,8 +31,8 @@ const ROMS = [
   {
     name: 'KCMonitor.bin',
     bytes: 8192,
-    // 6502-KIM @ d88eb9a1d341561a5876e5c580bf833303c90146
-    sha256: 'a2ee97d8e6f93b7d00842f94496c5ad2bacb33758bf03b8ece2a3c9cbe4b427d',
+    // 6502-KIM @ 79a4e4804c2f575388f46b23fc11e13900303f47
+    sha256: '029fb5bd9cbddab3b1547bb625725795b98a3647d4934dba59f30bb3e7e4e692',
     version: /KIM MONITOR v\d+\.\d+/
   }
 ]

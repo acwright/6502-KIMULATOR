@@ -37,6 +37,22 @@ awkward in a URL the web build has to fetch.
 
 - **Source** — `/Users/acwright/Developer/Kicad/6502-KIM`,
   `Firmware/KC Monitor/KC Monitor.bin`
-- **Commit** — `d88eb9a1d341561a5876e5c580bf833303c90146` (2026-08-04)
+- **Commit** — `79a4e4804c2f575388f46b23fc11e13900303f47` (2026-08-13)
 - **Version string** — `KIM MONITOR v1.0`
-- **SHA-256** — `a2ee97d8e6f93b7d00842f94496c5ad2bacb33758bf03b8ece2a3c9cbe4b427d`
+- **SHA-256** — `029fb5bd9cbddab3b1547bb625725795b98a3647d4934dba59f30bb3e7e4e692`
+
+### The splash gate changed in this build
+
+Worth knowing, because it is the first thing anything driving this machine
+runs into. Both consoles now show `--ESC TO START--` and both mean it:
+
+- **`ESC` is the only key that starts the monitor.** The pad used to open the
+  gate on any key. It no longer does — `RIGHT` leaves you on the splash.
+- **The serial `> ` prompt appears only after the gate opens.** It used to go
+  out ahead of it, in front of a parser that was not running yet, so anything
+  typed at it either vanished or executed later depending on how the splash
+  was dismissed. Waiting on `>` to decide the machine is ready now deadlocks
+  if the `ESC` that opens the gate is what you were holding back — wait on
+  `ESC TO START` instead.
+- **One `ESC` starts both consoles**, from either source, and the gate
+  discards everything typed or pressed at the splash on the way through.

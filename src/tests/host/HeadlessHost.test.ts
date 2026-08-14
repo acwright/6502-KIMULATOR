@@ -108,8 +108,9 @@ describe('HeadlessHost', () => {
      * The monitor's own Wozmon syntax, over a TTY.
      *
      * `$0800` is `PROGRAM_START`, and everything below it belongs to the
-     * firmware: `$0200-$02FF` is the input ring buffer and `$0300-$03FF` is
-     * `KERNAL_VARS`, whose first two bytes are `IRQ_PTR`. A deposit at `$0300`
+     * firmware: `$0200-$027F` is the KC Monitor's Wozmon line buffer, the very
+     * line being typed, `$0400-$04FF` is its serial RX ring, and `$0300-$03FF`
+     * is `KERNAL_VARS`, whose first two bytes are `IRQ_PTR`. A deposit at `$0300`
      * therefore replaces the IRQ vector, and the next character to arrive sends
      * the CPU into empty RAM — which looks exactly like a broken serial path
      * and is not one. Asserting the machine is still in ROM afterwards is what
@@ -118,7 +119,7 @@ describe('HeadlessHost', () => {
     it('takes a deposit typed at the prompt and reads it back', async () => {
       const { host: h, read } = host({
         maxCycles: 12_000_000,
-        inputAfter: />/
+        inputAfter: /ESC TO START/
       })
       h.write(`${ESC}0800: A9 41 EA${CR}0800.0802${CR}`)
 
@@ -130,11 +131,15 @@ describe('HeadlessHost', () => {
       expect(h.session.machine.cpu.pc).toBeGreaterThanOrEqual(0x8000)
     })
 
-    it('holds input back until the prompt appears', async () => {
+    it('holds input back until the splash appears', async () => {
       // Anything sent while the firmware is still probing slots and running the
       // LCD's power-on ritual is swallowed. Without the gate this deposit lands
       // in the middle of the boot and the monitor never sees it.
-      const { host: h } = host({ maxCycles: 12_000_000, inputAfter: />/ })
+      //
+      // Wait on the splash, not on the prompt: the firmware holds at
+      // `--ESC TO START--` and the `> ` does not appear until the ESC below
+      // opens the gate, so gating on `>` would wait for input it is holding.
+      const { host: h } = host({ maxCycles: 12_000_000, inputAfter: /ESC TO START/ })
       h.write(`${ESC}0800: 5A${CR}`)
 
       await h.run('turbo')

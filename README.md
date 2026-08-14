@@ -245,9 +245,12 @@ can never drift from the app version — it is the same file either way.
 ### The shortest useful thing
 
 ```sh
-printf '\x1b0800: A9 41 EA\r0800.0802\r' | 6502-kim run --headless --input-after '>' --max-cycles 12e6
+printf '\x1b0800: A9 41 EA\r0800.0802\r' | 6502-kim run --headless --input-after 'ESC TO START' --max-cycles 12e6
 #   KIM MONITOR v1.0
-#   >
+#   --ESC TO START--
+#   > 0800: A9 41 EA
+#   0800: 00
+#   > 0800.0802
 #   0800: A9 41 EA
 ```
 
@@ -256,9 +259,14 @@ a range, `0800: A9 41` deposits, `0800 R` runs. `R` is a `JMP`, as in the
 original — a program run from the serial side should end in `STP`, or be driven
 from the pad instead, whose `▲` is a `JSR`.
 
-`--input-after '>'` holds stdin until the prompt appears. The firmware spends its
-first ~1.8 M cycles probing slots and running the HD44780's four ~41 ms power-on
-delays, and anything sent during that is swallowed.
+`--input-after 'ESC TO START'` holds stdin until the splash appears. The firmware
+spends its first ~1.8 M cycles probing slots and running the HD44780's four
+~41 ms power-on delays, and anything sent during that is swallowed.
+
+Wait on the splash rather than on the `>` prompt. The firmware holds at
+`--ESC TO START--` and does not print a prompt until the leading `\x1b` opens the
+gate — so `--input-after '>'` would sit forever waiting for output that only the
+input it is holding can produce.
 
 ### With a window, or without
 
@@ -339,8 +347,14 @@ Further reading:
 
 ### Notes
 
-- **The splash consumes the first key.** `--ESC TO START--` waits, and until it
-  gets one nothing else happens.
+- **The splash waits for `ESC`, and only `ESC`.** `--ESC TO START--` means it on
+  both consoles — the pad's `ESC` key and a `\x1b` on the wire do the same thing,
+  either one starts both, and no other key or byte does anything. Whatever was
+  typed or pressed at the splash is discarded when the gate opens, so nothing
+  sent early can execute later.
+- **No prompt means no parser.** The `> ` appears only once the gate is open.
+  Treat it as the ready signal it now is, and gate on the splash text if you are
+  the one holding back the `ESC`.
 - **Don't type at a machine that hasn't booted.** Input delivered before the
   firmware has a console sits unread in the ACIA and blocks everything behind it.
   Use `--input-after <regex>`, or boot with `--pause` and buy the boot in cycles.

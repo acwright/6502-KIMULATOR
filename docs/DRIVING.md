@@ -63,19 +63,29 @@ port and token.
 One process in, one answer out. No server, no session.
 
 ```sh
-printf '\x1b0800: A9 41 EA\r0800.0802\r' | 6502-kim run --headless --input-after '>' --max-cycles 12e6
+printf '\x1b0800: A9 41 EA\r0800.0802\r' | 6502-kim run --headless --input-after 'ESC TO START' --max-cycles 12e6
 #   KIM MONITOR v1.0
-#   >
+#   --ESC TO START--
+#   > 0800: A9 41 EA
+#   0800: 00
+#   > 0800.0802
 #   0800: A9 41 EA
 ```
 
 Three things in that line are worth knowing:
 
-- **`\x1b` first.** The splash reads `--ESC TO START--` and means it. ESC on the
-  wire and ESC on the pad do the same thing.
-- **`--input-after '>'`** holds stdin back until the prompt appears. The
-  firmware spends its first ~1.8 M cycles probing slots and running the
+- **`\x1b` first.** The splash reads `--ESC TO START--` and means it, on both
+  consoles. ESC on the wire and ESC on the pad do the same thing, either one
+  starts both, and nothing else starts either. Anything typed or pressed before
+  the gate opens is discarded rather than held over.
+- **`--input-after 'ESC TO START'`** holds stdin back until the splash appears.
+  The firmware spends its first ~1.8 M cycles probing slots and running the
   HD44780's power-on ritual, and anything sent during it is swallowed.
+
+  Gate on the splash, not on the prompt. The `> ` does not appear until the ESC
+  above opens the gate — that is what makes a prompt on this machine mean the
+  parser is running — so `--input-after '>'` would wait forever for output that
+  only the input it is holding can produce.
 - **`$0800`, and nowhere below it.** Low RAM belongs to the firmware, and it
   does not defend itself — see [Where your bytes may go](#where-your-bytes-may-go).
 
@@ -85,14 +95,21 @@ The monitor's syntax is Wozmon's: `0800` examines, `0800.0810` examines a range,
 ## Where your bytes may go
 
 `PROGRAM_START` is **`$0800`**, and program space runs from there to `$7FFF`.
-Below it is the machine's own workspace, straight out of `BIOS.inc`:
+Below it is the machine's own workspace, out of the KC Monitor's `kim.inc` —
+which is the KIM's own include, not the family-wide `6502.inc`, and differs from
+it exactly where it matters here:
 
 | Range | What lives there |
 |---|---|
-| `$0000-$00FF` | Zero page — Kernal and BASIC scratch |
+| `$0000-$003F` | Zero page — Kernal scratch |
+| `$0040-$0051` | Zero page — **the KC Monitor's own state**, address, edit mode, Wozmon parser |
+| `$0052-$00FF` | Zero page — yours |
 | `$0100-$01FF` | The 6502 stack |
-| `$0200-$02FF` | `INPUT_BUFFER` — the 256-byte keyboard/serial ring buffer |
+| `$0200-$027F` | **The KC Monitor's Wozmon line buffer** — the line you are typing |
+| `$0280-$02FF` | Free. `6502.inc` calls this whole page the Kernal's input ring; on a KIM that ring is never fed |
 | `$0300-$03FF` | `KERNAL_VARS` — and `$0300` itself is **`IRQ_PTR`** |
+| `$0400-$04FF` | **The KC Monitor's serial RX ring**, filled by its interrupt handler |
+| `$0500-$07FF` | Free on a KIM — no CompactFlash, so nothing uses the sector buffer |
 | `$0800-$7FFF` | Yours |
 
 Nothing stops you writing to any of it, exactly as nothing stops you on the
@@ -175,7 +192,7 @@ until 6502-kim dbg info >/dev/null 2>&1; do sleep 0.1; done
 
 6502-kim dbg break MonitorLoop       # by name, in the card's own ROM
 6502-kim dbg run
-6502-kim dbg key ESC                 # the splash polls the pad; nothing else runs
+6502-kim dbg key ESC                 # the splash holds for ESC; nothing else runs
 6502-kim dbg wait --stopped --timeout 10s
 #   breakpoint #1 at $E062
 6502-kim dbg regs

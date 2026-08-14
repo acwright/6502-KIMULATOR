@@ -61,8 +61,8 @@ const press = (machine: Machine, name: string): void => {
 const atMonitor = (slots: SlotConfig = {}): Machine => {
   const machine = build(slots)
   expect(runUntil(machine, () => machine.lcd.getRowText(0).startsWith('KIM MONITOR'))).toBe(true)
-  // The splash gate: any key starts the monitor.
-  press(machine, 'RIGHT')
+  // The splash gate: ESC, and nothing else, starts the monitor.
+  press(machine, 'ESC')
   expect(runUntil(machine, () => machine.lcd.getRowText(0).includes('$'), 500_000)).toBe(true)
   return machine
 }
@@ -88,7 +88,7 @@ describe('KC Monitor', () => {
       const machine = build()
       machine.poke(PROGRAM_START, 0xa9)
       expect(runUntil(machine, () => machine.lcd.getRowText(0).startsWith('KIM MONITOR'))).toBe(true)
-      press(machine, 'RIGHT')
+      press(machine, 'ESC')
       runUntil(machine, () => machine.lcd.getRowText(0).includes('$'), 500_000)
 
       expect(machine.lcd.getRowText(0)).toBe('---$0800: $A9---')
@@ -103,6 +103,85 @@ describe('KC Monitor', () => {
       machine.runCycles(500_000)
 
       expect(String.fromCharCode(...sent)).toContain('KIM MONITOR v1.0')
+    })
+
+    /**
+     * The gate is the same gate on both consoles, which is the whole point of
+     * it: the terminal is told what the panel is telling you, ESC is the only
+     * thing either one accepts, and one press opens both.
+     *
+     * The prompt matters as much as the banner. It used to go out ahead of the
+     * gate, in front of a Wozmon parser that was not running yet, so a deposit
+     * typed at it either vanished or landed minutes later depending on how the
+     * splash happened to be dismissed. A `>` on the wire now means the parser
+     * is behind it.
+     */
+    it('tells the terminal what the panel says, and offers no prompt yet', () => {
+      const machine = build()
+      const sent: number[] = []
+      machine.transmit = (byte) => sent.push(byte)
+
+      runUntil(machine, () => machine.lcd.getRowText(0).startsWith('KIM MONITOR'))
+      machine.runCycles(500_000)
+
+      const banner = String.fromCharCode(...sent)
+      expect(banner).toContain('--ESC TO START--')
+      expect(banner).not.toContain('>')
+    })
+
+    it('ignores every key but ESC at the splash', () => {
+      const machine = build()
+      expect(runUntil(machine, () => machine.lcd.getRowText(0).startsWith('KIM MONITOR'))).toBe(true)
+
+      for (const name of ['RIGHT', 'INS', '0', 'UP']) press(machine, name)
+
+      expect(machine.lcd.getRowText(1)).toBe('--ESC TO START--')
+    })
+
+    it('opens both consoles on one ESC, from either of them', () => {
+      for (const openTheGate of [
+        (m: Machine): void => press(m, 'ESC'),
+        (m: Machine): void => {
+          m.onReceive(0x1b)
+          m.runCycles(200_000)
+        }
+      ]) {
+        const machine = build()
+        const sent: number[] = []
+        machine.transmit = (byte) => sent.push(byte)
+        runUntil(machine, () => machine.lcd.getRowText(0).startsWith('KIM MONITOR'))
+        machine.runCycles(500_000)
+        sent.length = 0
+
+        openTheGate(machine)
+        expect(runUntil(machine, () => machine.lcd.getRowText(0).includes('$'), 500_000)).toBe(true)
+
+        // The panel painted, and the prompt followed it onto the wire.
+        expect(machine.lcd.getRowText(0)).toBe('---$0800: $00---')
+        expect(String.fromCharCode(...sent)).toContain('>')
+      }
+    })
+
+    /**
+     * The half of the old behaviour that actually bit: a line typed at the
+     * splash sat in the RX ring and was parsed once the pad opened the gate,
+     * so a deposit could land long after it was typed, with nothing echoed to
+     * say it had arrived. The gate discards both inputs on the way through.
+     */
+    it('discards what was typed at the splash instead of deferring it', () => {
+      const machine = build()
+      runUntil(machine, () => machine.lcd.getRowText(0).startsWith('KIM MONITOR'))
+      machine.runCycles(500_000)
+
+      for (const ch of '0900: EE EE EE EE\r') machine.onReceive(ch.charCodeAt(0))
+      machine.runCycles(200_000)
+      expect(machine.peek(0x0900)).toBe(0x00) // not parsed — nothing is running
+
+      press(machine, 'ESC')
+      runUntil(machine, () => machine.lcd.getRowText(0).includes('$'), 500_000)
+      machine.runCycles(500_000)
+
+      expect(machine.peek(0x0900)).toBe(0x00) // and not parsed afterwards either
     })
   })
 

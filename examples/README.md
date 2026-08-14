@@ -53,13 +53,16 @@ machine.
 All four are real machine behaviour or real protocol semantics rather than
 emulator quirks — see [../docs/DRIVING.md](../docs/DRIVING.md) for the rest.
 
-- **The splash means it.** `--ESC TO START--` waits for a key, and until it gets
-  one nothing else happens. ESC on the wire and ESC on the pad do the same thing.
+- **The splash waits for `ESC`, and only `ESC`.** `--ESC TO START--` means it on
+  both consoles: the pad's `ESC` key and a `\x1b` on the wire do the same thing,
+  either one starts both, and no other key or byte does anything. The serial
+  `> ` prompt appears only once the gate is open, so gate on the splash text —
+  waiting on `>` while holding back the `ESC` that produces it waits forever.
 - **Don't type at a machine that hasn't booted.** The firmware spends its first
   ~1.8 M cycles probing slots and running the HD44780's four ~41 ms power-on
   delays, and anything arriving during that is swallowed — or worse, sits unread
   in the ACIA blocking everything behind it. `--input-after '<regex>'` holds
-  stdin until a prompt appears.
+  stdin until the machine says it is ready.
 - **`wait --serial` looks back only as far as your last write.** That is what
   makes "wait for the reply to what I just sent" correct in turbo, where the
   reply normally lands before a wait could be set up. It also means a script that

@@ -447,8 +447,12 @@ gives a machine that boots and falls over the first time it calls the Kernal.
 
 **Deposits go at `$0800`, and a test that types one must check the machine
 survived it.** `PROGRAM_START` is `$0800`; below it is the firmware's own
-workspace — `$0200-$02FF` is `INPUT_BUFFER` and `$0300-$03FF` is `KERNAL_VARS`,
-whose first two bytes are **`IRQ_PTR`**. Depositing at `$0300` therefore
+workspace — `$0200-$027F` is the KC Monitor's Wozmon line buffer, `$0400-$04FF`
+its serial RX ring, and `$0300-$03FF` is `KERNAL_VARS`, whose first two bytes
+are **`IRQ_PTR`**. (The family-wide `6502.inc` calls `$0200-$02FF` the Kernal's
+`INPUT_BUFFER`; on a KIM that ring is never fed, because the cartridge owns
+`IRQ_PTR`. The KIM's own `kim.inc` is the file that says so.) Depositing at
+`$0300` therefore
 rewrites the IRQ vector, and the next character to arrive vectors the CPU into
 empty RAM. The symptom is a machine that stops answering with bytes piling up
 unread in the ACIA's receive queue, which reads exactly like a broken serial

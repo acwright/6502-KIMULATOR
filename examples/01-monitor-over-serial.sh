@@ -18,12 +18,17 @@ say '1. Deposit, examine, run — one pipe, one process'
 
 # Three things in that command line are load-bearing:
 #
-#   \x1b first        The splash reads "--ESC TO START--" and means it. ESC on
-#                     the wire and ESC on the pad do the same thing.
-#   --input-after '>' Holds stdin back until the prompt appears. The firmware
-#                     spends its first ~1.8 M cycles probing slots and running
+#   \x1b first        The splash reads "--ESC TO START--" and means it, on both
+#                     consoles. ESC on the wire and ESC on the pad do the same
+#                     thing, either one starts both, and nothing else starts
+#                     either.
+#   --input-after     Holds stdin back until the splash appears. The firmware
+#     'ESC TO START'  spends its first ~1.8 M cycles probing slots and running
 #                     the HD44780's power-on ritual, and anything sent during it
-#                     is swallowed.
+#                     is swallowed. Gate on the splash rather than on the `> `:
+#                     the prompt does not appear until the ESC above opens the
+#                     gate, so waiting for it waits on output that only the
+#                     input it is holding can produce.
 #   --json            A machine-readable result on stderr at exit, so the script
 #                     asserts on a value rather than on prose.
 #
@@ -31,11 +36,11 @@ say '1. Deposit, examine, run — one pipe, one process'
 # in memory, and halts rather than looping so the run ends on its own.
 PROGRAM='A9 5A 8D 00 09 DB'
 
-show "printf '\\x1b0800: $PROGRAM\\r0800.0805\\r0800 R\\r' | 6502-kim run --headless --input-after '>'"
+show "printf '\\x1b0800: $PROGRAM\\r0800.0805\\r0800 R\\r' | 6502-kim run --headless --input-after 'ESC TO START'"
 
 # shellcheck disable=SC2086 # $SIXTY502_KIM is a command plus arguments.
 output=$(printf '\x1b0800: %s\r0800.0805\r0800 R\r' "$PROGRAM" |
-  $SIXTY502_KIM run --headless --quiet --input-after '>' --timeout 30s --json \
+  $SIXTY502_KIM run --headless --quiet --input-after 'ESC TO START' --timeout 30s --json \
     2>"$WORK/result.json")
 status=$?
 
@@ -70,7 +75,7 @@ show "printf '...0800: A9 5A 8D 00 09 60\\r0800 R\\r' | 6502-kim run --headless 
 
 # shellcheck disable=SC2086
 printf '\x1b0800: A9 5A 8D 00 09 60\r0800 R\r' |
-  $SIXTY502_KIM run --headless --quiet --input-after '>' --timeout 10s --json \
+  $SIXTY502_KIM run --headless --quiet --input-after 'ESC TO START' --timeout 10s --json \
     > "$WORK/rts.log" 2>"$WORK/rts.json" || true
 
 expect 'an RTS program run from the serial side' "$(json reason < "$WORK/rts.json")" timeout

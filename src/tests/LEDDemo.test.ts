@@ -99,7 +99,7 @@ const fittedAtMonitor = (): { machine: Machine; latch: LEDLatch } => {
   }
 
   expect(runUntil(machine, () => machine.lcd.getRowText(0).startsWith('KIM MONITOR'))).toBe(true)
-  press(machine, 'RIGHT')  // the splash gate: any key starts the monitor
+  press(machine, 'ESC')  // the splash gate: ESC, and nothing else, starts the monitor
   expect(runUntil(machine, () => machine.lcd.getRowText(0).includes('$'), 500_000)).toBe(true)
 
   saved = captureSnapshot(machine)

@@ -82,8 +82,8 @@ async function press(f: Fixture, key: string): Promise<void> {
 async function atMonitor(slots: SlotConfig = {}): Promise<Fixture> {
   const f = fixture(slots)
   expect(runUntil(f, () => line(f).startsWith('KIM MONITOR'))).toBe(true)
-  // The splash gate: any key starts the monitor.
-  await press(f, 'RIGHT')
+  // The splash gate: ESC, and nothing else, starts the monitor.
+  await press(f, 'ESC')
   expect(runUntil(f, () => line(f).includes('$'), 500_000)).toBe(true)
   return f
 }

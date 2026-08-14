@@ -17,8 +17,9 @@ written to disk.
 That is the whole integration. Everything below is optional.
 
 **One thing to know before anything else: the machine boots to a splash reading
-`--ESC TO START--` and means it.** Nothing else runs until a key arrives, from
-the pad or from the wire. So an embed that should show a *working* monitor
+`--ESC TO START--` and means it.** Nothing else runs until an ESC arrives — the
+pad's `ESC` key or a `\x1b` on the wire, either one starting both consoles, and
+no other key or byte doing anything. So an embed that should show a *working* monitor
 rather than a waiting one says `keys=ESC`, and one that types at the serial port
 sends an ESC first — `autotype=\x1b…`. That is the hardware, not a quirk of the
 frame: a real KIM sits on the same splash until you touch it.
