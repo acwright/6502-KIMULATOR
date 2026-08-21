@@ -520,7 +520,10 @@ onUnmounted(() => {
   position: fixed;
   top: 0;
   right: 0;
-  height: 100%;
+  /* `dvh`, not `100%`: a fixed element sized against the layout viewport runs on
+     under mobile Safari's toolbars, which is what put the bottom of this panel
+     out of reach. The dynamic viewport is the part actually on the screen. */
+  height: 100dvh;
   width: 320px;
   background: #141414;
   border-left: 1px solid rgba(255, 255, 255, 0.1);
@@ -528,6 +531,22 @@ onUnmounted(() => {
   flex-direction: column;
   z-index: 100;
   overflow: hidden;
+  /* Outside #app, so its safe-area padding does not apply here. */
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/*
+  On a phone a 320px drawer leaves a strip of the machine showing down one side
+  that is too narrow to read and too wide to ignore, and it steals the width the
+  settings rows themselves want. Below that, the panel is the screen.
+*/
+@media (max-width: 560px) {
+  .settings-panel {
+    width: 100%;
+    border-left: none;
+  }
 }
 
 .panel-header {
@@ -708,7 +727,10 @@ onUnmounted(() => {
   font-size: 11px;
   line-height: 1.4;
   color: #666;
-  margin: 0 0 10px 0;
+  /* A top margin as well as a bottom one: a hint explains the control above it,
+     and with none it sat flush against the accessory dropdown's border and read
+     as part of the field rather than as a note about it. */
+  margin: 6px 0 10px 0;
 }
 .hint code { font-family: monospace; color: #999; }
 .hint strong { color: #999; font-weight: 600; }
@@ -719,10 +741,15 @@ onUnmounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 4px;
   color: #eee;
+  /* Padding, not a fixed height. A field pinned to 26px has nowhere to put the
+     16px text a touch device raises it to, and the glyphs spill out of the box —
+     which is what the accessory dropdown was doing on an iPad. Sized by its own
+     line instead, it comes out the same on a desktop and simply grows when the
+     text does. */
   padding: 3px 6px;
   font-size: 12px;
   font-family: monospace;
-  height: 26px;
+  line-height: 1.5;
   outline: none;
 }
 .field:focus { border-color: rgba(255, 255, 255, 0.35); }

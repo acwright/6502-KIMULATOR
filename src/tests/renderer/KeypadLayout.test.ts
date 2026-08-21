@@ -87,9 +87,15 @@ describe('the keypad panel’s layout', () => {
 
     it('letterboxes rather than stretching, in both directions', () => {
       // Whichever axis runs out first wins, so the caps stay square in a tall
-      // panel and in a wide one alike.
-      expect(GRID_STYLE.width).toBe('min(100cqw, 100cqh * 4 / 6)')
-      expect(GRID_STYLE.height).toBe('min(100cqh, 100cqw * 6 / 4)')
+      // panel and in a wide one alike — and the pad stops at the width of the
+      // card it shares with the display, so a tall window cannot grow one
+      // without the other.
+      expect(GRID_STYLE.width).toBe(
+        'min(100cqw, 100cqh * 4 / 6, var(--lcd-width, var(--panel-width)))'
+      )
+      expect(GRID_STYLE.height).toBe(
+        'min(100cqh, 100cqw * 6 / 4, var(--lcd-width, var(--panel-width)) * 6 / 4)'
+      )
     })
 
     it('puts one cap in each of the twenty-four cells, counting from one', () => {

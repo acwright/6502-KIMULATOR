@@ -12,6 +12,11 @@
  * as the pad is legended. It is the one place the app departs from the
  * 6502-EMULATOR theme, because the hardware does.
  *
+ * The focus badge is not drawn here. The pad shares its panel with the display —
+ * they are one card — so the badge marking that panel belongs to the panel, and
+ * App.vue draws it in the corner of the card rather than in the corner of the
+ * keys. `isFocused` is still what lights it, by way of `useFocusRouter`.
+ *
  * Mouse and keyboard converge on `store.pressKey(code)`. There is no release in
  * either direction — the MM74C922 latches the press and raises data-available,
  * and reports nothing at all when the key comes back up. The highlight below
@@ -26,7 +31,6 @@ import { KEY_FACES, GRID_STYLE } from '@/keypad/layout'
 import type { Arrow, KeyFace } from '@/keypad/layout'
 import { useEmulatorStore } from '@/stores/emulator'
 import { useFocusRegion } from '@/composables/useFocusRouter'
-import FocusBadge from '@/components/FocusBadge.vue'
 
 const store = useEmulatorStore()
 
@@ -84,7 +88,7 @@ const ARROW_ICONS: Readonly<Record<Arrow, Component>> = {
   <section
     ref="root"
     tabindex="0"
-    class="keypad-box relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden bg-neutral-900 p-3 outline-none"
+    class="keypad-box relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden bg-neutral-900 px-5 pb-5 pt-0 outline-none"
     aria-label="Keypad"
     @mousedown="take()"
     @focus="take()"
@@ -107,8 +111,6 @@ const ARROW_ICONS: Readonly<Record<Arrow, Component>> = {
         <span v-else class="key-label">{{ face.label }}</span>
       </button>
     </div>
-
-    <FocusBadge :active="isFocused" />
   </section>
 </template>
 
@@ -120,7 +122,14 @@ const ARROW_ICONS: Readonly<Record<Arrow, Component>> = {
 
 .keypad-grid {
   display: grid;
-  gap: 4%;
+  /*
+    A length, not a percentage. `gap: 4%` resolved against the grid's own box in
+    each axis, and the grid is half as wide again as it is tall — so the rows sat
+    fifty per cent further apart than the columns, on a pad whose caps are
+    square and evenly spaced. One length makes both gaps the same, and the same
+    as the gap between the pad and the display above it.
+  */
+  gap: var(--card-gap);
 }
 
 .key {

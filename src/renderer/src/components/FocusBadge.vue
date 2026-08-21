@@ -18,12 +18,16 @@ defineProps<{ active: boolean }>()
   <!-- Pointer-events off: the badge is an indicator, and clicking anywhere on
        the panel — including here — is what moves the keyboard. -->
   <div
-    class="pointer-events-none absolute bottom-2 right-2 transition-colors duration-150"
+    class="pointer-events-none absolute bottom-1 right-1 transition-colors duration-150"
     :class="active ? 'text-white' : 'text-neutral-700'"
     :aria-label="active ? 'Has keyboard focus' : 'Press Tab for keyboard focus'"
     :title="active ? 'The keyboard goes here — Tab to move it' : 'Tab, or click, to type here'"
   >
-    <svg viewBox="0 0 24 24" class="size-5" fill="none" aria-hidden="true">
+    <!-- The bottom-right corner of the panel it belongs to, which is the panel
+         you click to send the keyboard there. Sized and placed to sit inside
+         that panel's padding: it reaches 20px in from the corner against a 20px
+         band, so it never lands on the tube or on a keycap. -->
+    <svg viewBox="0 0 24 24" class="size-4" fill="none" aria-hidden="true">
       <rect x="2.5" y="6.5" width="19" height="11" rx="2" stroke="currentColor" />
       <g fill="currentColor">
         <rect x="5" y="9" width="2" height="1.6" rx="0.4" />

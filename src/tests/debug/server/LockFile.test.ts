@@ -92,7 +92,17 @@ describe('the default location', () => {
   // a person can run at the same time. Sharing it would mean the second to start
   // finds the lock held, or that a client attaches to the wrong machine.
   it('is session.json under the KIMulator\'s own home, not the ACE\'s', () => {
-    expect(defaultLockPath().endsWith(join('.6502-kim', 'session.json'))).toBe(true)
+    // Explicitly unset, not merely assumed: the suite's setup file points this
+    // variable at a temp directory so parallel test files cannot fight over one
+    // lock, and an exported SIXTY5O2_KIM_HOME in a developer's shell would do
+    // the same. Either way the default is only the default with no override.
+    const previous = process.env.SIXTY5O2_KIM_HOME
+    delete process.env.SIXTY5O2_KIM_HOME
+    try {
+      expect(defaultLockPath().endsWith(join('.6502-kim', 'session.json'))).toBe(true)
+    } finally {
+      if (previous !== undefined) process.env.SIXTY5O2_KIM_HOME = previous
+    }
     expect(defaultLockPath().endsWith(join('.6502', 'session.json'))).toBe(false)
   })
 

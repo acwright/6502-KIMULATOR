@@ -51,9 +51,25 @@ function onSelect(event: Event): void {
     class="flex min-h-0 min-w-0 flex-col overflow-hidden bg-neutral-900"
     aria-label="Accessory"
   >
-    <!-- No heading. None of the other panels carry one, and the dropdown
-         already says what this is. -->
-    <div class="flex shrink-0 items-center gap-3 px-3 pt-2">
+    <!-- The circuit first and the selector under it, centred.
+
+         The bay is a panel about what is plugged in, so what is plugged in gets
+         the panel; the dropdown is how you change it, which is a thing you do
+         once and then stop looking at. Along the bottom it reads as the bay's
+         own control rather than as a heading the circuit belongs to. -->
+    <div class="flex min-h-0 flex-1 items-center justify-center px-3 pt-3 pb-2">
+      <component :is="view" v-if="view && card" :card="card" />
+      <p v-else class="text-xs tracking-[0.3em] text-neutral-700">EMPTY</p>
+    </div>
+
+    <!-- No heading anywhere. None of the other panels carry one, and this
+         already says what the panel is. -->
+    <div class="flex shrink-0 items-center justify-center gap-3 px-3 pb-3">
+      <!-- The address labels the list rather than sitting beside it. It says
+           which bus these circuits go on, which is something you want while you
+           are choosing one and clutter the rest of the time — and a panel whose
+           only two pieces of chrome were a dropdown and a number floating to its
+           right read as two controls rather than one. -->
       <select
         v-if="!props.fixed"
         class="accessory-select"
@@ -62,22 +78,21 @@ function onSelect(event: Event): void {
         aria-label="Accessory"
         @change="onSelect"
       >
-        <option value="">Empty</option>
-        <option v-for="option in options" :key="option.id" :value="option.id">
-          {{ option.name }}
-        </option>
+        <optgroup label="Bus $9400">
+          <option value="">Empty</option>
+          <option v-for="option in options" :key="option.id" :value="option.id">
+            {{ option.name }}
+          </option>
+        </optgroup>
       </select>
 
-      <span v-else class="text-[11px] text-neutral-400" aria-label="Accessory">
-        {{ fitted?.name ?? 'Empty' }}
-      </span>
-
-      <span class="font-mono text-[10px] text-neutral-700">$9400</span>
-    </div>
-
-    <div class="flex min-h-0 flex-1 items-center justify-center px-3 pb-2">
-      <component :is="view" v-if="view && card" :card="card" />
-      <p v-else class="text-xs tracking-[0.3em] text-neutral-700">EMPTY</p>
+      <!-- The embed has no dropdown to open, so the address stays on the panel. -->
+      <template v-else>
+        <span class="text-[11px] text-neutral-400" aria-label="Accessory">
+          {{ fitted?.name ?? 'Empty' }}
+        </span>
+        <span class="font-mono text-[10px] text-neutral-700">$9400</span>
+      </template>
     </div>
   </section>
 </template>
@@ -88,9 +103,12 @@ function onSelect(event: Event): void {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 4px;
   color: #ccc;
-  padding: 2px 6px;
+  /* Padding, not a fixed height — see `.field` in SettingsPanel. Pinned to
+     22px, the 16px text a touch device raises this to had nowhere to go and
+     stood taller than the control drawn around it. */
+  padding: 3px 6px;
   font-size: 11px;
-  height: 22px;
+  line-height: 1.5;
   outline: none;
 }
 .accessory-select:focus {

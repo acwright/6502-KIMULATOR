@@ -106,6 +106,10 @@ key:
 | `1` $01 | `2` $02 | `3` $03 | `E` $0D |
 | `◄` $00 | `0` $0A | `►` $0B | `F` $0C |
 
+The display and the pad are one card, and the UI draws them as one: same width,
+the same space between them as there is between two keycaps, no divider across
+them, and centred together in their panel.
+
 **The code is not the value.** `0` is `$0A`, `$00` is the left arrow, and `C`–`F`
 run backwards — the encoder numbers the switches in the order they sit on the
 board. One table (`src/core/KeypadMap.ts`) is shared by the UI, the CLI, the
@@ -149,10 +153,43 @@ expands it to fill the window; **F11** (or **⌘ Return**) toggles fullscreen.
 | **▶ / ■** | Run / Stop emulation |
 | **↺** | Reset — pulses the CPU RESET line only; RAM is preserved, mirroring the hardware reset button |
 | **⏻** | Power Cycle — cold boot that zeroes RAM and clears the terminal |
+| **⌨** | Show / hide the on-screen keyboard — see below |
 | **Clipboard** | Paste — types text into the machine down the serial line, paced so the ACIA can absorb it. Accepts [bin2woz](https://github.com/acwright/bin2woz) output directly |
 | **⚙** | Open / close the Settings panel |
 
 No frequency toggle and no mute button: one clock, no sound card.
+
+A **KIM / TERM / BAY** switch appears at the left of the bar when the window is
+showing one panel at a time — see *Small windows* below.
+
+### On-screen Keyboard
+
+The **⌨** button raises a 6502 keyboard wired to the serial port: the same 67
+keys in the same places as the ACE's, from
+[the keyboard chapter](https://acwright.github.io/6502-DOCS/using/keyboard) and
+[the keyboard matrix](https://acwright.github.io/6502-DOCS/reference/keyboard-matrix).
+
+A KIM has no keyboard of its own, but this is the board you would wire to its
+serial line, and what it puts on that line is what the AB Controller puts on it:
+capitals, Shift for the symbols and the number row, `Ctrl`+`A`–`Z` for
+`$01`–`$1A`, and nothing at all from `Caps Lock`, `Menu`, `Alt` or `Fn`. Shift
+and Ctrl latch — tap to arm for one key, again to lock.
+
+Keys from it go to the terminal, so pressing one moves the keyboard there. The
+pad is the machine's own way in and is unaffected.
+
+### Small Windows
+
+Two columns need a window wider than it is tall and big enough in both
+directions. Below that — a phone either way up, an iPad in portrait, a short
+desktop window — the window shows one panel at a time and the control bar carries
+the switch: **KIM** for the display and the pad, **TERM** for the terminal,
+**BAY** for the accessory. The panel showing is the one the keyboard goes to.
+
+In landscape the on-screen keyboard sits beside the panels rather than under
+them, and the pad sits beside the display rather than under it: everything in a
+window that shape is limited by height, so side by side lets both take that
+height instead of splitting it.
 
 ### Settings Panel
 

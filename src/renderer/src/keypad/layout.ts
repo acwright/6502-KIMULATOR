@@ -84,6 +84,16 @@ export const KEY_FACES: readonly KeyFace[] = KEYPAD.map(face)
 export const GRID_STYLE = {
   gridTemplateColumns: `repeat(${KEYPAD_COLS}, 1fr)`,
   gridTemplateRows: `repeat(${KEYPAD_ROWS}, 1fr)`,
-  width: `min(100cqw, 100cqh * ${KEYPAD_COLS} / ${KEYPAD_ROWS})`,
-  height: `min(100cqh, 100cqw * ${KEYPAD_ROWS} / ${KEYPAD_COLS})`
+  // Three limits: the width there is, the width this height allows, and the
+  // width of the card the pad shares with the display. Whichever runs out first
+  // wins, so the caps stay square in a tall panel and in a wide one alike, and
+  // the pad never stands wider than the LCD above it.
+  //
+  // `--lcd-width` is what the display actually measured after its dot pitch was
+  // snapped to whole device pixels — LCDPanel publishes it, because the rounding
+  // depends on the device pixel ratio and nothing in CSS can predict it. Until
+  // it has drawn, or when there is no display on screen, `--panel-width` from
+  // style.css is the card's nominal width.
+  width: `min(100cqw, 100cqh * ${KEYPAD_COLS} / ${KEYPAD_ROWS}, var(--lcd-width, var(--panel-width)))`,
+  height: `min(100cqh, 100cqw * ${KEYPAD_ROWS} / ${KEYPAD_COLS}, var(--lcd-width, var(--panel-width)) * ${KEYPAD_ROWS} / ${KEYPAD_COLS})`
 } as const

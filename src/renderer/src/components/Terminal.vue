@@ -118,7 +118,7 @@ function clear(): void {
   <section
     ref="root"
     tabindex="0"
-    class="terminal-box group relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden bg-neutral-900 p-3 outline-none"
+    class="terminal-box group relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden bg-neutral-900 p-5 outline-none"
     aria-label="Terminal"
     @mousedown="take()"
     @focus="take()"

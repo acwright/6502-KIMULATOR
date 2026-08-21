@@ -27,8 +27,38 @@ import {
 } from '@heroicons/vue/24/solid'
 import { useEmulatorStore } from '@/stores/emulator'
 import { useConsole } from '@/composables/useConsole'
+import KeyboardIcon from '@/components/KeyboardIcon.vue'
+import type { NarrowView } from '@/composables/useNarrowLayout'
 
-defineEmits<{ 'toggle-settings': []; 'toggle-paste': [] }>()
+defineEmits<{
+  'toggle-settings': []
+  'toggle-paste': []
+  'toggle-keyboard': []
+  'show-view': [view: NarrowView]
+}>()
+
+const props = defineProps<{
+  keyboardOpen?: boolean
+  /** Which panel is showing — see useNarrowLayout. */
+  view: NarrowView
+  /**
+   * Whether the window is showing one panel at a time.
+   *
+   * It decides how many ways the switch goes, not whether there is one. Wide,
+   * the LCD and the pad are always on screen and only the left-hand column
+   * takes turns, so the switch is the two panels that share it; narrow, the
+   * machine is a third thing to choose.
+   */
+  narrow: boolean
+}>()
+
+/**
+ * Wide, `machine` is not a choice — the machine is always there — so any view
+ * that is not the bay is the terminal's turn in the column.
+ */
+const terminalActive = computed(() =>
+  props.narrow ? props.view === 'terminal' : props.view !== 'bay'
+)
 
 const store = useEmulatorStore()
 const term = useConsole()
@@ -109,7 +139,40 @@ async function onLoadBinary(event: Event): Promise<void> {
 </script>
 
 <template>
-  <footer class="relative flex shrink-0 flex-row items-center justify-center gap-4 border-t border-neutral-800 py-2">
+  <footer class="control-bar">
+    <!--
+      Which half of the machine is on screen, when there is not room for both.
+      Absent entirely on a window wide enough to show all of it, because then it
+      would be a switch between a thing and the same thing.
+    -->
+    <div class="view-switch" role="group" aria-label="View">
+      <button
+        v-if="narrow"
+        :class="{ 'view-on': view === 'machine' }"
+        title="The LCD and the pad — the machine itself"
+        :aria-pressed="view === 'machine'"
+        @click="$emit('show-view', 'machine')"
+      >
+        KIM
+      </button>
+      <button
+        :class="{ 'view-on': terminalActive }"
+        title="What the serial port sees"
+        :aria-pressed="terminalActive"
+        @click="$emit('show-view', 'terminal')"
+      >
+        TERM
+      </button>
+      <button
+        :class="{ 'view-on': view === 'bay' }"
+        title="The accessory bay — what is wired to the bus at $9400"
+        :aria-pressed="view === 'bay'"
+        @click="$emit('show-view', 'bay')"
+      >
+        BAY
+      </button>
+    </div>
+
     <!-- Load ROM — the BIOS is upstream and changes; pointing at a new build is routine. -->
     <button title="Load BIOS ROM" @click="romInput?.click()">
       <CpuChipIcon class="size-6" />
@@ -141,6 +204,18 @@ async function onLoadBinary(event: Event): Promise<void> {
     </button>
 
     <div class="h-6 w-px bg-white/20" />
+
+    <!-- On-screen keyboard. Not a touch-only control: it is the only keyboard a
+         phone has, and on a desktop it types at the terminal without taking the
+         host's keyboard away from the pad. -->
+    <button
+      :class="{ 'text-indigo-400': keyboardOpen }"
+      :title="keyboardOpen ? 'Hide keyboard' : 'Show keyboard'"
+      :aria-pressed="keyboardOpen"
+      @click="$emit('toggle-keyboard')"
+    >
+      <KeyboardIcon class="size-6" />
+    </button>
 
     <button title="Paste Text" @click="$emit('toggle-paste')">
       <ClipboardIcon class="size-6" />
@@ -175,3 +250,98 @@ async function onLoadBinary(event: Event): Promise<void> {
     </div>
   </footer>
 </template>
+
+<style scoped>
+/*
+  Wraps rather than overflowing. A phone in portrait does not have room for the
+  whole bar on one line, and a bar that runs off the right-hand edge takes
+  Settings with it — the one control you need to get back out of whatever went
+  wrong.
+*/
+.control-bar {
+  position: relative;
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem;
+  /* Clear of the home indicator on a phone, and of nothing at all on a desktop,
+     where the inset is zero. See index.html for `viewport-fit=cover`, which is
+     what makes it non-zero. */
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-neutral-800);
+}
+
+/*
+  A 24px icon is a fine mouse target and a poor thumb one. Growing the button
+  rather than the icon keeps the bar looking the same and makes it hittable;
+  `pointer: coarse` leaves desktop density exactly as it was.
+*/
+@media (pointer: coarse) {
+  .control-bar > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
+
+.view-switch {
+  display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.view-switch button {
+  padding: 0.25rem 0.6rem;
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #999;
+  background: transparent;
+}
+
+.view-switch button + button {
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.view-switch .view-on {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+/*
+  On a short viewport the bar stops wrapping and scrolls sideways instead.
+
+  Wrapping is right in portrait, where a second row costs nothing anyone wanted.
+  In landscape a phone has about 340pt of page and this bar was taking a third of
+  it in two rows of icons, which left the machine itself a strip. One row that
+  scrolls trades a scroll gesture — for the controls past the edge, which are the
+  ones you reach for least — against doubling the height the screen gets.
+*/
+@media (max-height: 480px) {
+  .control-bar {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    /* Keeps a sideways flick from turning into a page scroll or a bounce. */
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .control-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Nothing may collapse to make room; running off the end is the point. */
+  .control-bar > * {
+    flex-shrink: 0;
+  }
+}
+</style>

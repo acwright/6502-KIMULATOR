@@ -34,7 +34,10 @@ const hex = computed(() => readout(byte.value))
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col items-center justify-center gap-2">
+  <!-- One row, not two. The byte belongs beside the lamps it reads rather than
+       under them: it is the same eight bits said twice, and stacking them cost
+       the bay a line of panel it had no room for. -->
+  <div class="flex h-full min-h-0 items-center justify-center gap-4">
     <div class="flex items-end gap-3">
       <div v-for="lamp in row" :key="lamp.bit" class="flex flex-col items-center gap-1">
         <span class="lamp" :class="{ 'lamp-lit': lamp.lit }" />
@@ -80,5 +83,8 @@ const hex = computed(() => readout(byte.value))
   font-family: monospace;
   font-size: 12px;
   color: #888;
+  /* Sits against the lamps, not against the bit numbers under them. */
+  align-self: center;
+  margin-bottom: 0.75rem;
 }
 </style>
