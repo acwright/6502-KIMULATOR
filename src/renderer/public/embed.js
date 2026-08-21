@@ -35,9 +35,16 @@
    * smallest box in which the terminal is still legible at 40 columns and the
    * pad's caps are still readable. `panels=` subsets want their own sizes; see
    * docs/EMBEDDING.md.
+   *
+   * 560 and not 480, which is what this was: below 481 points of height the
+   * frame decides there is no room for two columns and shows one panel at a
+   * time behind a switch — see `useNarrowLayout`. That is the right answer for a
+   * phone and the wrong one for the default frame of a loader whose whole job is
+   * to show the machine, so the default clears the threshold rather than sitting
+   * exactly on it. A page that wants the switch can still ask for a smaller box.
    */
   var DEFAULT_WIDTH = 720
-  var DEFAULT_HEIGHT = 480
+  var DEFAULT_HEIGHT = 560
 
   // Resolved while the script is still executing, which is the only time
   // document.currentScript is meaningful.

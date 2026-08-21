@@ -108,6 +108,11 @@
       <button data-send='{"type":"6502-kim:key","keys":"0,8,0,0"}'>key 0 8 0 0</button>
       <button data-send='{"type":"6502-kim:key","keys":"UP"}'>key ▲ (run)</button>
       <button data-send='{"type":"6502-kim:type","text":"0800.0810\r"}'>type 0800.0810</button>
+      <button data-send='{"type":"6502-kim:setKeyboard","open":true}'>keyboard on</button>
+      <button data-send='{"type":"6502-kim:setKeyboard","open":false}'>keyboard off</button>
+      <button data-send='{"type":"6502-kim:show","view":"terminal"}'>show TERM</button>
+      <button data-send='{"type":"6502-kim:show","view":"bay"}'>show BAY</button>
+      <button data-send='{"type":"6502-kim:show","view":"machine"}'>show KIM</button>
       <button id="clear-log">clear log</button>
     </div>
     <p class="hint">
@@ -115,6 +120,12 @@
       reports the press and nothing else. A sequence goes in one message so the
       embed can pace it in emulated time — the encoder latches one code, and the
       interrupt handler's read is what makes room for the next.
+    </p>
+    <p class="hint">
+      <code>6502-kim:show</code> does nothing while embed A is wide enough to
+      show every panel at once — there is nothing to bring to the front. Narrow
+      this window, or open the page on a phone, and the same buttons move the
+      switch in its control bar.
     </p>
 
     <h2>3. Loading a binary, two ways</h2>
@@ -151,7 +162,11 @@
       // Built in script only so this page can rebuild frame A with a different
       // program below; a static <iframe src="…"> is the normal way to do this.
 
-      function frame(container, query, width = 720, height = 480) {
+      // 560 rather than 480: two columns need a frame at least 481 points high,
+      // and below that the panels take turns behind a switch instead. Both are
+      // worth seeing — narrow this window and embed A becomes the switch layout
+      // without being rebuilt.
+      function frame(container, query, width = 720, height = 560) {
         container.innerHTML = ''
         const el = document.createElement('iframe')
         el.src = `${base}embed.html?${query}`

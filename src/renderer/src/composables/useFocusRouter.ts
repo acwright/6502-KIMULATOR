@@ -79,10 +79,25 @@ function cycle(step: number): void {
   focus(available[index]!)
 }
 
-/** Give a panel the keyboard, moving DOM focus with it so the ring follows. */
+/**
+ * Give a panel the keyboard, moving DOM focus with it so the ring follows.
+ *
+ * A region that is not on the screen is not a place keys can go, so pointing at
+ * one does nothing at all rather than lighting its badge and dropping every
+ * keystroke into it. That case is ordinary rather than exotic: the embed's
+ * `panels=` can leave the pad out of a frame entirely, and the narrow layout
+ * unmounts whichever panel is not the one showing.
+ */
 export function focus(region: Region): void {
+  const registration = regions.get(region)
+  if (!registration) return
   focused.value = region
-  regions.get(region)?.element.focus({ preventScroll: true })
+  registration.element.focus({ preventScroll: true })
+}
+
+/** Whether a region is mounted and able to take the keyboard. */
+export function hasRegion(region: Region): boolean {
+  return regions.has(region)
 }
 
 /**

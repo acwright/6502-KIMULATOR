@@ -49,6 +49,21 @@ import { parseKeys } from './keys'
 
 export type ControlsMode = 'full' | 'minimal' | 'none'
 
+/**
+ * Whether the on-screen keyboard starts up.
+ *
+ * Three states rather than a flag, because the useful default is neither on nor
+ * off. `auto` is resolved in the browser — see `EmbedApp.vue` — and comes out on
+ * for a device that has no keyboard of its own and off for one that has. That
+ * asymmetry is the point: a phone with no board on screen cannot type at the
+ * serial line at all, and a desktop that opens one has given up a third of the
+ * frame to something the reader already has under their hands.
+ *
+ * The pad is not affected either way. It is a panel, it is drawn at every size,
+ * and a finger works on it — this board is the machine's *other* input path.
+ */
+export type KeyboardMode = 'auto' | 'on' | 'off'
+
 /** The four things you can look at. `panels=` names a subset. */
 export type PanelName = 'terminal' | 'lcd' | 'keys' | 'accessory'
 
@@ -81,6 +96,8 @@ export interface EmbedParams {
   /** Which panels are shown, in a stable order. Never empty. */
   panels: PanelName[]
   controls: ControlsMode
+  /** Whether the on-screen keyboard starts up; `auto` decides in the browser. */
+  keyboard: KeyboardMode
   /**
    * Origins allowed to drive this embed over postMessage, or null for "any".
    * See `messaging.ts` for why null is the default.
@@ -346,19 +363,64 @@ export function parseEmbedParams(search: string | URLSearchParams = ''): EmbedPa
   const query = typeof search === 'string' ? new URLSearchParams(search) : search
   const warnings: string[] = []
 
+  // Read before the return, because `keyboard` depends on it: the board types
+  // down the serial line, and a machine with io5 vacant has no line.
+  const serialCard = readBoolean(query.get('serialcard'), 'serialcard', true, warnings)
+
   return {
     rom: readMedia(query, 'rom', warnings),
     binaries: readBinaries(query, warnings),
     accessory: readAccessory(query, warnings),
-    serialCard: readBoolean(query.get('serialcard'), 'serialcard', true, warnings),
+    serialCard,
     autostart: readBoolean(query.get('autostart'), 'autostart', true, warnings),
     autotype: readAutotype(query, warnings),
     keys: readKeys(query, warnings),
     panels: readPanels(query, warnings),
     controls: readControls(query, warnings),
+    keyboard: readKeyboard(query, serialCard, warnings),
     origins: readOrigins(query),
     warnings
   }
+}
+
+/**
+ * `keyboard=1|0|auto`, sharing the flag words with every other boolean here so
+ * that `keyboard=yes` and `keyboard=on` mean what they look like — and a bare
+ * `?keyboard` means on, which is what writing it at all means.
+ *
+ * `auto` is a third state and not a fallback: it survives to `EmbedApp.vue`,
+ * which is the only place that can ask the browser whether this device has a
+ * keyboard already.
+ *
+ * Without a Serial Card there is nowhere for a byte to go — `useConsole.send`
+ * checks for the ACIA and returns — so the board is refused outright rather than
+ * drawn as a third of the frame that does nothing when you press it. Silently
+ * when the author did not ask for it; with a warning when they did, because
+ * `serialcard=0&keyboard=1` is two instructions that contradict each other and
+ * the second one is the one that cannot be honoured.
+ */
+function readKeyboard(
+  query: URLSearchParams,
+  serialCard: boolean,
+  warnings: string[]
+): KeyboardMode {
+  const raw = query.get('keyboard')
+  const mode = readKeyboardMode(raw, warnings)
+  if (serialCard || mode === 'off') return mode
+  if (mode === 'on') {
+    warnings.push('keyboard: no Serial Card fitted — there is nowhere for the bytes to go.')
+  }
+  return 'off'
+}
+
+function readKeyboardMode(raw: string | null, warnings: string[]): KeyboardMode {
+  if (raw === null) return 'auto'
+  const value = raw.trim().toLowerCase()
+  if (value === 'auto') return 'auto'
+  if (TRUE_WORDS.has(value)) return 'on'
+  if (FALSE_WORDS.has(value)) return 'off'
+  warnings.push(`keyboard: expected 1, 0 or auto, got "${raw}" — using auto.`)
+  return 'auto'
 }
 
 /**

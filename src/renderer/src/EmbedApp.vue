@@ -18,14 +18,16 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { PlayIcon, CursorArrowRaysIcon } from '@heroicons/vue/24/solid'
 import Terminal from '@/components/Terminal.vue'
-import LCDPanel from '@/components/LCDPanel.vue'
-import Keypad from '@/components/Keypad.vue'
+import MachineCard from '@/components/MachineCard.vue'
 import AccessoryPanel from '@/components/AccessoryPanel.vue'
+import OnScreenKeyboard from '@/components/OnScreenKeyboard.vue'
 import EmbedControlBar from '@/components/EmbedControlBar.vue'
 import { useEmulatorStore } from '@/stores/emulator'
 import { useConsole } from '@/composables/useConsole'
 import { usePaste } from '@/composables/usePaste'
 import { focus as focusRegion, useFocusRouter } from '@/composables/useFocusRouter'
+import { useNarrowLayout } from '@/composables/useNarrowLayout'
+import type { NarrowView } from '@/composables/useNarrowLayout'
 import {
   loadDefaultROMs,
   DEFAULT_ROM_LABEL,
@@ -54,6 +56,7 @@ const fullscreen = ref(false)
 const activated = ref(false)
 const problems = ref<string[]>([...params.warnings])
 const problemsOpen = ref(true)
+const keyboardOpen = ref(wantsKeyboard())
 
 const shown = computed<Record<PanelName, boolean>>(() => ({
   terminal: params.panels.includes('terminal'),
@@ -62,9 +65,50 @@ const shown = computed<Record<PanelName, boolean>>(() => ({
   accessory: params.panels.includes('accessory')
 }))
 
-/** The left column holds the terminal and the bay; the right, the glass and the pad. */
+/** The left column holds the terminal and the bay; the right, the card. */
 const leftColumn = computed(() => shown.value.terminal || shown.value.accessory)
 const rightColumn = computed(() => shown.value.lcd || shown.value.keys)
+
+/**
+ * The views this frame has, out of the three the app always has.
+ *
+ * The card counts as one view whether it is showing the display, the pad or
+ * both — they are one board, and `panels=lcd` is a frame with a card in it that
+ * happens to have no keys drawn on it.
+ */
+const availableViews: NarrowView[] = [
+  ...(shown.value.lcd || shown.value.keys ? (['machine'] as const) : []),
+  ...(shown.value.terminal ? (['terminal'] as const) : []),
+  ...(shown.value.accessory ? (['bay'] as const) : [])
+]
+
+const { narrow, view, views, show } = useNarrowLayout({ views: availableViews })
+
+/**
+ * Whether the frame may hide a panel behind a switch.
+ *
+ * Only if there is somewhere to put the switch. `controls=none` is a frame with
+ * no chrome at all, and taking a panel off the screen with no way to bring it
+ * back would be answering "show me these four things" with three of them — so
+ * such a frame draws everything it was asked for and lets the layout be tight.
+ * Documented in EMBEDDING.md, because it is the one place `panels=` and
+ * `controls=` interact.
+ */
+const canSwitch = computed(() => params.controls !== 'none' && views.length > 1)
+
+/**
+ * What the left-hand column is showing.
+ *
+ * The terminal and the bay take turns in it, the way they do in the app: the bay
+ * squeezed under the terminal has room for a dropdown or a circuit but not both.
+ * With only one of the two on show there is nothing to take turns about and it
+ * simply stays there, whatever the switch says.
+ */
+const leftPanel = computed<'terminal' | 'accessory' | null>(() => {
+  if (!shown.value.terminal) return shown.value.accessory ? 'accessory' : null
+  if (!shown.value.accessory) return 'terminal'
+  return view.value === 'bay' ? 'accessory' : 'terminal'
+})
 
 /**
  * Which panel the first click hands the keyboard to.
@@ -72,9 +116,13 @@ const rightColumn = computed(() => shown.value.lcd || shown.value.keys)
  * The pad, when it is on show, for the same reason the full app starts there:
  * the pad *is* the machine, and the splash is waiting for a key from it.
  */
-const preferredRegion = computed<'keypad' | 'terminal'>(() =>
-  shown.value.keys ? 'keypad' : 'terminal'
-)
+const preferredRegion = computed<'keypad' | 'terminal'>(() => {
+  // Showing one panel at a time, the panel on screen is the only one there is to
+  // mean — `shown.keys` is about what the frame *has*, and the pad may not be
+  // mounted at all just now.
+  if (narrow.value && canSwitch.value) return view.value === 'terminal' ? 'terminal' : 'keypad'
+  return shown.value.keys ? 'keypad' : 'terminal'
+})
 
 const hasKeyboardPanel = computed(() => shown.value.keys || shown.value.terminal)
 
@@ -85,6 +133,19 @@ const hasKeyboardPanel = computed(() => shown.value.keys || shown.value.terminal
 const badgeText = computed(() =>
   hasKeyboardPanel.value ? 'Click to use the keyboard' : 'Click to focus'
 )
+
+/**
+ * Whether there is a host keyboard for the click to hand over.
+ *
+ * On a touch screen there is not, and the badge is promising something that does
+ * not exist: the pad takes a finger whatever has focus, and the on-screen board
+ * puts bytes on the wire directly. So the badge is simply absent there rather
+ * than sitting over the display asking for a click that buys nothing.
+ *
+ * The `autostart=0` overlay is a different thing and is always drawn — it says
+ * "click to start", and on a touch device that is still exactly true.
+ */
+const hasHostKeyboard = !(window.matchMedia?.('(pointer: coarse) and (hover: none)').matches ?? false)
 
 // Built during setup rather than in onMounted, because the postMessage layer
 // subscribes to the Session's stop events and registers an onUnmounted hook —
@@ -97,10 +158,45 @@ store.init({
 /** One hand on the pad, shared by the boot sequence and `6502-kim:key`. */
 const keyer = createKeyer((code: number) => store.pressKey(code))
 
+/**
+ * Whether the on-screen board starts up.
+ *
+ * `keyboard=1` and `keyboard=0` say so outright — and `params.keyboard` is
+ * already `off` on a machine with no Serial Card, because there would be nowhere
+ * for the bytes to go. `auto` — the default — asks two questions:
+ *
+ *   • Does this device have a keyboard already? `hover: none` with a coarse
+ *     pointer is a touch screen and nothing else, which is the one case where
+ *     the serial line cannot be typed at without a board on the screen. The pad
+ *     is not affected: it is a panel and a finger works on it.
+ *   • Is there anywhere to see the reply? The board types at the port, and the
+ *     port answers on the terminal. A frame built with `panels=lcd,keys` is
+ *     about the pad, and opening a keyboard over it whose echo lands on a panel
+ *     that is not on the screen would be a third of the frame spent on nothing.
+ *     `keyboard=1` overrides this — a host page reading `6502-kim:serial` has
+ *     somewhere to see it that we cannot know about.
+ *
+ * Read once, deliberately. A media query that stayed live would reopen the board
+ * under a reader who had just closed it — on an iPad the moment a Magic Keyboard
+ * is attached, say — and the toggle in the control bar is the better answer to a
+ * device that changed its mind.
+ */
+function wantsKeyboard(): boolean {
+  if (params.keyboard !== 'auto') return params.keyboard === 'on'
+  if (!params.panels.includes('terminal')) return false
+  return window.matchMedia?.('(pointer: coarse) and (hover: none)').matches ?? false
+}
+
 const messaging = useEmbedMessaging({
   origins: params.origins,
   keyer,
   whenReady,
+  setKeyboard: (open: boolean) => {
+    // Refused on a machine with no ACIA, for the same reason `keyboard=1` is:
+    // the board would be a third of the frame that does nothing when pressed.
+    keyboardOpen.value = open && params.serialCard
+  },
+  show: (next: string) => show(next as NarrowView),
   describe: () => ({
     rom: store.romName,
     cardROM: store.cardROMName,
@@ -108,6 +204,13 @@ const messaging = useEmbedMessaging({
     serialCard: params.serialCard,
     panels: params.panels,
     controls: params.controls,
+    // Resolved, not the parameter: a host page asking what it got should be told
+    // whether there is a board on the screen, not that we were going to work it
+    // out from the device.
+    keyboard: keyboardOpen.value,
+    // Which panel is in front, and which ones this frame can be asked to show.
+    view: view.value,
+    views: canSwitch.value ? [...views] : [],
     warnings: params.warnings
   })
 })
@@ -318,28 +421,66 @@ onUnmounted(() => {
     @focusout="onFocusOut"
     @pointerdown="activate"
   >
-    <!--
-      The app's layout, minus whatever `panels=` left out. A column with nothing
-      in it is not rendered at all, so `panels=lcd,keys` gives the glass and the
-      pad the whole frame rather than two thirds of it beside an empty box.
-    -->
-    <div class="flex min-h-0 flex-1 gap-px bg-neutral-800">
-      <div v-if="leftColumn" class="flex min-w-0 flex-3 flex-col gap-px">
-        <Terminal v-if="shown.terminal" class="flex-4" />
-        <AccessoryPanel v-if="shown.accessory" class="flex-1" fixed />
+    <!-- The panels and the keyboard together, so landscape can turn the two of
+         them from a column into a row without the control bar joining in. The
+         same `.stage` as App.vue's, and the same breakpoint. -->
+    <div class="stage">
+      <!--
+        Everything `panels=` asked for, at once.
+
+        The layout for a frame with no control bar, which means no switch — and a
+        panel that is hidden with no way to reach it is worse than four cramped
+        ones. It is a row that becomes a column when the frame is too narrow to
+        hold two of anything; see `.panels-literal`.
+      -->
+      <div v-if="!canSwitch" class="panels panels-literal">
+        <div v-if="leftColumn" class="panel-column flex-3">
+          <Terminal v-if="shown.terminal" class="flex-4" />
+          <AccessoryPanel v-if="shown.accessory" class="flex-1" fixed />
+        </div>
+        <MachineCard v-if="rightColumn" class="flex-2" />
       </div>
 
-      <div v-if="rightColumn" class="flex min-w-0 flex-2 flex-col gap-px">
-        <LCDPanel v-if="shown.lcd" class="flex-2" />
-        <Keypad v-if="shown.keys" class="flex-3" />
+      <!-- One panel at a time, when there is not room for two columns of them.
+           Which one is the control bar's switch; see useNarrowLayout. -->
+      <div v-else-if="narrow" class="panels flex-col">
+        <MachineCard v-if="view === 'machine'" class="flex-1" />
+        <Terminal v-else-if="view === 'terminal'" class="flex-5" />
+        <AccessoryPanel v-else class="flex-1" fixed />
       </div>
+
+      <!--
+        Two columns, each with its own split, rather than one two-by-two grid: the
+        terminal wants most of the left column and the pad most of the right, and
+        a shared row line would force one of them to give. A column with nothing
+        in it is not rendered at all, so `panels=lcd,keys` gives the glass and the
+        pad the whole frame rather than two thirds of it beside an empty box.
+      -->
+      <div v-else class="panels">
+        <div v-if="leftColumn" class="panel-column flex-3">
+          <AccessoryPanel v-if="leftPanel === 'accessory'" class="flex-1" fixed />
+          <Terminal v-else-if="leftPanel === 'terminal'" class="flex-1" />
+        </div>
+        <MachineCard v-if="rightColumn" class="flex-2" />
+      </div>
+
+      <!-- Above the bar, not below it: the bar is where the toggle lives and the
+           one piece of chrome that must not move when the board comes up. -->
+      <OnScreenKeyboard v-if="keyboardOpen" />
     </div>
 
     <EmbedControlBar
       v-if="params.controls !== 'none'"
       :mode="params.controls"
       :fullscreen="fullscreen"
+      :keyboard-open="keyboardOpen"
+      :keyboard-available="params.serialCard"
+      :view="view"
+      :views="canSwitch ? views : []"
+      :narrow="narrow"
       @toggle-fullscreen="toggleFullscreen"
+      @toggle-keyboard="keyboardOpen = !keyboardOpen"
+      @show-view="show"
     />
 
     <!--
@@ -361,9 +502,15 @@ onUnmounted(() => {
         <span>Click to start</span>
       </div>
     </div>
-    <div v-else-if="!activated" class="embed-prompt embed-badge" @click="activate">
+    <div
+      v-else-if="!activated && hasHostKeyboard"
+      class="embed-prompt embed-badge"
+      :title="badgeText"
+      :aria-label="badgeText"
+      @click="activate"
+    >
       <CursorArrowRaysIcon class="size-4" />
-      <span>{{ badgeText }}</span>
+      <span class="badge-text">{{ badgeText }}</span>
     </div>
 
     <div v-if="problems.length && problemsOpen" class="embed-problems">
@@ -385,6 +532,71 @@ onUnmounted(() => {
   outline: none;
   background: #171717; /* neutral-900, the app's own ground */
   color: #fff;
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/*
+  The gaps between the panels are the dividers — the container's colour showing
+  through, exactly as in App.vue.
+*/
+.panels {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  gap: 1px;
+  background: var(--color-neutral-800);
+}
+
+.panel-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+/*
+  The `controls=none` layout: a row of columns, until there is no room for two of
+  anything.
+
+  The same threshold as `useNarrowLayout`'s, written out because this branch has
+  no switch and so nothing in script to hang it on — a frame this shape simply
+  stacks what it was given rather than choosing between the pieces.
+*/
+@media (max-width: 700px), (max-height: 480px), (orientation: portrait) {
+  .panels-literal {
+    flex-direction: column;
+  }
+}
+
+/*
+  Landscape on a phone: the keyboard goes beside the panels, not under them.
+
+  Stacked, the two of them divide about 290 points of height and the pad ends up
+  a sliver — while several hundred points of width sit empty, because everything
+  in a window this shape is limited by height and nothing else. Side by side,
+  both take that height instead of splitting it.
+
+  The same rule and the same breakpoint as App.vue's; OnScreenKeyboard carries
+  the board's half of it and MachineCard the card's.
+*/
+@media (max-height: 480px) and (min-width: 700px) {
+  .stage {
+    flex-direction: row;
+  }
+
+  .stage > .panels,
+  .stage > .osk {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 
 /*
@@ -437,6 +649,21 @@ onUnmounted(() => {
   border-radius: 999px;
   font-size: 0.75rem;
   cursor: pointer;
+}
+
+/*
+  Narrow, the badge loses its words.
+
+  Top-left is chosen to miss the card, which sits in the right-hand column — but
+  a frame too narrow for two columns has the card across the whole width, and the
+  badge was then lying over most of a display that is sixteen characters wide.
+  The icon alone covers about two of them, which is the same trade 6502-EMULATOR's
+  embed makes over its screen. The words are still on the element's title.
+*/
+@media (max-width: 700px), (max-height: 480px), (orientation: portrait) {
+  .embed-badge .badge-text {
+    display: none;
+  }
 }
 
 /*

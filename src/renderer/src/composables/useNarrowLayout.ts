@@ -38,21 +38,52 @@ import { focus } from '@/composables/useFocusRouter'
 
 export type NarrowView = 'machine' | 'terminal' | 'bay'
 
+/**
+ * Layout order, which is also preference order: the card first, because the pad
+ * is the machine.
+ */
+export const ALL_VIEWS: readonly NarrowView[] = ['machine', 'terminal', 'bay']
+
 const QUERY = '(max-width: 700px), (max-height: 480px), (orientation: portrait)'
 
-export function useNarrowLayout(): {
+export interface NarrowLayoutOptions {
+  /**
+   * Which views this window has at all, for a caller that does not have all
+   * three.
+   *
+   * The app always has them: the machine is four panels and they are all built.
+   * The embed's `panels=` is the reason this exists — a frame showing the
+   * display and the pad and nothing else has one view, and a switch offering to
+   * take it somewhere that does not exist would be a button that does nothing.
+   */
+  views?: readonly NarrowView[]
+}
+
+export function useNarrowLayout(options: NarrowLayoutOptions = {}): {
   narrow: DeepReadonly<Ref<boolean>>
   view: DeepReadonly<Ref<NarrowView>>
+  /** The views this window has, in layout order. Never empty. */
+  views: readonly NarrowView[]
   show: (next: NarrowView) => void
 } {
+  // Filtered through ALL_VIEWS rather than taken as given, so the switch is
+  // always drawn left to right in layout order however the caller listed them.
+  const wanted = options.views
+  const views = wanted ? ALL_VIEWS.filter((v) => wanted.includes(v)) : [...ALL_VIEWS]
+  // A caller that asked for nothing recognisable still gets a window, for the
+  // same reason `panels=` falls back to all four: a blank rectangle is
+  // indistinguishable from a broken embed.
+  if (views.length === 0) views.push(...ALL_VIEWS)
+
   // `matchMedia` and not a resize listener, so this and the stylesheet cannot
   // disagree about where the threshold is.
   const media = window.matchMedia(QUERY)
   const narrow = ref(media.matches)
 
   // The pad, to begin with, because the pad is the machine — the same reason
-  // App.vue hands it the keyboard on boot.
-  const view = ref<NarrowView>('machine')
+  // App.vue hands it the keyboard on boot. Or the first view there is, for a
+  // frame that does not have the card.
+  const view = ref<NarrowView>(views[0]!)
 
   const onChange = (event: MediaQueryListEvent): void => {
     narrow.value = event.matches
@@ -75,6 +106,7 @@ export function useNarrowLayout(): {
    * takes keys is mounted at all, and the router clears itself as they unmount.
    */
   const show = (next: NarrowView): void => {
+    if (!views.includes(next)) return
     view.value = next
     if (next === 'bay') {
       if (!narrow.value) void nextTick(() => focus('keypad'))
@@ -83,5 +115,5 @@ export function useNarrowLayout(): {
     void nextTick(() => focus(next === 'machine' ? 'keypad' : 'terminal'))
   }
 
-  return { narrow: readonly(narrow), view: readonly(view), show }
+  return { narrow: readonly(narrow), view: readonly(view), views, show }
 }

@@ -65,6 +65,7 @@ describe('parseEmbedParams — defaults', () => {
     expect(params.keys).toEqual([])
     expect(params.panels).toEqual([...ALL_PANELS])
     expect(params.controls).toBe('minimal')
+    expect(params.keyboard).toBe('auto')
     expect(params.origins).toBeNull()
     expect(params.warnings).toEqual([])
   })
@@ -366,6 +367,53 @@ describe('controls', () => {
     const params = parseEmbedParams('?controls=some')
     expect(params.controls).toBe('minimal')
     expect(params.warnings).toContainEqual(expect.stringContaining('controls'))
+  })
+})
+
+describe('keyboard', () => {
+  it.each(['1', 'true', 'yes', 'on', ''])('reads keyboard=%s as on', (value) => {
+    expect(parseEmbedParams(`?keyboard=${value}`).keyboard).toBe('on')
+  })
+
+  it.each(['0', 'false', 'no', 'off'])('reads keyboard=%s as off', (value) => {
+    expect(parseEmbedParams(`?keyboard=${value}`).keyboard).toBe('off')
+  })
+
+  it('leaves auto for the browser to resolve', () => {
+    // The third state is not a fallback — EmbedApp is the only place that can
+    // ask whether this device has a keyboard of its own.
+    expect(parseEmbedParams('').keyboard).toBe('auto')
+    expect(parseEmbedParams('?keyboard=AUTO').keyboard).toBe('auto')
+  })
+
+  it('falls back to auto on a mode it cannot read', () => {
+    const params = parseEmbedParams('?keyboard=sometimes')
+    expect(params.keyboard).toBe('auto')
+    expect(params.warnings).toEqual([
+      'keyboard: expected 1, 0 or auto, got "sometimes" — using auto.'
+    ])
+  })
+
+  it('refuses the board on a machine with no Serial Card', () => {
+    // It types down the serial line, and there is no line — `useConsole.send`
+    // checks for the ACIA and returns. A third of the frame that does nothing
+    // when pressed is worse than no board at all.
+    expect(parseEmbedParams('?serialcard=0').keyboard).toBe('off')
+    expect(parseEmbedParams('?serialcard=0&keyboard=auto').keyboard).toBe('off')
+  })
+
+  it('says so when the two parameters contradict each other', () => {
+    const params = parseEmbedParams('?serialcard=0&keyboard=1')
+    expect(params.keyboard).toBe('off')
+    expect(params.warnings).toEqual([
+      'keyboard: no Serial Card fitted — there is nowhere for the bytes to go.'
+    ])
+  })
+
+  it('is silent when the author did not ask for the board', () => {
+    // `serialcard=0` on its own is not a mistake, so it is not a warning.
+    expect(parseEmbedParams('?serialcard=0').warnings).toEqual([])
+    expect(parseEmbedParams('?serialcard=0&keyboard=0').warnings).toEqual([])
   })
 })
 

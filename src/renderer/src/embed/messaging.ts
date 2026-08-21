@@ -29,6 +29,8 @@ export type EmbedInbound =
   | { type: '6502-kim:powerCycle' }
   | { type: '6502-kim:type'; text: string }
   | { type: '6502-kim:key'; key?: unknown; keys?: unknown; kps?: number }
+  | { type: '6502-kim:setKeyboard'; open: boolean }
+  | { type: '6502-kim:show'; view: unknown }
 
 /**
  * What can be loaded into a running machine.
@@ -69,6 +71,22 @@ export interface EmbedMessagingOptions {
    * first place.
    */
   whenReady: () => Promise<boolean>
+  /**
+   * Show or hide the on-screen keyboard.
+   *
+   * Supplied rather than reached for: the board's visibility is a property of
+   * this frame — settled by `keyboard=`, by whether a Serial Card is fitted, and
+   * by what kind of device is looking at it — and `EmbedApp` is what holds it.
+   */
+  setKeyboard: (open: boolean) => void
+  /**
+   * Bring a panel to the front on a frame too narrow to show them all at once.
+   *
+   * A no-op on a frame that is showing everything already, and on one whose
+   * `panels=` never included what was asked for — see `useNarrowLayout.show`,
+   * which is what this is.
+   */
+  show: (view: string) => void
   /** Reported alongside `6502-kim:ready` so a host can branch on what it got. */
   describe?: () => Record<string, unknown>
 }
@@ -224,6 +242,12 @@ export function useEmbedMessaging(options: EmbedMessagingOptions) {
         break
       case '6502-kim:key':
         applyKey(message)
+        break
+      case '6502-kim:setKeyboard':
+        options.setKeyboard(!!message.open)
+        break
+      case '6502-kim:show':
+        if (typeof message.view === 'string') options.show(message.view.trim().toLowerCase())
         break
       default:
         // Unknown `6502-kim:` verbs are ignored, for the same reason unknown URL

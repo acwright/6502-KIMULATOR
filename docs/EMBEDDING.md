@@ -35,6 +35,8 @@ frame: a real KIM sits on the same splash until you touch it.
 - [Inline payloads: the `64` suffix](#inline-payloads-the-64-suffix)
 - [CORS and CSP](#cors-and-csp)
 - [Keyboard focus](#keyboard-focus)
+- [The on-screen keyboard](#the-on-screen-keyboard)
+- [A narrow frame](#a-narrow-frame)
 - [Sizing](#sizing)
 - [The `postMessage` API](#the-postmessage-api)
 - [The `embed.js` loader](#the-embedjs-loader)
@@ -55,6 +57,7 @@ frame: a real KIM sits on the same splash until you touch it.
 | `autotype` | — | Text typed down the serial line once the machine is up |
 | `autostart` | `1` | Boot the machine on load |
 | `controls` | `minimal` | `full` \| `minimal` \| `none` |
+| `keyboard` | `auto` | On-screen keyboard: `1`, `0`, or `auto` — on for a touch-only device |
 | `origins` | any | Comma-separated origins allowed to drive the frame over `postMessage` |
 
 `rom` and `bin` also have a `64` form that carries the bytes in the URL itself.
@@ -110,6 +113,10 @@ They come back in layout order however you write them, so the panels sit the way
 they sit on the bench. A name it does not recognise is dropped with a warning; a
 list where *nothing* is recognised shows all four, because a blank rectangle is
 indistinguishable from a broken embed.
+
+`panels=` says what the frame *has*, not what is on the screen at this moment:
+below the two-column threshold the panels take turns behind a switch, and the
+list is what the switch offers. See [A narrow frame](#a-narrow-frame).
 
 **Hiding a panel hides the view, never the hardware.** The LCD is still being
 driven behind `panels=terminal`, the ACIA still transmits, and the latch still
@@ -278,7 +285,10 @@ on what the click will actually do:
 - **`autostart=1`** (the default) — the machine is already booting, so all the
   click can offer is the keyboard. The prompt shrinks to a corner badge saying
   so, rather than covering up the boot. Clicking anywhere in the frame works; the
-  badge is only the affordance.
+  badge is only the affordance. On a touch device there is no host keyboard to
+  hand over — the pad takes a finger whatever has focus — so the badge is not
+  drawn at all, and on a frame too narrow for two columns it shrinks to its icon
+  so as not to lie across the display.
 
 Use `autostart=0` when you want the machine held until the reader asks for it —
 several embeds on one page all emulating a CPU nobody has looked at yet is real
@@ -288,19 +298,96 @@ before it.
 
 ---
 
+## The on-screen keyboard
+
+The board you would wire to this machine's serial line: the ACE's 67 keys, drawn
+on the screen, putting bytes on the wire exactly as that keyboard would. Shift
+and Ctrl are sticky — tap to arm for one key, tap again to lock — and Fn turns
+the number row into F1–F10. It is the same component the full app has.
+
+It is the machine's *other* input path, not a replacement for the pad. The pad is
+a panel, it is drawn at every size, and a finger works on it; this is how you get
+at the KC Monitor's serial side from a device with no keyboard.
+
+It is off on a desktop and **on by default on a touch-only device**, which is
+what `keyboard=auto` means:
+
+| Value | Meaning |
+|---|---|
+| `auto` (default) | On when the browser reports `(pointer: coarse) and (hover: none)` — a touch screen and no mouse — **and** `panels=` includes the terminal, since that is where what you type is echoed |
+| `1` | Always on. Overrides the terminal condition: a host page reading `6502-kim:serial` has somewhere to see the reply that the frame cannot know about |
+| `0` | Always off |
+
+A frame built with `serialcard=0` has no ACIA, so there is nowhere for a byte to
+arrive: the board is refused, the toggle is not drawn, and `keyboard=1` on such a
+frame is reported as a warning rather than honoured.
+
+`auto` is read once, when the frame loads. A reader who closes the board keeps it
+closed, and a tablet that has a keyboard attached to it mid-session is answered
+by the toggle rather than by the layout jumping.
+
+Allow for it when sizing: the board takes `min(34dvh, 13rem)` under the panels.
+In landscape it moves *beside* them instead, so the two are not dividing a height
+neither of them has.
+
+The host page can drive it with [`6502-kim:setKeyboard`](#sending-commands), and
+`6502-kim:ready` reports `keyboard` as the resolved boolean rather than the mode
+it was asked for.
+
+---
+
+## A narrow frame
+
+Four panels assume two columns, and a phone-sized frame has room for neither. So
+below a frame wider than it is tall and big enough in both directions — the same
+threshold the full app uses — the embed shows **one panel at a time**, with a
+KIM / TERM / BAY switch in the control bar. The display and the pad count as one
+choice, because they are one card.
+
+The switch only offers what `panels=` asked for. `panels=lcd,keys` is one view
+and gets no switch at all; `panels=terminal,accessory` gets two.
+
+Wide, the same thing happens in the left-hand column only: the terminal and the
+bay take turns in it while the card keeps the right-hand column. The bay squeezed
+under the terminal had room for a dropdown or a circuit but not both.
+
+**`controls=none` turns all of this off.** There is no bar, so there is no
+switch, and a panel taken off the screen could not be brought back — so such a
+frame draws everything it was asked for, stacking the panels into one column when
+it is too narrow for two. If you want a small frame with no chrome, choose the
+`panels=` to match rather than relying on the switch.
+
+The host page can bring a panel to the front with
+[`6502-kim:show`](#sending-commands), and `6502-kim:ready` reports `view` and the
+`views` this frame can be switched between.
+
+---
+
 ## Sizing
 
 There is no single raster to double here the way there is on a machine with a
 video card — the KIM is four panels beside each other — so the size follows the
 panels you asked for:
 
-| `panels` | Suggested |
-|---|---|
-| all four (default) | 720 × 480 |
-| `lcd,keys` | 360 × 520 — the pad is 4 × 6, and wants height |
-| `terminal` | 480 × 400 — the tube is 4:3 |
-| `lcd` | 400 × 140 |
-| `lcd,accessory` | 400 × 300 |
+| `panels` | Suggested | Layout |
+|---|---|---|
+| all four (default) | 720 × 560 | Two columns |
+| `lcd,keys` | 360 × 520 — the pad is 4 × 6, and wants height | One card, no switch |
+| `terminal` | 480 × 400 — the tube is 4:3 | One panel, no switch |
+| `lcd` | 400 × 140 | One card, no switch |
+| `lcd,accessory` | 400 × 300 | Two views behind a switch |
+| `lcd,accessory` | 640 × 520 | Two columns |
+
+**560 and not 480, which this used to say.** Two columns need a frame wider than
+it is tall and at least 481 points high; below that the panels take turns behind
+a switch instead — see [A narrow frame](#a-narrow-frame). 720 × 480 sits exactly
+on that line and gets the switch, which is not what a frame that size is usually
+for. The `embed.js` loader's default was raised to match.
+
+The threshold is a property of the frame, not of the device: a 400 × 300 box on a
+desktop gets the switch, and a 900 × 600 one on a tablet does not. That is
+deliberate — it is how much room there is that decides, and an iframe is the only
+thing that knows how much room an iframe has.
 
 Every panel scales to whatever box you give it and keeps its proportions: the
 terminal is a 320 × 240 raster scaled up whole, the pad letterboxes, and the LCD
@@ -316,6 +403,15 @@ pixels so the grid stays crisp at any size. For a fluid layout, wrap it:
 Add `allow="fullscreen"` if you want the fullscreen button to work; without it
 the browser refuses and the embed says so. Double-clicking the LCD expands it to
 fill the frame, which needs nothing.
+
+**On a phone.** The embed lays itself out for the box it is in, not for the
+window, so a frame given a phone-sized box behaves the way the app does on a
+phone: one panel at a time behind the [view switch](#a-narrow-frame), a control
+bar that wraps rather than running off the edge and becomes a scrolling row below
+480pt of height, 44pt targets on a touch pointer, and the on-screen keyboard
+beside the panels in landscape rather than under them. A frame that will be read
+on a phone wants **at least 320 × 480**; give it the width of the column it sits
+in and let the height follow the ratio above.
 
 ---
 
@@ -347,6 +443,8 @@ frame.postMessage({ type: '6502-kim:reset' }, '*')
 | `6502-kim:pause` | — | Stop it |
 | `6502-kim:reset` | — | Warm reset — pulses RESET, keeps RAM |
 | `6502-kim:powerCycle` | — | Cold reset — zeroes RAM |
+| `6502-kim:setKeyboard` | `open` | Show or hide the on-screen keyboard. Refused on a frame with `serialcard=0` |
+| `6502-kim:show` | `view` | Bring a panel to the front: `machine`, `terminal` or `bay`. Ignored on a frame showing them all already, or one whose `panels=` does not include it |
 
 `data` may be a base64 string, an `ArrayBuffer`, a typed array, or an array of
 byte values. A string is the one that survives being written into a JSON blob or
@@ -382,7 +480,7 @@ window.addEventListener('message', (event) => {
 
 | Message | Fields |
 |---|---|
-| `6502-kim:ready` | `rom`, `cardROM`, `accessory`, `serialCard`, `panels`, `controls`, `warnings` — sent once, after the boot sequence |
+| `6502-kim:ready` | `rom`, `cardROM`, `accessory`, `serialCard`, `panels`, `controls`, `keyboard`, `view`, `views`, `warnings` — sent once, after the boot sequence. `keyboard` is the resolved boolean, not the `keyboard=` mode; `views` is empty on a frame that cannot switch |
 | `6502-kim:stopped` | `reason`, the debug protocol's `StopReason`. A program ending in `STP` arrives as `{ kind: 'trap', detail: 'stp' }` — see [DEBUG-PROTOCOL.md](DEBUG-PROTOCOL.md) |
 | `6502-kim:serial` | `bytes` (numbers) and `text`, from the ACIA. Coalesced over ~32 ms rather than one message per character. Silent on a machine with `serialcard=0` |
 
@@ -432,7 +530,7 @@ Five attributes are read locally instead of forwarded:
 | Attribute | Default |
 |---|---|
 | `data-kim-width` | `720` |
-| `data-kim-height` | `480` |
+| `data-kim-height` | `560` |
 | `data-kim-title` | `6502 KIMulator` |
 | `data-kim-allow` | `fullscreen` |
 | `data-kim-class` | — (set on the generated `<iframe>`) |

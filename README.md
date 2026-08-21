@@ -191,6 +191,11 @@ them, and the pad sits beside the display rather than under it: everything in a
 window that shape is limited by height, so side by side lets both take that
 height instead of splitting it.
 
+The [embed](#embedding) does all of the same things, in its own frame rather than
+in the window — with the switch offering only the panels its `panels=` asked for.
+`controls=none` is the exception: with no bar there is no switch, so such a frame
+stacks everything it was given rather than hiding a panel it could not bring back.
+
 ### Settings Panel
 
 **FILES** — BIOS ROM, **Keypad Card ROM**, and a binary at an address. The Keypad
@@ -433,9 +438,15 @@ The parameters most embeds need:
 | `serialcard` | `1` | `0` gives the keypad-only machine |
 | `autostart` | `1` | Boot on load; `0` holds the machine until the reader clicks |
 | `controls` | `minimal` | `full` \| `minimal` \| `none` |
+| `keyboard` | `auto` | The on-screen keyboard: `1`, `0`, or `auto` — on for a touch-only device |
 
 There is no `freq` — same reason as the CLI's missing `--freq` and the control
 bar's missing toggle: one clock.
+
+An embed lays itself out for the frame it is given rather than for the window, so
+a phone-sized one behaves the way the app does on a phone: one panel at a time
+behind a KIM / TERM / BAY switch, and the on-screen keyboard opened by itself on
+a device that has no keyboard of its own.
 
 **[docs/EMBEDDING.md](docs/EMBEDDING.md)** is the full reference: every parameter,
 the inline base64 forms, CORS and CSP, sizing, the `embed.js` loader, and the
