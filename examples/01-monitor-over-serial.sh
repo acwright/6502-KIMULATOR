@@ -62,23 +62,33 @@ expect 'why the run ended' "$reason" halted
 # monitor was last sitting on.
 printf '   the panel at exit: |%s|\n' "$(json lcd.0 < "$WORK/result.json")"
 
-say '2. Serial R is Wozmon R — a jump, not a call'
+say '2. Serial R is a call, and RTS comes back to the prompt'
 
-# Worth knowing before it wastes an afternoon: `XXXX R` is `JMP (XAML)`, exactly
-# as in the original Wozmon, so a program ending in RTS returns to whatever the
-# stack happened to hold and the prompt does not come back. The pad's ▲ *is* a
-# JSR — DoUp calls through CUR_ADDR and a user RTS lands back in the monitor —
-# which is why example 02 can key a program in, run it, and carry on.
+# `XXXX R` is a JSR through XAML, not original Wozmon's `JMP (XAML)`. Both of
+# this machine's consoles run a program the same way — the pad's ▲ is a JSR too
+# (DoUp calls through CUR_ADDR) — so a program that ends in RTS lands back in a
+# live monitor either way, and the serial side prints a fresh prompt on return.
 #
-# So: end a program run from the serial side with STP, or drive it from the pad.
-show "printf '...0800: A9 5A 8D 00 09 60\\r0800 R\\r' | 6502-kim run --headless   # RTS, not STP"
+# The program below is example 1's with RTS in place of STP. Three things have
+# to be true for the line after it to be answered at all: the program ran, the
+# RTS returned into the parser, and the prompt reset the line buffer. If any of
+# them failed the `0900` would be appended to the still-live "0800 R" and re-run
+# the program instead of examining anything, and this would time out.
+show "printf '...0800: A9 5A 8D 00 09 60\\r0800 R\\r0900\\r' | 6502-kim run --headless   # RTS, not STP"
 
 # shellcheck disable=SC2086
-printf '\x1b0800: A9 5A 8D 00 09 60\r0800 R\r' |
-  $SIXTY502_KIM run --headless --quiet --input-after 'ESC TO START' --timeout 10s --json \
-    > "$WORK/rts.log" 2>"$WORK/rts.json" || true
+printf '\x1b0800: A9 5A 8D 00 09 60\r0800 R\r0900\r' |
+  $SIXTY502_KIM run --headless --quiet --input-after 'ESC TO START' --timeout 10s \
+    --exit-on '0900: 5A' --json > "$WORK/rts.log" 2>"$WORK/rts.json"
+status=$?
 
-expect 'an RTS program run from the serial side' "$(json reason < "$WORK/rts.json")" timeout
+expect 'an RTS program run from the serial side' "$(json reason < "$WORK/rts.json")" exit-on
+expect 'the exit code' "$status" 0
+expect_match 'the monitor answered the line typed after the run' \
+  "$(cat "$WORK/rts.log")" '0900: 5A'
+
+# End a serial-launched program in STP instead when you want the run itself to
+# stop the machine, as example 1 above does.
 
 say '3. The machine with no Serial Card'
 

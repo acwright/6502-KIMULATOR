@@ -90,7 +90,9 @@ Three things in that line are worth knowing:
   does not defend itself — see [Where your bytes may go](#where-your-bytes-may-go).
 
 The monitor's syntax is Wozmon's: `0800` examines, `0800.0810` examines a range,
-`0800: A9 41` deposits, `0800R` runs.
+`0800: A9 41` deposits, `0800R` runs. `R` is a `JSR` here rather than Wozmon's
+`JMP`, so a program ending in `RTS` returns to a fresh prompt; one ending in
+`STP` halts the machine, which is what a scripted run usually wants.
 
 ## Where your bytes may go
 

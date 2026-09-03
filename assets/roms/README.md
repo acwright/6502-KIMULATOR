@@ -37,11 +37,24 @@ awkward in a URL the web build has to fetch.
 
 - **Source** — `/Users/acwright/Developer/Kicad/6502-KIM`,
   `Firmware/KC Monitor/KC Monitor.bin`
-- **Commit** — `79a4e4804c2f575388f46b23fc11e13900303f47` (2026-08-13)
+- **Commit** — `3b5aa805085d55ef3d1a3291c635ce97485b49ad` (2026-09-02)
 - **Version string** — `KIM MONITOR v1.0`
-- **SHA-256** — `029fb5bd9cbddab3b1547bb625725795b98a3647d4934dba59f30bb3e7e4e692`
+- **SHA-256** — `06601fb6d962b01266988e6a78a962cad03392c6850d1a510455193c8db40aaf`
 
-### The splash gate changed in this build
+### Serial `R` is a call in this build
+
+`XXXX R` is a `JSR` through `XAML`, not original Wozmon's `JMP (XAML)`. A
+program that ends in `RTS` now returns to the parser and gets a fresh `> `
+prompt, matching the pad's `▲`, which has always run the program under the
+cursor as a subroutine.
+
+Before this build an `RTS` left the terminal with no prompt *and* a line buffer
+still holding the `XXXX R` that launched it, so the next line typed was appended
+to that line and re-ran the program rather than being parsed. Anything that
+drove the serial monitor and worked around that — expecting a run to time out,
+or ending every program in `STP` — still works; `STP` still halts the machine.
+
+### The splash gate changed in the previous build
 
 Worth knowing, because it is the first thing anything driving this machine
 runs into. Both consoles now show `--ESC TO START--` and both mean it:

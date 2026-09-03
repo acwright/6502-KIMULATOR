@@ -22,7 +22,7 @@ source "$(dirname "$0")/lib.sh"
 # The program keyed in below is LDA #$5A / STA $0900 / RTS — A9 5A 8D 00 09 60.
 # It ends in RTS rather than STP because the pad's ▲ is a JSR: DoUp calls
 # through CUR_ADDR, and a user RTS lands back in the monitor with the machine
-# still usable. (The serial side's `R` is Wozmon's, a JMP; see example 01.)
+# still usable. (The serial side's `R` calls the same way; see example 01.)
 
 say '1. Boot, and take the splash at its word'
 

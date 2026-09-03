@@ -128,8 +128,8 @@ at all:
 | Stop, back to the monitor | `ESC` |
 
 `▲` runs the program **as a subroutine**, so an `RTS` comes back to the monitor.
-(The serial monitor's `XXXX R` is Wozmon's, which is a `JMP` — see
-[Command Line](#command-line).)
+The serial monitor's `XXXX R` does the same — both consoles agree about what
+running a program means — see [Command Line](#command-line).
 
 ---
 
@@ -297,9 +297,10 @@ printf '\x1b0800: A9 41 EA\r0800.0802\r' | 6502-kim run --headless --input-after
 ```
 
 The KC Monitor's serial side speaks Wozmon: `0800` examines, `0800.0810` examines
-a range, `0800: A9 41` deposits, `0800 R` runs. `R` is a `JMP`, as in the
-original — a program run from the serial side should end in `STP`, or be driven
-from the pad instead, whose `▲` is a `JSR`.
+a range, `0800: A9 41` deposits, `0800 R` runs. `R` is a `JSR`, unlike original
+Wozmon's `JMP`: a program that ends in `RTS` comes back to a fresh `> ` prompt,
+exactly as one launched from the pad's `▲` comes back to the monitor. End it in
+`STP` instead when you want the run itself to be what stops the machine.
 
 `--input-after 'ESC TO START'` holds stdin until the splash appears. The firmware
 spends its first ~1.8 M cycles probing slots and running the HD44780's four

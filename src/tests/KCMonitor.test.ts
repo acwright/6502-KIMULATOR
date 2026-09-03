@@ -457,5 +457,35 @@ describe('KC Monitor', () => {
 
       expect(String.fromCharCode(...sent)).toContain('5A')
     })
+
+    /**
+     * `XXXX R` is a JSR through XAML, not original Wozmon's JMP, so a program
+     * ending in RTS returns to the parser rather than to whatever the stack
+     * happened to hold — the same contract the pad's ▲ has had all along.
+     *
+     * The examine after the run is the load-bearing half of this test. It is
+     * answered only if the RTS landed back in SerProcess *and* the prompt that
+     * follows reset the line buffer; under the old jump semantics `0400` was
+     * appended to the still-live `0800 R` and re-ran the program instead.
+     */
+    it('runs a program with R and comes back to the prompt', () => {
+      const machine = atMonitor()
+      // LDA #$42, STA $0400, RTS — $0400 is the serial RX ring, which the
+      // monitor is done with by the time the byte lands, and it is somewhere
+      // neither console paints from.
+      const program = [0xa9, 0x42, 0x8d, 0x00, 0x04, 0x60]
+      program.forEach((byte, offset) => machine.poke(PROGRAM_START + offset, byte))
+      const sent: number[] = []
+      machine.transmit = (byte) => sent.push(byte)
+
+      type(machine, '0800 R\r')
+
+      expect(machine.peek(0x0400)).toBe(0x42)
+      expect(String.fromCharCode(...sent)).toMatch(/> $/)
+
+      type(machine, '0400\r')
+
+      expect(String.fromCharCode(...sent)).toContain('0400: 42')
+    })
   })
 })
