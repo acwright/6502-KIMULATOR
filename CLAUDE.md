@@ -62,3 +62,9 @@ If a suite and the data sheet genuinely conflict, do not silently pick one. Reco
 the disagreement where it can fail — `CYCLE_DIVERGENCE` in
 `src/tests/conformance/harte.test.ts` is the existing pattern, and it asserts the
 numbers on both sides so that it breaks if either moves.
+
+## The bundled BIOS comes from the 1.x line
+
+The KIM never takes BIOS 2.x. `assets/roms/BIOS.bin` comes from 6502-BIOS's `v1.x`
+branch (tag `v1.6` today), never its `main`, and `BundledROM.test.ts` refuses any
+version string but `6502 BIOS v1.x`. See `assets/roms/README.md`.

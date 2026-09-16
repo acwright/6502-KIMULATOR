@@ -21,10 +21,18 @@ The family's BIOS. Spans `$8000–$FFFF` as an image, but only `$A000–$BFFF` o
 is visible on a KIM: the Kernal at `$A000–$B7FF` and the CP437 character set at
 `$B800–$BFFF`. The Keypad Card overlays everything above.
 
-- **Source** — `/Users/acwright/Developer/Assembly/6502-BIOS`, `BIOS.bin`
-- **Commit** — `d1fcefe0725aac033126a529e135675b1624f6c8` (2026-08-05)
-- **Version string** — `6502 BIOS v1.5`
-- **SHA-256** — `ecd753a22d9ac5e91653d0f4c20ddd5df38637f2a95a6e11b89f3e1ab71203ca`
+- **Source** — `/Users/acwright/Developer/Assembly/6502-BIOS`, `BIOS.bin` at
+  tag `v1.6` (branch `v1.x`), not the repository's `main`, which is BIOS 2.x
+- **Commit** — `71e1e66560cf08635812b062a038c14381dd8f69` (2026-09-16)
+- **Version string** — `6502 BIOS v1.6`
+- **SHA-256** — `fc0002d0ae25240ed36cfa4bea12735ee71fb05017651bf726520af0658be0a0`
+
+On a KIM, 1.6 changes only what `KernalVersion` reports. Its NVRAM save slots
+need an RTC card, which a KIM doesn't have, so every `Nv*` entry returns carry
+set.
+
+**The KIM stays on BIOS 1.x.** Future updates come only from 6502-BIOS `v1.x`,
+as 1.6.x. `BundledROM.test.ts` refuses any other version string.
 
 ## KCMonitor.bin — 8 KB
 

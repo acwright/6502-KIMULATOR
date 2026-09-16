@@ -23,10 +23,11 @@ const ROMS = [
   {
     name: 'BIOS.bin',
     bytes: 32768,
-    // 6502-BIOS @ d1fcefe0725aac033126a529e135675b1624f6c8
-    sha256: 'ecd753a22d9ac5e91653d0f4c20ddd5df38637f2a95a6e11b89f3e1ab71203ca',
-    // Guards against bundling a truncated or unrelated binary.
-    version: /6502 BIOS v\d+\.\d+/
+    // 6502-BIOS @ v1.6 (71e1e66560cf08635812b062a038c14381dd8f69), the 1.x line
+    sha256: 'fc0002d0ae25240ed36cfa4bea12735ee71fb05017651bf726520af0658be0a0',
+    // Guards against bundling a truncated or unrelated binary. The KIM stays on
+    // BIOS 1.x permanently, so a 2.x ROM must fail here rather than ship.
+    version: /6502 BIOS v1\.\d+/
   },
   {
     name: 'KCMonitor.bin',
