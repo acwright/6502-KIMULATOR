@@ -1,8 +1,9 @@
 # Working notes for 6502-KIMULATOR
 
-Read this before changing anything here. It is the short version of
-[../PLAN.md](../PLAN.md) — what the machine is, where the code comes from, and
-the conventions the repository is held to.
+Read this before changing anything here. It is what the machine is, where the
+code comes from, the conventions the repository is held to, and what building it
+taught. The original build plan it condenses is no longer in the tree; it is in
+history, as `git show a21748b:PLAN.md`.
 
 > [DRIVING.md](DRIVING.md) is the user-facing guide — *driving the emulator from
 > an agent*, the direct descendant of `6502-EMULATOR/docs/AGENTS.md`, written to
@@ -139,21 +140,24 @@ is typechecked until somebody builds the CLI, and CI never does.
 generated `icon.icns`, `icon.ico`, `icon.png` and `icon.iconset/` are tracked, so
 CI never has to run it.
 
-## Phase status
+## Project status
 
-Phases are [../PLAN.md](../PLAN.md); this is where the work has reached.
+The build is finished. The emulator shipped as v1.0.0 and is maintained as
+v1.0.x releases — `package.json` carries the current version. It was built in
+eleven phases, and the notes below still name them where a phase is the reason
+something is the way it is:
 
-- [x] **0** — repository, toolchain, icon, CI
-- [x] **1** — core port
-- [x] **2** — the Keypad Card
-- [x] **3** — debug core & protocol
-- [x] **4** — Electron shell
-- [x] **5** — the interface
-- [x] **6** — accessories
-- [x] **7** — command line
-- [x] **8** — web build & embed
-- [x] **9** — README, LICENSE & examples
-- [x] **10** — release v1.0.0
+- **0** — repository, toolchain, icon, CI
+- **1** — core port
+- **2** — the Keypad Card
+- **3** — debug core & protocol
+- **4** — Electron shell
+- **5** — the interface
+- **6** — accessories
+- **7** — command line
+- **8** — web build & embed
+- **9** — README, LICENSE & examples
+- **10** — release v1.0.0
 
 `npm run dev` opens a window onto a KIM you can use: it boots both ROMs, prints
 the KC Monitor's banner to the terminal, shows `KIM MONITOR v1.0` on the glass,
@@ -166,11 +170,11 @@ an `<iframe>` on someone else's article is a machine they can key a program
 into. [../examples/](../examples/) drives all of that from a shell and CI runs
 it, so a documented command that stops working stops the build.
 
-**v1.0.0 is tagged and released.** The plan is delivered: everything above ships,
-and everything [../PLAN.md](../PLAN.md) said would be absent — video, sound,
-storage, RTC, RAM banks, joysticks, the matrix keyboard, BASIC, and a cartridge
-slot — is absent. From here the phases are done and the repository is on ordinary
-footing: changes are changes, and the next version number is earned by one.
+**Everything above ships, and everything a KIM does not have is absent** —
+video, sound, storage, RTC, RAM banks, joysticks, the matrix keyboard, BASIC, and
+a cartridge slot (see [What this is not](#what-this-is-not)). The repository is
+on ordinary footing: changes are changes, and the next version number is earned
+by one.
 
 The Electron shell is a lift, minus everything a KIM has no hardware for.
 `storage.ts` is gone entirely and `roms.ts` stands in its place: a KIM has no CF
@@ -241,8 +245,8 @@ below — and the same fix: `width: min(100%, 100cqh * 4 / 3)`, because a box wi
 a definite height and `max-width` on it does not re-derive its ratio, it just
 squashes.
 
-**Two numbers in the LCD spec were wrong, and the reference says so.** PLAN.md's
-table was read off the image by eye; measuring it gives:
+**Two numbers in the LCD spec were wrong, and the reference says so.** The build
+plan's table was read off the image by eye; measuring it gives:
 
 - **Bezel is 3 dot pitches, not 5.** About three pitches of backlight above and
   below the character area in the reference. Its side margins are narrower, but
@@ -261,9 +265,9 @@ own noise rather than the hardware.
 
 The colours were already right: the reference's unlit dots sample at #8DA93D
 against the spec's #8AA33B, and the ratio to the backlight comes out at 80%,
-matching the 0.80 the plan recorded. Its *lit* pixels sample far brighter than
-#101B04, which is the blur — a photograph can only pull the two together, so the
-real contrast was at least this high.
+matching the 0.80 the build plan recorded. Its *lit* pixels sample far brighter
+than #101B04, which is the blur — a photograph can only pull the two together, so
+the real contrast was at least this high.
 
 **The keypad is letterboxed by arithmetic, not by `aspect-ratio`.** A grid whose
 only sizing is a ratio plus max-width/max-height has nothing to compute a size

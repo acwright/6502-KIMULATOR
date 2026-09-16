@@ -161,8 +161,10 @@ export function formatLCD(lines: string[]): string {
  *
  * The gaps are drawn rather than closed up, because on this display the unlit
  * dots are visible and the character cell is genuinely six dots wide with the
- * sixth left dark — see the LCD panel notes in PLAN.md. A rendering that packed
- * the glyphs together would read as a font, not as a dot matrix.
+ * sixth left dark — the 6:1 cell-to-dot ratio the reference photograph shows,
+ * recorded with the rest of the panel notes in `src/renderer/src/lcd/render.ts`.
+ * A rendering that packed the glyphs together would read as a font, not as a
+ * dot matrix.
  */
 export function formatLCDPixels(pixels: {
   width: number

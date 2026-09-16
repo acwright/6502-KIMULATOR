@@ -6,7 +6,7 @@ import { dirname, join } from 'path'
 import type { CliShimStatus } from '../shared/types'
 
 /**
- * Installs the `6502-kim` command described in PLAN.md phase 7.
+ * Installs the `6502-kim` command-line shim from Settings.
  *
  * The trick that makes this work with no separate download: Electron already
  * bundles Node, and launching the app's own binary with
