@@ -23,8 +23,9 @@ const ROMS = [
   {
     name: 'BIOS.bin',
     bytes: 32768,
-    // 6502-BIOS @ v1.6 (71e1e66560cf08635812b062a038c14381dd8f69), the 1.x line
-    sha256: 'fc0002d0ae25240ed36cfa4bea12735ee71fb05017651bf726520af0658be0a0',
+    // 6502-BIOS v1.x @ 27bd4e0 (27bd4e08acd9a172101b388a981efb26c33dead2), the 1.x line: 1.6 with BASIC
+    // lowering RTS as it reads
+    sha256: '4ec29214248089642cc399273491bd02481536639db38f40d6f2e4af1fd4d312',
     // Guards against bundling a truncated or unrelated binary. The KIM stays on
     // BIOS 1.x permanently, so a 2.x ROM must fail here rather than ship.
     version: /6502 BIOS v1\.\d+/
