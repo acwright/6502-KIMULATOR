@@ -4,18 +4,21 @@
 # APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID in the environment.
 #
 # Everything here is electron-builder's own flow. The one addition is a patch to
-# @electron/notarize, which this product name breaks:
+# @electron/notarize, which a leading-digit product name breaks:
 #
 #   Before notarising, it verifies the signature by running codesign with the
-#   *bare basename* of the bundle and cwd set to the parent directory. Our
-#   bundle is "6502 KIMulator.app", and codesign reads a leading-digit operand
-#   as a PID — so it goes looking for process 6502, gets ESRCH, and reports
-#   "6502 KIMulator.app: No such process". The build then dies after signing but
-#   before notarisation, with a signature that is in fact perfectly valid.
+#   *bare basename* of the bundle and cwd set to the parent directory. Up to
+#   1.0.10 the bundle was "6502 KIMulator.app", and codesign reads a
+#   leading-digit operand as a PID — so it went looking for process 6502, got
+#   ESRCH, and reported "6502 KIMulator.app: No such process". The build then
+#   died after signing but before notarisation, with a signature that was in
+#   fact perfectly valid.
 #
 #   Prefixing "./" makes the operand unambiguously a path. Verified: bare
 #   "6502 KIMulator.app" fails, "./6502 KIMulator.app" succeeds, and a bundle
-#   renamed to start with a letter succeeds either way.
+#   named to start with a letter succeeds either way. Since 1.0.11 the bundle
+#   is "AC6502 KIMulator.app", which doesn't need it; the patch stays because it
+#   is harmless and a leading digit is an easy name to come back to.
 #
 # node_modules is not ours to keep, so this reapplies on every build and is a
 # no-op once patched. dist-win.sh reaches into node_modules for its own reason.

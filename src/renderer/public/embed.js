@@ -71,7 +71,7 @@
     var query = new URLSearchParams()
     var width = DEFAULT_WIDTH
     var height = DEFAULT_HEIGHT
-    var title = '6502 KIMulator'
+    var title = 'AC6502 KIMulator'
     var allow = 'fullscreen'
 
     var names = element.getAttributeNames()

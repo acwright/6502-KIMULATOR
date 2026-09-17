@@ -1,5 +1,5 @@
 {
-  "name": "6502-kimulator",
+  "name": "ac6502-kimulator",
   "version": "1.0.10",
   "private": true,
   "description": "Desktop (Electron) and web emulator for the AC6502 KIM",
@@ -14,7 +14,7 @@
   "homepage": "https://github.com/acwright/6502-KIMULATOR",
   "license": "MIT",
   "main": "./out/main/index.js",
-  "desktopName": "6502-kimulator.desktop",
+  "desktopName": "ac6502-kimulator.desktop",
   "keywords": [
     "6502",
     "kim",

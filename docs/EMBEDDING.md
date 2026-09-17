@@ -531,7 +531,7 @@ Five attributes are read locally instead of forwarded:
 |---|---|
 | `data-kim-width` | `720` |
 | `data-kim-height` | `560` |
-| `data-kim-title` | `6502 KIMulator` |
+| `data-kim-title` | `AC6502 KIMulator` |
 | `data-kim-allow` | `fullscreen` |
 | `data-kim-class` | — (set on the generated `<iframe>`) |
 

@@ -146,10 +146,10 @@ describe('resolveApp', () => {
   })
 
   it('looks inside a macOS bundle for the executable', () => {
-    // `--app "/Applications/6502 KIMulator.app"` is what a person would type;
+    // `--app "/Applications/AC6502 KIMulator.app"` is what a person would type;
     // the thing to spawn is the binary buried in it.
-    expect(() => resolveApp('/nowhere/6502 KIMulator.app')).toThrow(
-      /Contents\/MacOS\/6502 KIMulator/
+    expect(() => resolveApp('/nowhere/AC6502 KIMulator.app')).toThrow(
+      /Contents\/MacOS\/AC6502 KIMulator/
     )
   })
 })

@@ -207,23 +207,39 @@ function checkoutElectron(root: string): string | undefined {
   }
 }
 
-/** Where an installed app lives, by platform. */
+/**
+ * Where an installed app lives, by platform.
+ *
+ * The product was "6502 KIMulator" (package `6502-kimulator`) up to 1.0.10 and
+ * is "AC6502 KIMulator" (`ac6502-kimulator`) from 1.0.11. The new locations
+ * come first; the old ones stay as a fallback for a machine that still has the
+ * older app installed.
+ */
 function installedCandidates(): string[] {
   const home = homedir()
   switch (process.platform) {
     case 'darwin':
-      return ['/Applications/6502 KIMulator.app', join(home, 'Applications', '6502 KIMulator.app')].map(
-        macAppBinary
-      )
+      return ['AC6502 KIMulator.app', '6502 KIMulator.app']
+        .flatMap((bundle) => [join('/Applications', bundle), join(home, 'Applications', bundle)])
+        .map(macAppBinary)
     case 'win32': {
       const local = process.env.LOCALAPPDATA ?? join(home, 'AppData', 'Local')
       return [
+        join(local, 'Programs', 'ac6502-kimulator', 'AC6502 KIMulator.exe'),
+        join('C:\\Program Files', 'AC6502 KIMulator', 'AC6502 KIMulator.exe'),
         join(local, 'Programs', '6502-kimulator', '6502 KIMulator.exe'),
         join('C:\\Program Files', '6502 KIMulator', '6502 KIMulator.exe')
       ]
     }
     default:
-      return ['/opt/6502 KIMulator/6502-kimulator', '/usr/bin/6502-kimulator', '/usr/local/bin/6502-kimulator']
+      return [
+        '/opt/AC6502 KIMulator/ac6502-kimulator',
+        '/usr/bin/ac6502-kimulator',
+        '/usr/local/bin/ac6502-kimulator',
+        '/opt/6502 KIMulator/6502-kimulator',
+        '/usr/bin/6502-kimulator',
+        '/usr/local/bin/6502-kimulator'
+      ]
   }
 }
 

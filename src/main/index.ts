@@ -17,6 +17,12 @@ import { SettingsService } from './settings'
 import { DebugBridgeService } from './debugBridge'
 import { CliShimService } from './cliShim'
 import { bootConfigFrom, readBootPayload } from './boot'
+import { userDataPath } from './userData'
+
+// Settings stay in the folder every release up to 1.0.10 used, although the
+// app's name no longer says 6502-kimulator. Before `ready`, before any service
+// asks for it. See userData.ts.
+app.setPath('userData', userDataPath(app.getPath('appData')))
 
 // ── Singletons ───────────────────────────────────────────────────────────────
 
@@ -52,7 +58,7 @@ function createWindow(): void {
     minHeight: MIN_HEIGHT,
     fullscreenable: true,
     center: true,
-    title: '6502 KIMulator',
+    title: 'AC6502 KIMulator',
     backgroundColor: '#000000',
     show: false,
     webPreferences: {

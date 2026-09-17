@@ -1,4 +1,4 @@
-# 6502 KIMulator
+# AC6502 KIMulator
 
 Desktop and web emulator for the [AC6502 KIM](https://github.com/acwright/6502-KIM) — the **Keypad Input Monitor**, the member of the [AC6502](https://github.com/acwright/6502-ACE) family with a 24-key pad, a 16×2 LCD, and a Keypad Card that takes over the top of the memory map.
 
@@ -571,8 +571,8 @@ fixing it would cost.
 
 ```sh
 npm run build        # compile TypeScript + bundle renderer
-npm run dist:mac     # dist/6502-kimulator-<version>-mac-arm64.dmg (notarized)
-npm run dist:win     # dist/6502-kimulator-<version>-win-x64.exe   (needs Wine)
+npm run dist:mac     # dist/ac6502-kimulator-<version>-mac-arm64.dmg (notarized)
+npm run dist:win     # dist/ac6502-kimulator-<version>-win-x64.exe   (needs Wine)
 npm run dist:linux   # AppImage + .deb                             (needs Docker)
 npm run build:web    # output → dist/web/
 npm run icons        # reads build/6502.png, writes build/icon.icns|ico|png
