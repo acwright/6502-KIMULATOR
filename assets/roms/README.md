@@ -40,9 +40,10 @@ says a byte is there, and the console goes quiet above the high-water mark
 rather than reopening the gate for an echo. Pastes to 14 KB arrive byte-perfect
 on hardware with flow control on.
 
-None of that is reachable from a KIM's own console — the KC Monitor has its own
-`SerPutc` and never touches the command register — but it is the ROM the Serial
-Card's BIOS path runs, and the digest has to match what the tag holds.
+None of that is reachable from a KIM's own console — the KC Monitor is what runs
+there, and it carries its own copy of the same scheme (see below) — but it is
+the ROM the Serial Card's BIOS path runs, and the digest has to match what the
+tag holds.
 
 On a KIM, 1.6 changes only what `KernalVersion` reports. Its NVRAM save slots
 need an RTC card, which a KIM doesn't have, so every `Nv*` entry returns carry
@@ -62,9 +63,44 @@ awkward in a URL the web build has to fetch.
 
 - **Source** — `/Users/acwright/Developer/Kicad/6502-KIM`,
   `Firmware/KC Monitor/KC Monitor.bin`
-- **Commit** — `3b5aa805085d55ef3d1a3291c635ce97485b49ad` (2026-09-02)
+- **Commit** — `53cb4e15b403e3e6ebab13dae4afc66ac483291f` (2026-09-17)
 - **Version string** — `KIM MONITOR v1.0`
-- **SHA-256** — `06601fb6d962b01266988e6a78a962cad03392c6850d1a510455193c8db40aaf`
+- **SHA-256** — `19c7ed60cd66f7e96c95581e603a5817fb8e75d386ebb3346c7b6478713d26f4`
+
+The version string does not move with the image. Earlier images this repository
+bundled, newest first: `3b5aa80` (sha256 `06601fb6…`), which made serial `R` a
+call; before it, the build that put the splash gate on both consoles.
+
+### The serial console holds the far end off with RTS
+
+New in this image, and the reason the digest moved. A 20-line Wozmon deposit
+paste at 19,200 baud used to lose nine lines — at 9600 all twenty arrived — and
+the transcripts with flow control on and off were byte-identical, because
+nothing wrote the ACIA's command register after `InitSC`'s `$09`.
+
+The monitor now runs the same scheme the Kernal does, for the same reasons the
+bench found on a real R6551:
+
+- **RTS up at `$C0` unread bytes, down below `$80`**, in the monitor's own
+  256-byte receive ring. With flow control on (the default here) a paste of any
+  length arrives whole; the ring is held at exactly `$C0` and input waits.
+- **RTS comes down around each byte sent**, because TIC `00` turns the
+  transmitter off as well as raising the pin. The monitor's `SerPutc` does not
+  block like the BIOS `Chrout` — it waits a bounded time for TDRE and drops the
+  byte — so with RTS standing it went mute rather than hanging. Either way the
+  terminal heard nothing.
+- **Above the high mark it goes quiet instead of sending**, because every send
+  reopens the gate and an echo would keep a flooded ring flooded. A long paste
+  is therefore echoed only in part. The deposits all land; read them back.
+- **A full ring drops the incoming byte** rather than lapping its own reader.
+- **The LCD is repainted once per batch**, not once per deposit line. A full
+  `RefreshDisplay` is ~22 ms of panel time, more than a line of paste takes to
+  arrive at 19,200 baud, which is what the monitor was losing the race to.
+
+One visible consequence for anything driving `$9002` from the console: the
+monitor owns that register now. A deposit to it holds only until the next
+character goes out. The old behaviour — `9002: 01` leaving the board mute for
+good — is gone, and the test that pinned it drives the chip directly instead.
 
 ### Serial `R` is a call in this build
 

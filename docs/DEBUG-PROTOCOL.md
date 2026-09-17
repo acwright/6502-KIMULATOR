@@ -633,7 +633,7 @@ For anyone porting a script across. Everything not listed is identical.
 | `mem.*` space `card` | The same image, byte-addressable and writable. |
 | `sym.load` format `lst` | ca65 listings, which is what the KC Monitor's build produces. |
 | `session.info` `serialCard` | Replaces `cartridge`. |
-| `session.info` `flowControl` | The same field as 6502-EMULATOR's. The KC Monitor never raises RTS, so it holds nothing here. |
+| `session.info` `flowControl` | The same field as 6502-EMULATOR's, and it does the same work: the KC Monitor raises RTS once its receive ring passes `$C0` unread bytes, so input really is held. |
 | `session.info` `console` | `serial` or **`keypad`**, not `serial` or `video`. |
 | `state.load` `cardROMMismatch` | The second ROM's `force` report. |
 | Snapshot `format` | `6502-kim-snapshot`. The two are not interchangeable, and each refuses the other's. |

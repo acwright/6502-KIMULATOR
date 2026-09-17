@@ -30,9 +30,17 @@ const KC_MONITOR = new Uint8Array(readFileSync(join(ROOT, 'assets/roms/KCMonitor
  */
 const BOOT_BUDGET = 6_000_000
 
-/** The paste test's transcript on 1.0.9, which flow control off must reproduce. */
-const PASTE_TRANSCRIPT_LENGTH = 604
-const PASTE_TRANSCRIPT_SHA256 = 'be57460b27ea10be7a6229251483712a150400e17c64f3497ebfb87586b27a97'
+/**
+ * The paste test's transcripts, with the far end honouring RTS and ignoring it.
+ *
+ * Captured from the bundled KC Monitor (6502-KIM `53cb4e1`) with the procedure
+ * in `pasteInto` below. The 1.0.9 pair used to be one number, because the two
+ * runs were byte-identical: nothing in that firmware ever raised RTS.
+ */
+const PASTE_TRANSCRIPT_ON_LENGTH = 909
+const PASTE_TRANSCRIPT_ON_SHA256 = 'db1597f4e3c24d902ef6f91c4c43b1705762a0991b1608ed56ca88e4c66aefd2'
+const PASTE_TRANSCRIPT_OFF_LENGTH = 828
+const PASTE_TRANSCRIPT_OFF_SHA256 = '8560b1c5f72377fa3478357d07c38b5f0a29aea981fda81966692148cb1bf82a'
 
 // These boot real ROMs, and under parallel workers they contend for CPU with
 // every other suite. The work is bounded in emulated cycles, not wall time, so
@@ -192,31 +200,75 @@ describe('HeadlessHost', () => {
         return { h, machine, out, rtsRaised }
       }
 
-      // The KC Monitor's IRQ handler reads the ACIA into its own ring and never
-      // writes the command register after KernalInit's `$09`, so RTS stays low
-      // and flow control holds nothing. A paste this long overruns the monitor
-      // at 19,200 baud either way — lines from the middle go missing, as they
-      // did in 1.0.9 — and flow control cannot help firmware that never raises
-      // RTS. The first lines always land.
-      it.each([true, false])('never holds input, because the KC Monitor never raises RTS (flow control %s)', (flowControl) => {
-        const { h, machine, out, rtsRaised } = pasteInto(flowControl)
+      /**
+       * Rollout bug 3, and what it took to fix it (6502-KIM `53cb4e1`).
+       *
+       * This paste used to lose nine of its twenty lines, identically with flow
+       * control on and off, because the monitor took one byte per loop pass and
+       * repainted the LCD after every deposit line — ~22 ms of panel time
+       * against ~17 ms of line time — until its ring lapped its own reader. And
+       * because it never wrote the command register after `InitSC`'s `$09`,
+       * RTS never rose and flow control had nothing to hold.
+       *
+       * Now the ring is drained dry per pass and the panel painted once, and
+       * RTS goes up at `$C0` unread bytes. Every line lands.
+       */
+      it('arrives whole with flow control on, holding the far end off at the high mark', () => {
+        const { h, machine, out, rtsRaised } = pasteInto(true)
         expect(out.text).toContain('KIM MONITOR')
-        expect(rtsRaised).toBe(false)
-        expect(machine.serialReady).toBe(true)
+
+        // The monitor really did stop the terminal, and the terminal really did
+        // wait rather than drop anything.
+        expect(rtsRaised).toBe(true)
         expect(h.serial!.pendingBytes).toBe(0)
         expect(machine.acia()!.queuedBytes).toBe(0)
-        expect(Array.from({ length: 40 }, (_, i) => machine.peek(0x0800 + i))).toEqual(program.slice(0, 40))
+
+        // All 160 bytes of all 20 lines, and a live prompt at the end of it.
+        expect(Array.from({ length: 160 }, (_, i) => machine.peek(0x0800 + i))).toEqual(program)
+        expect(machine.serialReady).toBe(true)
+        expect(out.text).toMatch(/> $/)
       })
 
-      it('gives the same transcript with flow control on as off, and off is what 1.0.9 did', () => {
+      /**
+       * With the far end ignoring RTS nothing holds it, so the ring runs above
+       * the high-water mark for most of the paste. Two things keep that from
+       * costing input: a full ring drops the byte arriving rather than lapping
+       * the reader, and above the mark the console stops echoing rather than
+       * lowering RTS to speak — every one of those windows would let more in.
+       *
+       * So this degrades in the echo, which nobody is reading during a paste,
+       * and not in the deposits. It is lossier on a board, where a byte out
+       * costs a byte's line time; here the transmitter is instant.
+       */
+      it('degrades in the echo, not the deposits, when the far end ignores RTS', () => {
         const on = pasteInto(true)
         const off = pasteInto(false)
-        expect(on.out.text).toBe(off.out.text)
-        expect(on.machine.cycles).toBe(off.machine.cycles)
-        expect(off.machine.cycles).toBe(27_001_000)
-        // Captured from 1.0.9 (1d283b3) with this exact procedure.
-        expect(off.out.text.length).toBe(PASTE_TRANSCRIPT_LENGTH)
-        expect(createHash('sha256').update(off.out.text, 'binary').digest('hex')).toBe(PASTE_TRANSCRIPT_SHA256)
+
+        expect(Array.from({ length: 160 }, (_, i) => off.machine.peek(0x0800 + i))).toEqual(program)
+        expect(off.out.text).toMatch(/> $/) // ...and it is still answering
+
+        // The transcripts used to be byte-identical, which was the tell that
+        // the flag did nothing. Now the flooded run says less.
+        expect(off.out.text).not.toBe(on.out.text)
+        expect(off.out.text.length).toBeLessThan(on.out.text.length)
+      })
+
+      /**
+       * Nothing here reads the host clock, so the same ROMs and the same input
+       * give the same run every time — which is what makes a transcript worth
+       * pinning at all. These two are the fixed firmware's, captured with this
+       * exact procedure; they move when the ROM does.
+       */
+      it('gives the same run every time', () => {
+        for (const [flowControl, length, sha] of [
+          [true, PASTE_TRANSCRIPT_ON_LENGTH, PASTE_TRANSCRIPT_ON_SHA256],
+          [false, PASTE_TRANSCRIPT_OFF_LENGTH, PASTE_TRANSCRIPT_OFF_SHA256]
+        ] as const) {
+          const { machine, out } = pasteInto(flowControl)
+          expect(machine.cycles).toBe(27_001_000)
+          expect(out.text.length).toBe(length)
+          expect(createHash('sha256').update(out.text, 'binary').digest('hex')).toBe(sha)
+        }
       })
     })
   })

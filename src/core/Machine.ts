@@ -97,10 +97,12 @@ export class Machine {
    * RTS.
    *
    * RTS is high from reset until `KernalInit` writes `$09`, so input sent that
-   * early waits for it. After that the KC Monitor never raises RTS — its own
-   * IRQ handler reads the ACIA and never writes the command register again —
-   * so on the stock firmware nothing else is held. It matters to a program
-   * that drives the ACIA itself.
+   * early waits for it. After that the KC Monitor works it the way the Kernal
+   * does: up at `$C0` unread bytes in its receive ring, down below `$80`, and
+   * lowered around each byte it sends, because TIC `00` stops the transmitter
+   * too. So a paste is held at the high mark and arrives whole, where before
+   * the monitor never wrote the command register at all and this setting held
+   * nothing on the stock firmware.
    *
    * A host setting — what the far end of the cable does — so it is not part
    * of a snapshot and survives one being loaded.

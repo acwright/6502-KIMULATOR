@@ -88,7 +88,8 @@ Notes
   for the board does: while the machine holds the ACIA's RTS high, input waits
   (nothing is dropped) and resumes when RTS drops. RTS is high from reset until
   KernalInit programs the ACIA, so input sent early waits for it; after that
-  the KC Monitor never raises RTS. It applies to stdin, serial.write, the Paste
+  the KC Monitor raises it whenever its receive ring fills, which is what makes
+  a long paste arrive whole. It applies to stdin, serial.write, the Paste
   box and a host serial port in the app. --no-flow-control is a terminal that
   ignores RTS: input is sent regardless, and what reaches the ACIA while its
   receiver is off (command register bit 0 clear, as after a reset) is lost, as

@@ -409,14 +409,15 @@ Further reading:
   Use `--input-after <regex>`, or boot with `--pause` and buy the boot in cycles.
 - **Input is paced at the serial line rate**, measured in emulated cycles rather
   than wall time, so it lands at the same point in the program on any host. Pacing
-  does not make a long paste safe: the KC Monitor handles each deposit line while
-  the next is arriving, and a paste of more than a few lines at 19,200 baud loses
-  lines from the middle.
+  alone would not make a long paste safe — the KC Monitor handles each deposit line
+  while the next is arriving — which is why the monitor stops the far end with RTS
+  instead. With flow control on, a paste arrives whole at 19,200 baud.
 - **RTS/CTS flow control is on by default; `--no-flow-control` turns it off.**
   Input waits while the machine holds the ACIA's RTS high and resumes in order when
   RTS drops; nothing is dropped. RTS is high from reset until `KernalInit` writes
-  `$09`, so input sent that early waits for it; the KC Monitor never raises RTS
-  after that. Off is a terminal that ignores RTS: input that reaches the ACIA while
+  `$09`, so input sent that early waits for it; after that the KC Monitor raises it
+  whenever its receive ring passes `$C0` unread bytes and lowers it again below
+  `$80`. Off is a terminal that ignores RTS: input that reaches the ACIA while
   its receiver is off (command register bit 0 clear, as after a reset) is lost, as
   on the board. Firmware that raises RTS and never lowers it stalls with flow
   control on, as it would at a terminal.

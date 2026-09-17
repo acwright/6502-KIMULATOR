@@ -505,23 +505,21 @@ describe('KC Monitor', () => {
      * That settled the disagreement between Rockwell's 1981 sheet ("transmit
      * interrupt disabled") and its 1987 Rev. 4 and Synertek's ("Transmitter
      * Off"): TIC `00` turns the transmitter off, TDRE never sets, and the
-     * transmitter's waiter spins. See `ACIA.transmitterEnabled`.
+     * transmitter's waiter spins. See `ACIA.transmitterEnabled`, and
+     * `IO/ACIA.test.ts`, which holds the chip to it by driving the register
+     * directly. That half is unchanged: the chip still behaves this way.
      *
-     * The KIM has no BASIC to POKE from, but a Wozmon deposit to `$9002` is the
-     * same store to `SC_CMD`.
-     *
-     * **The BIOS fix does not reach this console, and these cases are unchanged
-     * by it.** 6502-BIOS `v1.6` lowers RTS around each byte in the Kernal's
-     * `SerialChrout`, so a BIOS console recovers; the KC Monitor does not use
-     * it. Its output goes through its own `SerPutc`, which waits on TDRE for a
-     * bounded time and then drops the byte rather than blocking, and never
-     * touches the command register. So with TIC `00` standing the monitor is
-     * not hung so much as mute — it goes on running, and everything it tries to
-     * say is dropped at the timeout, which from the terminal is the same thing.
-     * Fixing that is the KC Monitor's own job (rollout bug 4), and it has to
-     * adopt the Kernal's scheme rather than the naive one.
+     * **What changed is the firmware.** The KIM has no BASIC to POKE from, but
+     * a Wozmon deposit to `$9002` is the same store to `SC_CMD`, and it used to
+     * stick. The KC Monitor's output goes through its own `SerPutc`, which
+     * waits on TDRE for a bounded time and then drops the byte rather than
+     * blocking, and which never touched the command register — so with TIC `00`
+     * standing the monitor was not hung so much as mute, still parsing and
+     * inaudible, which from the terminal is the same thing. 6502-KIM `53cb4e1`
+     * gave it the Kernal's scheme (rollout bugs 3 and 4): the command register
+     * is the monitor's now, and RTS comes down around every byte it sends.
      */
-    describe('TIC 00 turns the transmitter off (bench test, 2026-09-17)', () => {
+    describe('the command register, and TIC 00 (bench test, 2026-09-17)', () => {
       const SC_CMD = 0x9002
 
       it('keeps answering with $09: DTR on, TIC 10, RTS low', () => {
@@ -540,29 +538,156 @@ describe('KC Monitor', () => {
         expect(String.fromCharCode(...sent)).toMatch(/> $/)
       })
 
-      it('stops transmitting mid-reply with $01, and the console goes mute', () => {
+      /**
+       * The case this file used to pin as "the console goes mute". A deposit of
+       * `$01` still reaches the register — it is a store to `$9002` like any
+       * other — but it no longer stands, because `SerPutc` lowers RTS around
+       * every byte it sends and the prompt after the deposit is the next byte
+       * it sends.
+       */
+      it('takes the command register back on the next character out', () => {
         const machine = atMonitor()
         machine.poke(PROGRAM_START, 0x5a)
         const sent: number[] = []
         machine.transmit = (byte) => sent.push(byte)
 
-        // The line is echoed as it is typed and the store happens on the CR.
-        // After that nothing more is sent: SerPutc waits out its TDRE timeout,
-        // which a disabled transmitter never ends, and drops every byte.
         type(machine, '9002: 01\r')
-        expect(machine.peek(SC_CMD)).toBe(0x01) // and nothing puts it back
+        expect(machine.peek(SC_CMD)).toBe(0x09) // RTS low again, transmitter on
 
         const reply = String.fromCharCode(...sent)
         expect(reply).toContain('9002: 01') // the line, echoed as it was typed
-        expect(reply).not.toMatch(/> $/) // ...and then it stopped, mid-reply
-        const mute = sent.length
+        expect(reply).toMatch(/> $/) // ...and the prompt that undid the deposit
 
-        // An examine that would answer `0800: 5A` produces nothing at all, nor
-        // does a bare CR: the monitor is still parsing, and inaudible.
+        // And the monitor is still audible afterwards.
         type(machine, '0800\r')
-        type(machine, '\r')
-        expect(sent.length).toBe(mute)
-        expect(String.fromCharCode(...sent)).not.toContain('0800: 5A')
+        expect(String.fromCharCode(...sent)).toContain('0800: 5A')
+        expect(String.fromCharCode(...sent)).toMatch(/> $/)
+      })
+    })
+
+    /**
+     * Flow control, from the firmware's side (rollout bugs 3 and 4).
+     *
+     * These hand the ACIA a whole pasted block at once and let it deliver as
+     * fast as the line will take it, which is far faster than the parser can
+     * swallow it. That is the condition the monitor used to lose input in: the
+     * ring lapped its own reader, nine of twenty lines went missing, and flow
+     * control could not help, because nothing wrote the command register after
+     * `InitSC`'s `$09`.
+     *
+     * The paced, baud-rate version of the same paste is in
+     * `host/HeadlessHost.test.ts`, which is where the line rate lives.
+     */
+    describe('a flood of serial input', () => {
+      const SC_CMD = 0x9002
+      const SER_RXHEAD = 0x46
+      const SER_RXTAIL = 0x47
+
+      /** Forty one-byte deposits into $0900.., as one pasted block. */
+      const DEPOSITS = Array.from({ length: 40 }, (_, i) => ({
+        address: 0x0900 + i,
+        value: (i * 7 + 3) & 0xff
+      }))
+      const hex = (value: number, digits: number): string =>
+        value.toString(16).toUpperCase().padStart(digits, '0')
+      const BLOCK = DEPOSITS.map(
+        ({ address, value }) => `${hex(address, 4)}: ${hex(value, 2)}\r`
+      ).join('')
+
+      /** Hand the far end the block; the ACIA releases what RTS lets it. */
+      const paste = (machine: Machine, text: string): void => {
+        for (const character of text) machine.onReceive(character.charCodeAt(0))
+      }
+
+      /** Unread bytes in the monitor's ring, as the firmware counts them. */
+      const ring = (machine: Machine): number =>
+        (machine.peek(SER_RXHEAD) - machine.peek(SER_RXTAIL)) & 0xff
+
+      /**
+       * Run until the far end has nothing left and the ring is empty, sampling
+       * RTS and the ring depth as it goes.
+       */
+      const settle = (machine: Machine): { rtsRaised: boolean; deepest: number } => {
+        let rtsRaised = false
+        let deepest = 0
+        for (let spent = 0; spent < 40_000_000; spent += 5_000) {
+          machine.runCycles(5_000)
+          if ((machine.peek(SC_CMD) & 0x0c) === 0x00) rtsRaised = true
+          deepest = Math.max(deepest, ring(machine))
+          if (machine.acia()!.queuedBytes === 0 && ring(machine) === 0) break
+        }
+        return { rtsRaised, deepest }
+      }
+
+      it('raises RTS once the ring fills, and lowers it again as it drains', () => {
+        const machine = atMonitor()
+        paste(machine, BLOCK)
+
+        const { rtsRaised } = settle(machine)
+
+        // The far end was stopped, and started again, and nothing was lost.
+        expect(rtsRaised).toBe(true)
+        expect(machine.acia()!.queuedBytes).toBe(0)
+        expect(machine.peek(SC_CMD)).toBe(0x09) // drained — RTS back down
+        for (const { address, value } of DEPOSITS) expect(machine.peek(address)).toBe(value)
+      })
+
+      /**
+       * `SER_RXHEAD` and `SER_RXTAIL` are the monitor's ring pointers, so
+       * `head - tail` is its unread count. `$C0` is the high-water mark, and it
+       * is never passed by more than the byte or two a send window lets in. It
+       * used to reach 255 and lap, which is a silent 256-byte wipe — six lines
+       * out of the middle of a paste, which is what the bench saw on the BIOS's
+       * identical ring.
+       */
+      it('holds the ring at the high-water mark instead of lapping the reader', () => {
+        const machine = atMonitor()
+        paste(machine, BLOCK)
+
+        const { deepest } = settle(machine)
+
+        expect(deepest).toBeGreaterThanOrEqual(0xc0)
+        expect(deepest).toBeLessThan(0xf0)
+      })
+
+      /**
+       * With the far end ignoring RTS there is nothing to stop it, so the ring
+       * fills anyway — but a full ring now drops the byte arriving rather than
+       * lapping the reader, so the cost is a character rather than a page, and
+       * the monitor comes out of it answering rather than hung or mute.
+       */
+      it('degrades without hanging when the far end ignores RTS', () => {
+        const machine = atMonitor()
+        machine.flowControl = false
+        machine.poke(PROGRAM_START, 0x5a)
+
+        paste(machine, BLOCK)
+        settle(machine)
+
+        const sent: number[] = []
+        machine.transmit = (byte) => sent.push(byte)
+        type(machine, '0800\r')
+
+        expect(String.fromCharCode(...sent)).toContain('0800: 5A')
+        expect(String.fromCharCode(...sent)).toMatch(/> $/)
+      })
+
+      /**
+       * The other half of bug 3: the panel is repainted once the ring runs dry
+       * rather than once per deposit line. A `RefreshDisplay` is ~34 LCD writes
+       * at ~640 us apiece, and twenty of them cost more panel time than the
+       * paste takes to arrive — which is the race the monitor was losing. It
+       * still ends up showing what is really in memory.
+       */
+      it('still shows the pasted memory on the panel afterwards', () => {
+        const machine = atMonitor()
+        paste(machine, BLOCK)
+        settle(machine)
+
+        for (const key of ['0', '9', '0', '5']) press(machine, key)
+
+        const expected = DEPOSITS.find(({ address }) => address === 0x0905)!.value
+        expect(machine.lcd.getRowText(0)).toBe(`---$0905: $${hex(expected, 2)}---`)
       })
     })
   })

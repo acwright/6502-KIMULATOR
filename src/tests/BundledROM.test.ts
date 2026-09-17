@@ -36,8 +36,12 @@ const ROMS = [
   {
     name: 'KCMonitor.bin',
     bytes: 8192,
-    // 6502-KIM @ 3b5aa805085d55ef3d1a3291c635ce97485b49ad
-    sha256: '06601fb6d962b01266988e6a78a962cad03392c6850d1a510455193c8db40aaf',
+    // 6502-KIM @ 53cb4e15b403e3e6ebab13dae4afc66ac483291f — the first image since the monitor
+    // shipped that is not the byte-frozen one: the serial console now takes the Kernal's RTS
+    // scheme (up at $C0 unread bytes, down below $80, lowered around each byte sent and held up
+    // instead of sent while flooded), drains its receive ring dry per loop pass and repaints the
+    // LCD once, and drops an incoming byte rather than lapping the reader on a full ring
+    sha256: '19c7ed60cd66f7e96c95581e603a5817fb8e75d386ebb3346c7b6478713d26f4',
     version: /KIM MONITOR v\d+\.\d+/
   }
 ]
