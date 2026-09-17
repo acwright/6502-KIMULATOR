@@ -394,21 +394,23 @@ and what the KC Monitor's serial monitor ends a line on.
 Input is paced at the serial line rate, measured in emulated cycles — so it lands
 at the same point in the program whatever speed the host runs at.
 
-`flowControl` is whether serial input honours RTS/CTS flow control. It is `false`
-unless `6502-kim run --flow-control` or the app's Settings turned it on.
-`session.config` can set it on a headless host; the app refuses
+`flowControl` is whether serial input honours RTS/CTS flow control. It is `true`
+unless `6502-kim run --no-flow-control`, `session.config` or the app's Settings
+turned it off. `session.config` can set it on a headless host; the app refuses
 (`NOT_SUPPORTED`), because its Settings panel owns the setting. With it on, while
-the machine holds the ACIA's RTS high — command register bit 0 set (receiver on)
-and bits 3-2 clear — nothing more is sent: `serial.write` still queues, and the
-queue resumes in order, at the line rate, when RTS drops. Nothing is dropped.
-Software that never enables the receiver is never held.
+the machine holds the ACIA's RTS high — command register bits 3-2 clear and echo
+mode off, which is the reset state — nothing more is sent: `serial.write` still
+queues, and the queue resumes in order, at the line rate, when RTS drops. Nothing
+is dropped.
 
-**Flow control is off by default, and on the KC Monitor it does nothing.**
-`KernalInit` writes `$09` (RTS low) and the monitor's IRQ handler never writes the
-command register again, so input is never held. It matters to a program that
-drives the ACIA itself and raises RTS. Firmware that raises RTS and never lowers
-it stalls with flow control on, which is why it is off: BIOS 1.6's BASIC and
-EhBASIC do exactly that on 6502-EMULATOR.
+**Flow control is on by default, and on the KC Monitor it holds input only until
+`KernalInit`,** which writes `$09` (RTS low); the monitor's IRQ handler never
+writes the command register again. It matters to a program that drives the ACIA
+itself and raises RTS, which must lower it again or input stops for good.
+
+With it off, the far end ignores RTS: everything is sent at the line rate, and a
+byte that reaches the ACIA while its receiver is disabled — command register bit
+0 clear, as after a reset — is lost, as it would be at the board.
 
 ### keypad
 

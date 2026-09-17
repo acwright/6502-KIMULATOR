@@ -67,7 +67,7 @@ Of the eight I/O slots only two are ever filled:
 
 | Slot | Window | Fitted |
 |---|---|---|
-| `io5` | `$9000–$93FF` | **Serial Card** — 6551 ACIA. Toggleable; `KC Monitor.asm` guards every ACIA access on `HW_PRESENT & HW_SC`, so unfitting it is the only way to exercise the keypad-only path the firmware supports |
+| `io5` | `$9000–$93FF` | **Serial Card** — Rockwell R6551 ACIA. Toggleable; `KC Monitor.asm` guards every ACIA access on `HW_PRESENT & HW_SC`, so unfitting it is the only way to exercise the keypad-only path the firmware supports |
 | `io6` | `$9400–$97FF` | **Accessory bus** — empty, or whatever you wire to it |
 
 Program space is `$0800–$7FFF`. Below it is the machine's own workspace — zero
@@ -87,7 +87,7 @@ exactly as nothing stops you on the bench.
 | **PIA** | 65C21 — Port A carries the keypad code (`PA0–PA4`) and the LCD control lines (`PA5`=RS, `PA6`=R/W, `PA7`=E); Port B is the LCD data bus. CA1 is the keypad's data-available interrupt, CA2 the encoder's output enable |
 | **Keypad** | MM74C922 extended to 24 keys with a 74HC00. Scanning, debounce and encoding are all in hardware — and **releases are ignored**, because the encoder reports the press and nothing else |
 | **LCD** | 16×2 HD44780 with the A00 font — DDRAM, CGRAM, entry mode, display shift, cursor and blink |
-| **Serial** | 6551 ACIA — configurable baud/parity/data/stop, 19200 8-N-1 by default |
+| **Serial** | Rockwell R6551 ACIA — configurable baud/parity/data/stop, 19200 8-N-1 by default |
 | **Accessory** | Whatever is wired to `$9400`. Shipped: the KIM Demo's eight LEDs behind a 74HC373 latch |
 
 ---
@@ -214,10 +214,13 @@ with the power on.
 from the detected list; the browser opens the Web Serial picker. Bytes the
 machine transmits go to the terminal *and* the real port, and bytes typed into
 the terminal arrive as bytes from a port would — connect one and both views show
-the same traffic. **RTS/CTS flow control** is off by default: on, input from the
-port and the Paste box waits while the machine holds the ACIA's RTS high. The KC
-Monitor never raises RTS, so it changes nothing there; it is for a program that
-drives the ACIA itself.
+the same traffic. **RTS/CTS flow control** is on by default, as a terminal set up
+for the board should be: input from the port and the Paste box waits while the
+machine holds the ACIA's RTS high. RTS is high from reset until `KernalInit`
+programs the ACIA, and the KC Monitor never raises it after that. Off is a
+terminal that ignores RTS: whatever arrives while the ACIA's receiver is off is
+lost. A settings file from 1.0.11 or earlier is migrated to on once, because
+those versions saved the old default with any other change.
 
 **DEBUG SERVER** (Electron only) — starts the JSON-RPC service on a loopback port
 so `6502-kim dbg` and `6502-kim attach` can drive *this* window. Off until you
@@ -322,7 +325,7 @@ input it is holding can produce.
 ```
 
 The machine flags are the same either way — `--rom`, `--card-rom`, `--bin`,
-`--accessory`, `--no-serial-card`, `--baud`, `--flow-control`, `--pause`, `--debug`, `--symbols`.
+`--accessory`, `--no-serial-card`, `--baud`, `--no-flow-control` (or `--flow-control`), `--pause`, `--debug`, `--symbols`.
 What differs is everything that only makes sense for one of them: `--fullscreen`,
 `--detach` and `--serial <port>` for a window; `--realtime`, `--max-cycles`,
 `--timeout`, `--exit-on`, `--input-after`, `--lcd` and `--json` for headless.
@@ -409,12 +412,18 @@ Further reading:
   does not make a long paste safe: the KC Monitor handles each deposit line while
   the next is arriving, and a paste of more than a few lines at 19,200 baud loses
   lines from the middle.
-- **RTS/CTS flow control is off by default; `--flow-control` turns it on.** On,
-  input waits while the machine holds the ACIA's RTS high and resumes in order when
-  RTS drops; nothing is dropped. The KC Monitor never raises RTS, so on the stock
-  firmware it holds nothing and changes nothing. It is off by default because
-  firmware that raises RTS and never lowers it stalls with it on, as BIOS 1.6's
-  BASIC and EhBASIC do on 6502-EMULATOR.
+- **RTS/CTS flow control is on by default; `--no-flow-control` turns it off.**
+  Input waits while the machine holds the ACIA's RTS high and resumes in order when
+  RTS drops; nothing is dropped. RTS is high from reset until `KernalInit` writes
+  `$09`, so input sent that early waits for it; the KC Monitor never raises RTS
+  after that. Off is a terminal that ignores RTS: input that reaches the ACIA while
+  its receiver is off (command register bit 0 clear, as after a reset) is lost, as
+  on the board. Firmware that raises RTS and never lowers it stalls with flow
+  control on, as it would at a terminal.
+- **The ACIA is an R6551.** After a reset its command register is `$00`, which
+  disables the receiver, the transmitter and its interrupts; a program that drives
+  the ACIA directly must write it first. Status bits 6 and 5 (DSR, DCD) read 0, the
+  pins held low as the Serial Card holds them.
 - **Keys are paced too, and never released.** Give a whole sequence to one
   `dbg key` call: the encoder latches one code, and the interrupt handler's read is
   what makes room for the next.
