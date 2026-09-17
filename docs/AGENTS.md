@@ -208,9 +208,12 @@ honours RTS. `Machine.flowControl` sets it on the ACIA; `ACIA.readyToReceive` an
 `Machine.serialReady` say whether input would be held, and `SerialConsole.pump`
 sends nothing while it would. `ACIA.ts` and its test are byte-identical with
 6502-EMULATOR's: an R6551 whose receiver, transmitter and interrupts are off until
-command register bit 0 is set, so a byte sent to it before then is lost. RTS is
-high from reset until `KernalInit` writes `$09`, and the KC Monitor never raises it
-after that. `AppSettings.settingsVersion` 2 marks a file migrated to the new
+command register bit 0 is set, so a byte sent to it before then is lost, and whose
+transmitter is off again whenever bits 3-2 are `00` — raising RTS stops it sending
+as well, and TDRE never sets, so firmware that echoes while RTS is high spins for
+good. RTS is high from reset until `KernalInit` writes `$09`, and the KC Monitor
+never raises it after that, so the monitor is clear of it; BIOS 1.6's and 2.0's
+BASIC are not. `AppSettings.settingsVersion` 2 marks a file migrated to the new
 default.
 
 **There is one console buffer and everything reads it.** `useConsole` owns a

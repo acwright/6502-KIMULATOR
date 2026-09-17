@@ -406,7 +406,9 @@ is dropped.
 **Flow control is on by default, and on the KC Monitor it holds input only until
 `KernalInit`,** which writes `$09` (RTS low); the monitor's IRQ handler never
 writes the command register again. It matters to a program that drives the ACIA
-itself and raises RTS, which must lower it again or input stops for good.
+itself and raises RTS, which must lower it again or input stops for good — and
+which must not print in the meantime, because bits 3-2 at `00` turn the R6551's
+transmitter off as well and TDRE never sets.
 
 With it off, the far end ignores RTS: everything is sent at the line rate, and a
 byte that reaches the ACIA while its receiver is disabled — command register bit

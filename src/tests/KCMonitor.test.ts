@@ -487,5 +487,73 @@ describe('KC Monitor', () => {
 
       expect(String.fromCharCode(...sent)).toContain('0400: 42')
     })
+
+    /**
+     * The R6551's transmitter follows TIC, reproduced from the bench.
+     *
+     * **Source of truth: the bench test of 2026-09-17**, on a real AC6502 KIM
+     * with a Serial Card and a real R6551, running this same BIOS 1.6 over an
+     * FTDI RS-232 cable:
+     *
+     * - `POKE 36866,9` (`$09`: DTR on, TIC `10`, RTS low) then `PRINT "B"`
+     *   printed `B` and `OK`.
+     * - `POKE 36866,1` (`$01`: DTR on, TIC `00`, RTS high) echoed the command
+     *   line and then stopped transmitting mid-reply. Its `OK` never came and
+     *   RTS stayed high; a following `PRINT "C"` produced nothing, and the
+     *   machine was hung, ignoring CR and Ctrl-C.
+     *
+     * That settled the disagreement between Rockwell's 1981 sheet ("transmit
+     * interrupt disabled") and its 1987 Rev. 4 and Synertek's ("Transmitter
+     * Off"): TIC `00` turns the transmitter off, TDRE never sets, and
+     * `SerialChrout` spins. See `ACIA.transmitterEnabled`.
+     *
+     * The KIM has no BASIC to POKE from, but a Wozmon deposit to `$9002` is the
+     * same store to `SC_CMD`, and the monitor answers through the same BIOS 1.6
+     * `SerialChrout`.
+     */
+    describe('TIC 00 turns the transmitter off (bench test, 2026-09-17)', () => {
+      const SC_CMD = 0x9002
+
+      it('keeps answering with $09: DTR on, TIC 10, RTS low', () => {
+        const machine = atMonitor()
+        machine.poke(PROGRAM_START, 0x5a)
+        const sent: number[] = []
+        machine.transmit = (byte) => sent.push(byte)
+
+        type(machine, '9002: 09\r')
+        expect(machine.peek(SC_CMD)).toBe(0x09)
+        // The whole reply arrives, prompt and all.
+        expect(String.fromCharCode(...sent)).toMatch(/> $/)
+
+        type(machine, '0800\r')
+        expect(String.fromCharCode(...sent)).toContain('0800: 5A')
+        expect(String.fromCharCode(...sent)).toMatch(/> $/)
+      })
+
+      it('stops transmitting mid-reply with $01, and the machine hangs', () => {
+        const machine = atMonitor()
+        machine.poke(PROGRAM_START, 0x5a)
+        const sent: number[] = []
+        machine.transmit = (byte) => sent.push(byte)
+
+        // The line is echoed as it is typed and the store happens on the CR.
+        // After that nothing more is sent: the monitor wrote a byte and is
+        // spinning on TDRE, which a disabled transmitter never sets.
+        type(machine, '9002: 01\r')
+        expect(machine.peek(SC_CMD)).toBe(0x01)
+
+        const reply = String.fromCharCode(...sent)
+        expect(reply).toContain('9002: 01') // the line, echoed as it was typed
+        expect(reply).not.toMatch(/> $/) // ...and then it stopped, mid-reply
+        const hung = sent.length
+
+        // RTS stayed high, so nothing more gets in either: an examine that
+        // would answer `0800: 5A` produces nothing at all, nor does a bare CR.
+        type(machine, '0800\r')
+        type(machine, '\r')
+        expect(sent.length).toBe(hung)
+        expect(String.fromCharCode(...sent)).not.toContain('0800: 5A')
+      })
+    })
   })
 })

@@ -422,8 +422,11 @@ Further reading:
   control on, as it would at a terminal.
 - **The ACIA is an R6551.** After a reset its command register is `$00`, which
   disables the receiver, the transmitter and its interrupts; a program that drives
-  the ACIA directly must write it first. Status bits 6 and 5 (DSR, DCD) read 0, the
-  pins held low as the Serial Card holds them.
+  the ACIA directly must write it first. Bits 3-2 at `00` raise RTS *and* turn the
+  transmitter off, so a byte written then is never sent and TDRE never sets: a
+  program that raises RTS to hold input off and then prints hangs, here and on the
+  board. Status bits 6 and 5 (DSR, DCD) read 0, the pins held low as the Serial
+  Card holds them.
 - **Keys are paced too, and never released.** Give a whole sequence to one
   `dbg key` call: the encoder latches one code, and the interrupt handler's read is
   what makes room for the next.
