@@ -116,12 +116,29 @@ export interface AppSettings {
    */
   accessory: string | null
   /**
-   * RTS/CTS flow control on serial input (`--flow-control`): the host port and
-   * the terminal panel's Paste box. Off by default. The KC Monitor never raises
-   * RTS, so it only holds input for a program that drives the ACIA itself.
+   * RTS/CTS flow control on serial input (`--[no-]flow-control`): whether the
+   * far end — the host port, the terminal panel's Paste box — honours RTS. On
+   * by default, as a terminal set up for the board is.
    */
   flowControl: boolean
+  /**
+   * The version of this file's format, for one-off migrations when a default
+   * changes. Missing in files written before 1.1; see `SETTINGS_VERSION`.
+   */
+  settingsVersion?: number
 }
+
+/**
+ * The current `AppSettings.settingsVersion`.
+ *
+ * 2: flow control became on by default. Every save writes the whole settings
+ * object, so 1.0.10 and 1.0.11 wrote `flowControl: false` as soon as anything
+ * was changed, whether or not anyone chose it. A file without a version
+ * therefore has its `flowControl` reset to the new default, once; the file then
+ * carries version 2, and someone who turns flow control off afterwards keeps it
+ * off.
+ */
+export const SETTINGS_VERSION = 2
 
 /**
  * There is no CPU frequency here. PHI2 on this board is 1 MHz — the ACE is the
@@ -132,7 +149,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   serialConfig: DEFAULT_SERIAL_CONFIG,
   serialCardFitted: true,
   accessory: null,
-  flowControl: false
+  flowControl: true,
+  settingsVersion: SETTINGS_VERSION
 }
 
 // ── IPC channels ─────────────────────────────────────────────────────────────

@@ -116,8 +116,9 @@ async function info(argv: string[]): Promise<number> {
     mode: string
     cycles: number
   }
-  // Flow control only when it is on, which is not the default.
-  const flow = result.flowControl ? ', flow control' : ''
+  // Flow control only when it is off, which is not the default. A host too old
+  // to report it says nothing.
+  const flow = result.flowControl === false ? ', no flow control' : ''
   show(values.json, result, () =>
     `${result.host} ${result.version} — ${result.console} console, ` +
     `${(result.frequency / 1e6).toFixed(0)} MHz, ` +

@@ -123,6 +123,21 @@ export function parseAccessory(id: string): string {
  * A serial line's framing, written the way every terminal program writes it:
  * `8N1`, `7E2`. Data bits, parity, stop bits.
  */
+/**
+ * `--flow-control` / `--no-flow-control`: whether the far end honours RTS.
+ * Undefined when neither was given, so a caller can fall back to its default
+ * (on) or, in the app, to the saved setting.
+ */
+export function parseFlowControlFlags(values: {
+  'flow-control'?: boolean
+  'no-flow-control'?: boolean
+}): boolean | undefined {
+  const on = values['flow-control'] === true
+  const off = values['no-flow-control'] === true
+  if (on && off) throw new UsageError('--flow-control and --no-flow-control cannot both be given')
+  return on ? true : off ? false : undefined
+}
+
 export function parseSerialFraming(
   text: string,
   label: string

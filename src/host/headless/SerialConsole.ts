@@ -19,15 +19,16 @@ export class SerialConsole {
    * Bytes waiting to be handed to the ACIA, released at the configured baud
    * rate rather than all at once.
    *
-   * The pacing is not cosmetic. The ACIA's receive queue is unbounded and
+   * The pacing is not cosmetic. The far end's queue in the ACIA is unbounded and
    * drains a byte per CPU tick, but the firmware's input buffer is not.
    * Dumping a pasted program in one go would overrun that buffer and silently
    * lose input — which is the same reason the Paste box in the window paces its
    * bytes.
    *
-   * With the machine's `flowControl` on this also holds the queue while the
-   * machine has RTS raised, as a terminal doing RTS/CTS flow control would.
-   * With it off (the default) RTS is ignored, as it always was.
+   * With the machine's `flowControl` on (the default) this also holds the
+   * queue while the machine has RTS raised, as a terminal doing RTS/CTS flow
+   * control would — including from reset until the firmware programs the ACIA.
+   * With it off RTS is ignored.
    */
   private readonly pending: number[] = []
 

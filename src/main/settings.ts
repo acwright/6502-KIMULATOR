@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
-import { DEFAULT_APP_SETTINGS } from '../shared/types'
+import { DEFAULT_APP_SETTINGS, SETTINGS_VERSION } from '../shared/types'
 import type { AppSettings } from '../shared/types'
 
 /**
@@ -53,10 +53,28 @@ export class SettingsService {
     try {
       const raw = readFileSync(this.filePath, 'utf-8')
       const parsed = JSON.parse(raw) as Partial<AppSettings>
-      return { ...DEFAULT_APP_SETTINGS, ...parsed }
+      return this.migrate({ ...DEFAULT_APP_SETTINGS, ...parsed }, parsed.settingsVersion ?? 1)
     } catch {
       return { ...DEFAULT_APP_SETTINGS }
     }
+  }
+
+  /**
+   * Bring a file written by an older version up to `SETTINGS_VERSION`, and
+   * write it back so the migration happens once.
+   *
+   * Version 1 to 2: flow control's default went from off to on. A version 1
+   * file's `flowControl: false` is most likely the old default saved along with
+   * some other change, so it takes the new default. From then on the file says
+   * version 2, and a later choice to turn it off is kept.
+   */
+  private migrate(settings: AppSettings, from: number): AppSettings {
+    if (from >= SETTINGS_VERSION) return settings
+    const migrated = { ...settings, settingsVersion: SETTINGS_VERSION }
+    if (from < 2) migrated.flowControl = DEFAULT_APP_SETTINGS.flowControl
+    this.saved = migrated
+    this.save()
+    return migrated
   }
 
   private save(): void {

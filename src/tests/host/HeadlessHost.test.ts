@@ -477,7 +477,13 @@ describe('HeadlessHost', () => {
 })
 
 describe('SerialConsole', () => {
-  const machine = () => new Machine()
+  // Programmed as KernalInit leaves it ($09: receiver on, RTS low), so input is
+  // sent from the start with flow control on, the default.
+  const machine = () => {
+    const m = new Machine()
+    m.write(0x9002, 0x09)
+    return m
+  }
 
   describe.each([
     { flowControl: true, holds: true },

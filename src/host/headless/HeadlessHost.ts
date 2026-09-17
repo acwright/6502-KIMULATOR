@@ -52,10 +52,12 @@ export interface HeadlessOptions {
   baudRate?: number
 
   /**
-   * RTS/CTS flow control on console input (`--flow-control`). Off by default:
-   * input is paced at the line rate and never held. On, it also waits while
-   * the machine holds the ACIA's RTS high. The KC Monitor never raises it, so
-   * this only matters to a program that drives the ACIA itself.
+   * RTS/CTS flow control on console input. On by default: input is paced at
+   * the line rate and also waits while the machine holds the ACIA's RTS high,
+   * as it does from reset until `KernalInit` programs the ACIA.
+   * `--no-flow-control` turns it off, for a far end that ignores RTS: input is
+   * then sent regardless, and whatever arrives while the receiver is off is
+   * lost.
    */
   flowControl?: boolean
 
@@ -237,7 +239,7 @@ export class HeadlessHost {
     })
 
     const machine = this.session.machine
-    machine.flowControl = options.flowControl ?? false
+    machine.flowControl = options.flowControl ?? true
     if (serialCard) this.serial = new SerialConsole(machine, baudRate)
 
     machine.loadROM(options.rom)

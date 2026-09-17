@@ -14,6 +14,7 @@ import {
   parseAccessory,
   parseBinarySpec,
   parseCount,
+  parseFlowControlFlags,
   parseSerialFraming
 } from './args'
 
@@ -36,6 +37,7 @@ export interface LaunchFlags {
   'no-serial-card'?: boolean
   baud?: string
   'flow-control'?: boolean
+  'no-flow-control'?: boolean
   serial?: string
   'serial-config'?: string
   realtime?: boolean
@@ -168,10 +170,11 @@ function settingsFrom(values: LaunchFlags): Partial<AppSettings> {
     ? parseSerialFraming(values['serial-config'], '--serial-config')
     : undefined
   const baudRate = values.baud ? parseCount(values.baud, '--baud') : undefined
+  const flowControl = parseFlowControlFlags(values)
 
   return {
     ...(values['no-serial-card'] ? { serialCardFitted: false } : {}),
-    ...(values['flow-control'] ? { flowControl: true } : {}),
+    ...(flowControl !== undefined ? { flowControl } : {}),
     ...(values.accessory !== undefined ? { accessory: parseAccessory(values.accessory) } : {}),
     ...(framing || baudRate !== undefined
       ? {

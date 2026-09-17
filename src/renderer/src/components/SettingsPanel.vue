@@ -440,9 +440,10 @@ onUnmounted(() => {
         </label>
 
         <p class="hint">
-          Off by default. On, input from the port and the Paste box waits while the
-          machine holds RTS high. The KC Monitor never raises it, so this only
-          matters to a program that drives the ACIA itself.
+          On by default, as a terminal set up for the board should be: input from
+          the port and the Paste box waits while the machine holds RTS high. Off is
+          a terminal that ignores RTS: input is sent regardless, and whatever
+          arrives while the ACIA's receiver is off is lost.
         </p>
 
         <button

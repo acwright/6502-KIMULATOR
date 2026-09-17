@@ -87,18 +87,20 @@ export class Machine {
   onRead?: (address: number, value: number) => void
   onWrite?: (address: number, value: number) => void
 
-  private _flowControl = false
+  private _flowControl = true
 
   /**
    * RTS/CTS flow control on host input to the Serial Card: while on, bytes
-   * handed to `onReceive` wait in the card's receive queue for as long as the
-   * machine holds RTS high (see `ACIA.readyToReceive`). Off by default, which
-   * is how every version before this behaved: input is never held.
+   * handed to `onReceive` wait at the far end of the cable for as long as the
+   * machine holds RTS high (see `ACIA.readyToReceive`). On by default, as a
+   * terminal connected to the board should be; off is a far end that ignores
+   * RTS.
    *
-   * The KC Monitor never raises RTS — its own IRQ handler reads the ACIA and
-   * never writes the command register after `KernalInit` sets `$09` — so on the
-   * stock firmware this holds nothing either way. It matters to a program that
-   * drives the ACIA itself.
+   * RTS is high from reset until `KernalInit` writes `$09`, so input sent that
+   * early waits for it. After that the KC Monitor never raises RTS — its own
+   * IRQ handler reads the ACIA and never writes the command register again —
+   * so on the stock firmware nothing else is held. It matters to a program
+   * that drives the ACIA itself.
    *
    * A host setting — what the far end of the cable does — so it is not part
    * of a snapshot and survives one being loaded.

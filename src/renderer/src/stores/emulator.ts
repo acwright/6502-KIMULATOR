@@ -41,8 +41,8 @@ export const useEmulatorStore = defineStore('emulator', () => {
   const serialConnected = ref(false)
   /** Whether the machine currently on the bench was built with a Serial Card. */
   const serialCardFitted = ref(true)
-  /** RTS/CTS flow control on serial input; off by default. Carried across rebuilds. */
-  const flowControl = ref(false)
+  /** RTS/CTS flow control on serial input; on by default. Carried across rebuilds. */
+  const flowControl = ref(true)
   // Display labels for currently loaded files (shown in SettingsPanel).
   const romName = ref<string>('BIOS (default)')
   const cardROMName = ref<string>('KC Monitor (default)')
