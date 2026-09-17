@@ -23,12 +23,14 @@ is visible on a KIM: the Kernal at `$A000–$B7FF` and the CP437 character set a
 
 - **Source** — `/Users/acwright/Developer/Assembly/6502-BIOS`, `BIOS.bin` on
   branch `v1.x`, not the repository's `main`, which is BIOS 2.x. The commit
-  below is "Lower RTS as BASIC reads the input buffer", the 1.6 rebuild that
-  the `v1.6` tag is due to move to; it was first taken at `71e1e66`
-  (sha256 `fc0002d0…`)
-- **Commit** — `27bd4e08acd9a172101b388a981efb26c33dead2` (2026-09-17)
+  below is "Drop RTS around each byte, so a full buffer cannot stop the
+  transmitter", the 1.6 rebuild that the `v1.6` tag is due to move to; it was
+  first taken at `71e1e66` (sha256 `fc0002d0…`) and briefly at `27bd4e0`
+  (sha256 `4ec29214…`), which lowered RTS as BASIC read the buffer but still
+  deadlocked a real R6551
+- **Commit** — `f858890ef8da6014633b392fb76e22a496641fef` (2026-09-17)
 - **Version string** — `6502 BIOS v1.6`
-- **SHA-256** — `4ec29214248089642cc399273491bd02481536639db38f40d6f2e4af1fd4d312`
+- **SHA-256** — `29ed506f99a5b8a296d449ed925f66186bbe7b012b7bb0d1e54fa768bbedd11a`
 
 On a KIM, 1.6 changes only what `KernalVersion` reports. Its NVRAM save slots
 need an RTC card, which a KIM doesn't have, so every `Nv*` entry returns carry

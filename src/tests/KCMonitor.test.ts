@@ -504,12 +504,22 @@ describe('KC Monitor', () => {
      *
      * That settled the disagreement between Rockwell's 1981 sheet ("transmit
      * interrupt disabled") and its 1987 Rev. 4 and Synertek's ("Transmitter
-     * Off"): TIC `00` turns the transmitter off, TDRE never sets, and
-     * `SerialChrout` spins. See `ACIA.transmitterEnabled`.
+     * Off"): TIC `00` turns the transmitter off, TDRE never sets, and the
+     * transmitter's waiter spins. See `ACIA.transmitterEnabled`.
      *
      * The KIM has no BASIC to POKE from, but a Wozmon deposit to `$9002` is the
-     * same store to `SC_CMD`, and the monitor answers through the same BIOS 1.6
-     * `SerialChrout`.
+     * same store to `SC_CMD`.
+     *
+     * **The BIOS fix does not reach this console, and these cases are unchanged
+     * by it.** 6502-BIOS `f858890` drops RTS around each byte in the Kernal's
+     * `SerialChrout`, so a BIOS console recovers; the KC Monitor does not use
+     * it. Its output goes through its own `SerPutc`, which waits on TDRE for a
+     * bounded time and then drops the byte rather than blocking, and never
+     * touches the command register. So with TIC `00` standing the monitor is
+     * not hung so much as mute — it goes on running, and everything it tries to
+     * say is dropped at the timeout, which from the terminal is the same thing.
+     * Fixing that is the KC Monitor's own job (rollout bug 4), and it has to
+     * adopt the Kernal's scheme rather than the naive one.
      */
     describe('TIC 00 turns the transmitter off (bench test, 2026-09-17)', () => {
       const SC_CMD = 0x9002
@@ -530,28 +540,28 @@ describe('KC Monitor', () => {
         expect(String.fromCharCode(...sent)).toMatch(/> $/)
       })
 
-      it('stops transmitting mid-reply with $01, and the machine hangs', () => {
+      it('stops transmitting mid-reply with $01, and the console goes mute', () => {
         const machine = atMonitor()
         machine.poke(PROGRAM_START, 0x5a)
         const sent: number[] = []
         machine.transmit = (byte) => sent.push(byte)
 
         // The line is echoed as it is typed and the store happens on the CR.
-        // After that nothing more is sent: the monitor wrote a byte and is
-        // spinning on TDRE, which a disabled transmitter never sets.
+        // After that nothing more is sent: SerPutc waits out its TDRE timeout,
+        // which a disabled transmitter never ends, and drops every byte.
         type(machine, '9002: 01\r')
-        expect(machine.peek(SC_CMD)).toBe(0x01)
+        expect(machine.peek(SC_CMD)).toBe(0x01) // and nothing puts it back
 
         const reply = String.fromCharCode(...sent)
         expect(reply).toContain('9002: 01') // the line, echoed as it was typed
         expect(reply).not.toMatch(/> $/) // ...and then it stopped, mid-reply
-        const hung = sent.length
+        const mute = sent.length
 
-        // RTS stayed high, so nothing more gets in either: an examine that
-        // would answer `0800: 5A` produces nothing at all, nor does a bare CR.
+        // An examine that would answer `0800: 5A` produces nothing at all, nor
+        // does a bare CR: the monitor is still parsing, and inaudible.
         type(machine, '0800\r')
         type(machine, '\r')
-        expect(sent.length).toBe(hung)
+        expect(sent.length).toBe(mute)
         expect(String.fromCharCode(...sent)).not.toContain('0800: 5A')
       })
     })

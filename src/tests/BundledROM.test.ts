@@ -23,9 +23,10 @@ const ROMS = [
   {
     name: 'BIOS.bin',
     bytes: 32768,
-    // 6502-BIOS v1.x @ 27bd4e0 (27bd4e08acd9a172101b388a981efb26c33dead2), the 1.x line: 1.6 with BASIC
-    // lowering RTS as it reads
-    sha256: '4ec29214248089642cc399273491bd02481536639db38f40d6f2e4af1fd4d312',
+    // 6502-BIOS v1.x @ f858890 (f858890ef8da6014633b392fb76e22a496641fef), the 1.x line: 1.6 with the
+    // serial output path dropping RTS around each byte, so a full input buffer cannot stop the
+    // transmitter (water marks $C0 up, $80 down)
+    sha256: '29ed506f99a5b8a296d449ed925f66186bbe7b012b7bb0d1e54fa768bbedd11a',
     // Guards against bundling a truncated or unrelated binary. The KIM stays on
     // BIOS 1.x permanently, so a 2.x ROM must fail here rather than ship.
     version: /6502 BIOS v1\.\d+/
