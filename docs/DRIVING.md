@@ -13,7 +13,7 @@ Every command below was run against a real machine as it was written.
 
 ## What you get
 
-A complete A.C. Wright **6502-KIM** — 65C02, 32 KB RAM, the family BIOS, a 6551
+A complete **AC6502 KIM** — 65C02, 32 KB RAM, the family BIOS, a 6551
 ACIA on the Serial Card, and the Keypad Card that overlays the top of the map
 with a 65C21 PIA, a 16×2 HD44780 and its own 8 KB ROM holding the **KC
 Monitor** — that you can boot, drive, inspect and assert on from a shell.

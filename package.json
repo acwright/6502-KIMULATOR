@@ -2,7 +2,7 @@
   "name": "6502-kimulator",
   "version": "1.0.10",
   "private": true,
-  "description": "Desktop (Electron) and web emulator for the A.C. Wright 6502-KIM",
+  "description": "Desktop (Electron) and web emulator for the AC6502 KIM",
   "author": {
     "name": "A.C. Wright",
     "email": "acwrightdesign@gmail.com"

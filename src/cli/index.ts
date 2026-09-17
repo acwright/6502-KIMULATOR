@@ -4,7 +4,7 @@ import { attachCommand, ATTACH_HELP } from './attach'
 import { UsageError } from './args'
 import { cliVersion } from './version'
 
-const HELP = `6502-kim — A.C. Wright 6502-KIM emulator
+const HELP = `6502-kim — AC6502 KIM emulator
 
 Usage: 6502-kim <command> [options]
 

@@ -1,6 +1,6 @@
 # 6502 KIMulator
 
-Desktop and web emulator for the [A.C. Wright 6502-KIM](https://github.com/acwright/6502-KIM) — the **Keypad Input Monitor**, the member of the [AC6502](https://github.com/acwright/6502-ACE) family with a 24-key pad, a 16×2 LCD, and a Keypad Card that takes over the top of the memory map.
+Desktop and web emulator for the [AC6502 KIM](https://github.com/acwright/6502-KIM) — the **Keypad Input Monitor**, the member of the [AC6502](https://github.com/acwright/6502-ACE) family with a 24-key pad, a 16×2 LCD, and a Keypad Card that takes over the top of the memory map.
 
 Runs on **macOS, Windows, and Linux** as a native Electron application, and in any modern browser via **[GitHub Pages](https://acwright.github.io/6502-KIMULATOR/)**.
 
@@ -623,7 +623,7 @@ commit each came from.
 ## Related
 
 - [6502-KIM](https://github.com/acwright/6502-KIM) — the hardware this emulates, and the KC Monitor firmware
-- [A.C. Wright 6502 Hardware](https://github.com/acwright/6502-ACE) — the index of the whole family
+- [AC6502 Hardware](https://github.com/acwright/6502-ACE) — the index of the whole family
 - [6502-EMULATOR](https://github.com/acwright/6502-EMULATOR) — the emulator for the rest of the family; this one's origin
 - [6502-BIOS](https://github.com/acwright/6502-BIOS) — firmware source; the bundled BIOS is built from it
 - [6502-PRG](https://github.com/acwright/6502-PRG) / [6502-ASM](https://github.com/acwright/6502-ASM) — templates and example programs to assemble and load
