@@ -511,7 +511,7 @@ describe('KC Monitor', () => {
      * same store to `SC_CMD`.
      *
      * **The BIOS fix does not reach this console, and these cases are unchanged
-     * by it.** 6502-BIOS `f858890` drops RTS around each byte in the Kernal's
+     * by it.** 6502-BIOS `v1.6` lowers RTS around each byte in the Kernal's
      * `SerialChrout`, so a BIOS console recovers; the KC Monitor does not use
      * it. Its output goes through its own `SerPutc`, which waits on TDRE for a
      * bounded time and then drops the byte rather than blocking, and never

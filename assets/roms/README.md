@@ -21,16 +21,28 @@ The family's BIOS. Spans `$8000–$FFFF` as an image, but only `$A000–$BFFF` o
 is visible on a KIM: the Kernal at `$A000–$B7FF` and the CP437 character set at
 `$B800–$BFFF`. The Keypad Card overlays everything above.
 
-- **Source** — `/Users/acwright/Developer/Assembly/6502-BIOS`, `BIOS.bin` on
-  branch `v1.x`, not the repository's `main`, which is BIOS 2.x. The commit
-  below is "Drop RTS around each byte, so a full buffer cannot stop the
-  transmitter", the 1.6 rebuild that the `v1.6` tag is due to move to; it was
-  first taken at `71e1e66` (sha256 `fc0002d0…`) and briefly at `27bd4e0`
-  (sha256 `4ec29214…`), which lowered RTS as BASIC read the buffer but still
-  deadlocked a real R6551
-- **Commit** — `f858890ef8da6014633b392fb76e22a496641fef` (2026-09-17)
+- **Source** — `/Users/acwright/Developer/Assembly/6502-BIOS`, `BIOS.bin` at tag
+  **`v1.6`**, cut on branch `v1.x`, not the repository's `main`, which is BIOS
+  2.x
+- **Commit** — `8acb4fc1d410f523a0ba64308ac1c1d9e22098a2` (2026-09-17)
 - **Version string** — `6502 BIOS v1.6`
-- **SHA-256** — `29ed506f99a5b8a296d449ed925f66186bbe7b012b7bb0d1e54fa768bbedd11a`
+- **SHA-256** — `4b4154afac681e26324d3f5a845e41770d977c05db1ef6516c9d2c5e210d8c56`
+
+**`v1.6` is reissued in place**, always as 1.6 and always with the same banner,
+so the digest above is the only thing that tells one 1.6 from another. Earlier
+images this repository bundled, newest first: `f858890` (sha256 `29ed506f…`),
+which lowered RTS around each byte sent; `27bd4e0` (sha256 `4ec29214…`), which
+lowered RTS as BASIC read the buffer but still deadlocked a real R6551; and
+`71e1e66` (sha256 `fc0002d0…`), 1.6 as first released. The tag as it now stands
+adds the rest of what the bench found: the input ring no longer laps its reader
+at 256 unread bytes, the IRQ handler reads the data register only when `RDRF`
+says a byte is there, and the console goes quiet above the high-water mark
+rather than reopening the gate for an echo. Pastes to 14 KB arrive byte-perfect
+on hardware with flow control on.
+
+None of that is reachable from a KIM's own console — the KC Monitor has its own
+`SerPutc` and never touches the command register — but it is the ROM the Serial
+Card's BIOS path runs, and the digest has to match what the tag holds.
 
 On a KIM, 1.6 changes only what `KernalVersion` reports. Its NVRAM save slots
 need an RTC card, which a KIM doesn't have, so every `Nv*` entry returns carry
