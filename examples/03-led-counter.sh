@@ -95,6 +95,17 @@ lamps() {
   ' "$1"
 }
 
+# A lap is only *about* half a million cycles: SysDelay's loops and the counter's
+# own instructions add a little. So a budget that starts right beside a latch
+# write can end just short of the next one, and CI has hit exactly that (1.0.8,
+# 1.0.11). Step to the next write in small budgets, then half a lap further, so
+# every assertion below lands mid-lap, far from either edge.
+start=$(latched)
+while [ "$(latched)" = "$start" ]; do
+  dbg runcycles 20000 >/dev/null
+done
+dbg runcycles $((CYCLES_PER_STEP / 2)) >/dev/null
+
 first=$(latched)
 printf '   the lamps are showing $%02X  %s\n' "$first" "$(lamps "$first")"
 
