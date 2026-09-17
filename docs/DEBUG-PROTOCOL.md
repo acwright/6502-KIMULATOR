@@ -180,9 +180,9 @@ clock, for a sharper reason — see [keypad](#keypad).
 
 | Method | Params | Returns |
 |---|---|---|
-| `session.info` | — | `protocol`, `host`, `version`, `console`, `frequency`, `baudRate?`, `serialCard`, `symbols`, plus [run state](#run-state) |
+| `session.info` | — | `protocol`, `host`, `version`, `console`, `frequency`, `baudRate?`, `flowControl`, `serialCard`, `symbols`, plus [run state](#run-state) |
 | `session.reset` | `cold?` (default `true`) | Run state |
-| `session.config` | `baudRate?` | `frequency`, `baudRate?`, `console` |
+| `session.config` | `baudRate?`, `flowControl?` | `frequency`, `baudRate?`, `flowControl`, `console` |
 | `session.shutdown` | — | `{ok:true}`, then the host winds down |
 
 `frequency` is reported and not settable. PHI2 on this board is 1 MHz; the ACE
@@ -378,7 +378,7 @@ reports `NOT_SUPPORTED` — check `session.info`'s `serialCard` first.
 |---|---|---|
 | `serial.write` | `data`, `encoding?` (`text` default, `base64`) | `queued`, `cursor` |
 | `serial.read` | `since?`, `max?`, `clear?` | `data`, `length`, `cursor`, `truncated` |
-| `serial.config` | — | `console`, `baudRate?`, `frequency` |
+| `serial.config` | — | `console`, `baudRate?`, `flowControl`, `frequency` |
 
 **The cursor is the important part.** It is an absolute position in the console's
 output stream, and `serial.write` returns where the stream stood when the command
@@ -391,9 +391,24 @@ reply is normally printed before a wait could even be set up. `wait.for` default
 Text writes translate `\n` to CR, because that is what a terminal sends for Enter
 and what the KC Monitor's serial monitor ends a line on.
 
-Input is paced at the serial line rate, measured in emulated cycles — so a pasted
-program cannot overrun the BIOS's 256-byte input buffer, and it lands at the same
-point in the program whatever speed the host runs at.
+Input is paced at the serial line rate, measured in emulated cycles — so it lands
+at the same point in the program whatever speed the host runs at.
+
+`flowControl` is whether serial input honours RTS/CTS flow control. It is `false`
+unless `6502-kim run --flow-control` or the app's Settings turned it on.
+`session.config` can set it on a headless host; the app refuses
+(`NOT_SUPPORTED`), because its Settings panel owns the setting. With it on, while
+the machine holds the ACIA's RTS high — command register bit 0 set (receiver on)
+and bits 3-2 clear — nothing more is sent: `serial.write` still queues, and the
+queue resumes in order, at the line rate, when RTS drops. Nothing is dropped.
+Software that never enables the receiver is never held.
+
+**Flow control is off by default, and on the KC Monitor it does nothing.**
+`KernalInit` writes `$09` (RTS low) and the monitor's IRQ handler never writes the
+command register again, so input is never held. It matters to a program that
+drives the ACIA itself and raises RTS. Firmware that raises RTS and never lowers
+it stalls with flow control on, which is why it is off: BIOS 1.6's BASIC and
+EhBASIC do exactly that on 6502-EMULATOR.
 
 ### keypad
 
@@ -614,6 +629,7 @@ For anyone porting a script across. Everything not listed is identical.
 | `mem.*` space `card` | The same image, byte-addressable and writable. |
 | `sym.load` format `lst` | ca65 listings, which is what the KC Monitor's build produces. |
 | `session.info` `serialCard` | Replaces `cartridge`. |
+| `session.info` `flowControl` | The same field as 6502-EMULATOR's. The KC Monitor never raises RTS, so it holds nothing here. |
 | `session.info` `console` | `serial` or **`keypad`**, not `serial` or `video`. |
 | `state.load` `cardROMMismatch` | The second ROM's `force` report. |
 | Snapshot `format` | `6502-kim-snapshot`. The two are not interchangeable, and each refuses the other's. |

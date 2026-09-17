@@ -41,6 +41,8 @@ export const useEmulatorStore = defineStore('emulator', () => {
   const serialConnected = ref(false)
   /** Whether the machine currently on the bench was built with a Serial Card. */
   const serialCardFitted = ref(true)
+  /** RTS/CTS flow control on serial input; off by default. Carried across rebuilds. */
+  const flowControl = ref(false)
   // Display labels for currently loaded files (shown in SettingsPanel).
   const romName = ref<string>('BIOS (default)')
   const cardROMName = ref<string>('KC Monitor (default)')
@@ -102,6 +104,7 @@ export const useEmulatorStore = defineStore('emulator', () => {
     })
 
     m.transmit = fanOut
+    m.flowControl = flowControl.value
 
     serialCardFitted.value = serialCard
     isHalted.value = false
@@ -227,6 +230,12 @@ export const useEmulatorStore = defineStore('emulator', () => {
     return machine.value?.acia() ?? null
   }
 
+  /** Not a power cycle: it says what the far end of the cable does. */
+  function setFlowControl(on: boolean) {
+    flowControl.value = on
+    if (machine.value) machine.value.flowControl = on
+  }
+
   return {
     session,
     machine,
@@ -234,6 +243,8 @@ export const useEmulatorStore = defineStore('emulator', () => {
     isHalted,
     serialConnected,
     serialCardFitted,
+    flowControl,
+    setFlowControl,
     romName,
     cardROMName,
     binaryName,

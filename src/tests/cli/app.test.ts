@@ -88,6 +88,11 @@ describe('buildBootConfig', () => {
     expect(() => buildBootConfig({ accessory: 'leds' }, [])).toThrow(/no accessory "leds"/)
   })
 
+  it('carries --flow-control into the settings for this launch, and only when given', () => {
+    expect(buildBootConfig({ 'flow-control': true }, []).settings).toEqual({ flowControl: true })
+    expect(buildBootConfig({}, []).settings).toBeUndefined()
+  })
+
   it('builds a whole serial config, never half of one', () => {
     // Merging framing into whatever was saved would produce a line nobody
     // asked for, so a flag that touches the port starts from the default.

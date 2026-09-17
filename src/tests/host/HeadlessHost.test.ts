@@ -7,6 +7,7 @@
  */
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { createHash } from 'crypto'
 import { HeadlessHost, readROM, readCardROM } from '../../host/headless/HeadlessHost'
 import type { HeadlessOptions } from '../../host/headless/HeadlessHost'
 import { SerialConsole } from '../../host/headless/SerialConsole'
@@ -28,6 +29,10 @@ const KC_MONITOR = new Uint8Array(readFileSync(join(ROOT, 'assets/roms/KCMonitor
  * and there is no honest way to skip them.
  */
 const BOOT_BUDGET = 6_000_000
+
+/** The paste test's transcript on 1.0.9, which flow control off must reproduce. */
+const PASTE_TRANSCRIPT_LENGTH = 604
+const PASTE_TRANSCRIPT_SHA256 = 'be57460b27ea10be7a6229251483712a150400e17c64f3497ebfb87586b27a97'
 
 // These boot real ROMs, and under parallel workers they contend for CPU with
 // every other suite. The work is bounded in emulated cycles, not wall time, so
@@ -145,6 +150,74 @@ describe('HeadlessHost', () => {
       await h.run('turbo')
 
       expect(h.session.machine.peek(0x0800)).toBe(0x5a)
+    })
+
+    describe('a program pasted at 19,200 baud', () => {
+      // Twenty Wozmon deposit lines in one write, 160 bytes: the way bin2woz
+      // output arrives from the Paste box or a pipe.
+      const program = Array.from({ length: 160 }, (_, i) => (i * 37 + 11) & 0xff)
+      const lines = Array.from({ length: 20 }, (_, row) => {
+        const address = (0x0800 + row * 8).toString(16).toUpperCase().padStart(4, '0')
+        const bytes = program.slice(row * 8, row * 8 + 8)
+        return `${address}: ${bytes.map((b) => b.toString(16).toUpperCase().padStart(2, '0')).join(' ')}`
+      })
+      const paste = lines.map((line) => `${line}${CR}`).join('')
+
+      /**
+       * Boot to the monitor prompt and paste, driving the host the way its
+       * scheduler does — a byte's worth of cycles, then a pump — for fixed
+       * budgets, so two runs cannot differ by where a wait happened to end.
+       */
+      function pasteInto(flowControl: boolean) {
+        const h = new HeadlessHost({ rom: BIOS, cardROM: KC_MONITOR, baudRate: 19200, flowControl })
+        const machine = h.session.machine
+        const out = { text: '' }
+        machine.transmit = (byte) => {
+          out.text += String.fromCharCode(byte)
+        }
+        let rtsRaised = false
+        const chunk = Math.floor((machine.frequency * 10) / h.baudRate)
+        const budget = (cycles: number): void => {
+          for (let spent = 0; spent < cycles; spent += chunk) {
+            machine.runCycles(chunk)
+            h.serial!.pump()
+            if ((machine.peek(0x9002) & 0x0d) === 0x01) rtsRaised = true
+          }
+        }
+        budget(BOOT_BUDGET)
+        h.write(ESC)
+        budget(1_000_000)
+        h.write(paste)
+        budget(20_000_000)
+        return { h, machine, out, rtsRaised }
+      }
+
+      // The KC Monitor's IRQ handler reads the ACIA into its own ring and never
+      // writes the command register after KernalInit's `$09`, so RTS stays low
+      // and flow control holds nothing. A paste this long overruns the monitor
+      // at 19,200 baud either way — lines from the middle go missing, as they
+      // did in 1.0.9 — and flow control cannot help firmware that never raises
+      // RTS. The first lines always land.
+      it.each([true, false])('never holds input, because the KC Monitor never raises RTS (flow control %s)', (flowControl) => {
+        const { h, machine, out, rtsRaised } = pasteInto(flowControl)
+        expect(out.text).toContain('KIM MONITOR')
+        expect(rtsRaised).toBe(false)
+        expect(machine.serialReady).toBe(true)
+        expect(h.serial!.pendingBytes).toBe(0)
+        expect(machine.acia()!.queuedBytes).toBe(0)
+        expect(Array.from({ length: 40 }, (_, i) => machine.peek(0x0800 + i))).toEqual(program.slice(0, 40))
+      })
+
+      it('gives the same transcript with flow control on as off, and off is what 1.0.9 did', () => {
+        const on = pasteInto(true)
+        const off = pasteInto(false)
+        expect(on.out.text).toBe(off.out.text)
+        expect(on.machine.cycles).toBe(off.machine.cycles)
+        expect(off.machine.cycles).toBe(27_001_000)
+        // Captured from 1.0.9 (1d283b3) with this exact procedure.
+        expect(off.out.text.length).toBe(PASTE_TRANSCRIPT_LENGTH)
+        expect(createHash('sha256').update(off.out.text, 'binary').digest('hex')).toBe(PASTE_TRANSCRIPT_SHA256)
+      })
     })
   })
 
@@ -405,6 +478,55 @@ describe('HeadlessHost', () => {
 
 describe('SerialConsole', () => {
   const machine = () => new Machine()
+
+  describe.each([
+    { flowControl: true, holds: true },
+    { flowControl: false, holds: false }
+  ])('with flow control $flowControl', ({ flowControl, holds }) => {
+    it(holds
+      ? 'sends nothing while the machine has RTS raised, and resumes at the line rate when it drops'
+      : 'ignores RTS and keeps sending at the line rate, as 1.0.9 did', () => {
+      const m = machine()
+      m.flowControl = flowControl
+      const received: number[] = []
+      jest.spyOn(m.acia()!, 'onData').mockImplementation((byte: number) => received.push(byte))
+      const perByte = Math.ceil((1_000_000 * 10) / 19200)
+
+      const console_ = new SerialConsole(m, 19200)
+      console_.write('ABCD')
+
+      m.write(0x9002, 0x01) // DTR on, RTSB high
+      m.runCycles(perByte)
+      console_.pump()
+      expect(received).toEqual(holds ? [] : [0x41])
+      for (let i = 0; i < 100; i++) {
+        m.runCycles(perByte)
+        console_.pump()
+      }
+
+      if (!holds) {
+        expect(received).toEqual([0x41, 0x42, 0x43, 0x44])
+        expect(console_.pendingBytes).toBe(0)
+        return
+      }
+      expect(received).toEqual([])
+      expect(console_.pendingBytes).toBe(4)
+
+      // The hold banked no time: the first byte still takes a byte's line time.
+      m.write(0x9002, 0x09) // RTSB low
+      m.runCycles(perByte - 1)
+      console_.pump()
+      expect(received).toEqual([])
+
+      m.runCycles(1)
+      console_.pump()
+      expect(received).toEqual([0x41])
+
+      m.runCycles(perByte * 3)
+      console_.pump()
+      expect(received).toEqual([0x41, 0x42, 0x43, 0x44])
+    })
+  })
 
   it('paces input at the line rate rather than delivering it at once', () => {
     const m = machine()

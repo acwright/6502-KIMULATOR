@@ -202,6 +202,13 @@ matrix keyboard to synthesise them on. It feeds bytes to the ACIA paced at the
 line rate, which is why it takes `bin2woz` output for free: those are Wozmon
 deposit lines, and the machine cannot tell them from someone typing quickly.
 
+**Serial flow control is a setting, off by default** (`AppSettings.flowControl`,
+`--flow-control`, `session.info.flowControl`). `Machine.flowControl` sets it on the
+ACIA; `ACIA.readyToReceive` and `Machine.serialReady` say whether input would be
+held, and `SerialConsole.pump` sends nothing while it would. `ACIA.ts` and its test
+are byte-identical with 6502-EMULATOR's. The KC Monitor never raises RTS, so on
+the stock firmware it changes nothing.
+
 **There is one console buffer and everything reads it.** `useConsole` owns a
 `TerminalBuffer`; the Terminal panel draws it, the Paste box feeds it, and
 `RendererTarget`'s `serial.read` / `serial.write` / `onSerial` are that same

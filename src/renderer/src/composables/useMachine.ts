@@ -132,6 +132,7 @@ export function useMachine() {
     //    accessory bus. An id this build does not recognise leaves the bay empty
     //    rather than failing the boot.
     shape.value = { serialCard: settings.serialCardFitted, accessory: settings.accessory }
+    store.setFlowControl(settings.flowControl ?? false)
     store.init({
       serialCard: settings.serialCardFitted,
       accessory: createAccessory(settings.accessory)

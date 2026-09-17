@@ -286,6 +286,9 @@ export function createMethods(target: DebugTarget): MethodTable {
       console: target.consoleMode(),
       frequency: machine.frequency,
       ...(target.baudRate ? { baudRate: target.baudRate() } : {}),
+      // RTS/CTS flow control on serial input: off unless `--flow-control` or
+      // the app's Settings turned it on.
+      flowControl: machine.flowControl,
       /**
        * Whether io5 holds the Serial Card.
        *
@@ -329,9 +332,18 @@ export function createMethods(target: DebugTarget): MethodTable {
         target.setBaudRate(baudRate)
       }
 
+      const flowControl = optionalBoolean(params, 'flowControl')
+      if (flowControl !== undefined) {
+        if (!target.setFlowControl) {
+          throw notSupported('session.config: flowControl is set in the app\'s Settings on this host')
+        }
+        target.setFlowControl(flowControl)
+      }
+
       return {
         frequency: machine.frequency,
         ...(target.baudRate ? { baudRate: target.baudRate() } : {}),
+        flowControl: machine.flowControl,
         console: target.consoleMode()
       }
     },
@@ -1002,6 +1014,7 @@ export function createMethods(target: DebugTarget): MethodTable {
     'serial.config': () => ({
       console: target.consoleMode(),
       ...(target.baudRate ? { baudRate: target.baudRate() } : {}),
+      flowControl: machine.flowControl,
       frequency: machine.frequency
     }),
 

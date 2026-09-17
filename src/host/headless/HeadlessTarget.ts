@@ -54,6 +54,10 @@ export class HeadlessTarget implements DebugTarget {
     }
   }
 
+  setFlowControl(on: boolean): void {
+    this.host.flowControl = on
+  }
+
   get session(): Session {
     return this.host.session
   }

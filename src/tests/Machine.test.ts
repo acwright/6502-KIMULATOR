@@ -4,6 +4,7 @@ import { RAM } from '../core/RAM'
 import { ROM } from '../core/ROM'
 import { ACIA } from '../core/IO/ACIA'
 import { Empty } from '../core/IO/Empty'
+import { captureSnapshot, restoreSnapshot } from '../debug/Snapshot'
 import { PIA } from '../core/IO/PIA'
 import type { IO } from '../core/IO'
 import type { DeviceState } from '../core/DeviceState'
@@ -384,6 +385,58 @@ describe('Machine', () => {
       const onData = jest.spyOn(machine.acia()!, 'onData')
       machine.onReceive(0x41)
       expect(onData).toHaveBeenCalledWith(0x41)
+    })
+
+    describe.each([
+      { flowControl: true, holds: true },
+      { flowControl: false, holds: false }
+    ])('with flow control $flowControl', ({ flowControl, holds }) => {
+      it(holds
+        ? 'serialReady follows the Serial Card\'s RTS, and is true with no card'
+        : 'serialReady stays true whatever RTS does', () => {
+        machine.flowControl = flowControl
+        expect(machine.serialReady).toBe(true)
+        machine.write(0x9002, 0x01) // io5 command register: DTR on, RTSB high
+        expect(machine.serialReady).toBe(!holds)
+        machine.write(0x9002, 0x09) // RTSB low, what KernalInit writes
+        expect(machine.serialReady).toBe(true)
+
+        const keypadOnly = new Machine({ io5: new Empty() })
+        keypadOnly.flowControl = flowControl
+        expect(keypadOnly.serialReady).toBe(true)
+      })
+
+      it('reaches a serial card in any slot, including one fitted by the caller', () => {
+        const fitted = new Machine({ io2: new ACIA() })
+        fitted.flowControl = flowControl
+        expect((fitted.io2 as ACIA).flowControl).toBe(flowControl)
+        expect(fitted.acia()!.flowControl).toBe(flowControl)
+      })
+
+      it(holds
+        ? 'input sent while RTS is high reaches the machine once RTS drops'
+        : 'input sent while RTS is high reaches the machine at once', () => {
+        machine.flowControl = flowControl
+        machine.write(0x9002, 0x03) // DTR on, receive IRQ off, RTSB high
+        machine.onReceive(0x41)
+        machine.runCycles(10)
+        expect(machine.read(0x9001) & 0x08).toBe(holds ? 0 : 0x08)
+        machine.write(0x9002, 0x0b) // RTSB low
+        machine.runCycles(10)
+        expect(machine.read(0x9000)).toBe(0x41)
+      })
+    })
+
+    it('has flow control off by default, and keeps it across a snapshot restore', () => {
+      expect(machine.flowControl).toBe(false)
+      expect(machine.acia()!.flowControl).toBe(false)
+      const off = captureSnapshot(machine)
+      machine.flowControl = true
+      restoreSnapshot(machine, off)
+      machine.reset(true)
+      expect(machine.flowControl).toBe(true)
+      expect(machine.acia()!.flowControl).toBe(true)
+      expect(JSON.stringify(captureSnapshot(machine))).not.toContain('flowControl')
     })
 
     it('drops a received byte when no Serial Card is fitted', () => {

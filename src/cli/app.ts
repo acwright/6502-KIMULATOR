@@ -35,6 +35,7 @@ export interface LaunchFlags {
   accessory?: string
   'no-serial-card'?: boolean
   baud?: string
+  'flow-control'?: boolean
   serial?: string
   'serial-config'?: string
   realtime?: boolean
@@ -170,6 +171,7 @@ function settingsFrom(values: LaunchFlags): Partial<AppSettings> {
 
   return {
     ...(values['no-serial-card'] ? { serialCardFitted: false } : {}),
+    ...(values['flow-control'] ? { flowControl: true } : {}),
     ...(values.accessory !== undefined ? { accessory: parseAccessory(values.accessory) } : {}),
     ...(framing || baudRate !== undefined
       ? {

@@ -115,6 +115,12 @@ export interface AppSettings {
    * machine you can still use.
    */
   accessory: string | null
+  /**
+   * RTS/CTS flow control on serial input (`--flow-control`): the host port and
+   * the terminal panel's Paste box. Off by default. The KC Monitor never raises
+   * RTS, so it only holds input for a program that drives the ACIA itself.
+   */
+  flowControl: boolean
 }
 
 /**
@@ -125,7 +131,8 @@ export interface AppSettings {
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   serialConfig: DEFAULT_SERIAL_CONFIG,
   serialCardFitted: true,
-  accessory: null
+  accessory: null,
+  flowControl: false
 }
 
 // ── IPC channels ─────────────────────────────────────────────────────────────

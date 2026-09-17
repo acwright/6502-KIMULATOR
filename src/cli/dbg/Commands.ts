@@ -112,13 +112,16 @@ async function info(argv: string[]): Promise<number> {
     console: string
     frequency: number
     serialCard: boolean
+    flowControl?: boolean
     mode: string
     cycles: number
   }
+  // Flow control only when it is on, which is not the default.
+  const flow = result.flowControl ? ', flow control' : ''
   show(values.json, result, () =>
     `${result.host} ${result.version} — ${result.console} console, ` +
     `${(result.frequency / 1e6).toFixed(0)} MHz, ` +
-    `${result.serialCard ? 'Serial Card fitted' : 'no Serial Card'}, ` +
+    `${result.serialCard ? 'Serial Card fitted' : 'no Serial Card'}${flow}, ` +
     `${result.mode}, ${result.cycles} cycles`
   )
   return ExitCode.OK
@@ -145,16 +148,24 @@ async function config(argv: string[]): Promise<number> {
   const OPTIONS = {
     ...COMMON_OPTIONS,
     frequency: { type: 'string' },
-    baud: { type: 'string' }
+    baud: { type: 'string' },
+    'flow-control': { type: 'string' }
   } as const
   const { values } = parse(() => parseArgs({ args: argv, options: OPTIONS, allowPositionals: true }))
 
-  const params: Record<string, number> = {}
+  const params: Record<string, number | boolean> = {}
   if (values.frequency) {
     const mhz = Number(values.frequency)
     params.frequency = mhz === 1 || mhz === 2 ? mhz * 1_000_000 : Number(values.frequency)
   }
   if (values.baud) params.baudRate = parseCount(values.baud, '--baud')
+  if (values['flow-control'] !== undefined) {
+    const setting = values['flow-control'].trim().toLowerCase()
+    if (setting !== 'on' && setting !== 'off') {
+      throw new UsageError(`--flow-control: expected "on" or "off", got "${values['flow-control']}"`)
+    }
+    params.flowControl = setting === 'on'
+  }
 
   const result = await call(values, 'session.config', params)
   show(values.json, result, () => JSON.stringify(result))

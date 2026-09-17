@@ -30,6 +30,7 @@ Machine
                             which is a machine the firmware supports and the only
                             way to exercise that path
   --baud <rate>             Serial rate: the ACIA headless, the host port in the app
+  --flow-control            Hold serial input while the machine raises RTS (default: off)
 
 Execution
   --pause                   Start paused, for attaching a debugger before boot
@@ -77,9 +78,19 @@ Notes
   There is no --freq either. PHI2 on this board is 1 MHz — the ACE is the family
   member with the 2 MHz jumper — so there is nothing to choose.
 
-  --baud, --serial-config, --accessory and --no-serial-card set what the app's
-  Settings panel sets, for that launch only: they show up in the panel, and
-  nothing is written to your saved settings.
+  --baud, --serial-config, --flow-control, --accessory and --no-serial-card set
+  what the app's Settings panel sets, for that launch only: they show up in the
+  panel, and nothing is written to your saved settings. Without --flow-control
+  the app uses its saved setting.
+
+  --flow-control makes serial input honour RTS/CTS flow control, as a terminal
+  set to it would: while the machine holds the ACIA's RTS high, input waits
+  (nothing is dropped) and resumes when RTS drops. It applies to stdin,
+  serial.write, the Paste box and a host serial port in the app. The KC Monitor
+  never raises RTS, so it changes nothing there; it is for a program that
+  drives the ACIA itself. It is off by default because firmware that raises RTS
+  and never lowers it stalls with it on, as BIOS 1.6's BASIC and EhBASIC do on
+  6502-EMULATOR.
 
   The app the CLI launches is the one that installed it — the shim runs this
   command inside the app's own Electron, so the two can never be different
@@ -119,6 +130,7 @@ const OPTIONS = {
   accessory: { type: 'string' },
   'no-serial-card': { type: 'boolean' },
   baud: { type: 'string' },
+  'flow-control': { type: 'boolean' },
   serial: { type: 'string' },
   'serial-config': { type: 'string' },
   headless: { type: 'boolean' },
@@ -255,6 +267,7 @@ export async function runCommand(argv: string[]): Promise<number> {
     serialCard,
     ...(values.accessory !== undefined ? { accessory: parseAccessory(values.accessory) } : {}),
     baudRate: values.baud ? parseCount(values.baud, '--baud') : undefined,
+    flowControl: values['flow-control'] ?? false,
     maxCycles: values['max-cycles'] ? parseCount(values['max-cycles'], '--max-cycles') : undefined,
     timeoutMs: values.timeout ? parseDuration(values.timeout, '--timeout') : undefined,
     exitOn,
@@ -272,6 +285,7 @@ export async function runCommand(argv: string[]): Promise<number> {
     process.stderr.write(
       `6502-kim: headless, ${host.consoleMode} console, ` +
         `${(host.session.machine.frequency / 1e6).toFixed(0)} MHz` +
+        `${host.flowControl ? ', flow control' : ''}` +
         `${values.accessory ? `, ${values.accessory}` : ''}` +
         `${values.realtime ? '' : ', turbo'}\n`
     )

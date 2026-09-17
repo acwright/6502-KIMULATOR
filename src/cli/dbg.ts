@@ -16,7 +16,7 @@ Commands
   info                             What the machine is and what it's doing
   regs [--set A=0x42 ...]          Read or write the registers
   reset [--warm]                   Reset the machine (cold by default)
-  config [--baud n]
+  config [--baud n] [--flow-control on|off]
 
   mem <addr> [length] [--space cpu|ram|rom|card]
   mem write <addr> <bytes>         Bytes as hex ("DEADBEEF") or a byte list

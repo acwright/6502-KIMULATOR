@@ -214,7 +214,10 @@ with the power on.
 from the detected list; the browser opens the Web Serial picker. Bytes the
 machine transmits go to the terminal *and* the real port, and bytes typed into
 the terminal arrive as bytes from a port would — connect one and both views show
-the same traffic.
+the same traffic. **RTS/CTS flow control** is off by default: on, input from the
+port and the Paste box waits while the machine holds the ACIA's RTS high. The KC
+Monitor never raises RTS, so it changes nothing there; it is for a program that
+drives the ACIA itself.
 
 **DEBUG SERVER** (Electron only) — starts the JSON-RPC service on a loopback port
 so `6502-kim dbg` and `6502-kim attach` can drive *this* window. Off until you
@@ -319,7 +322,7 @@ input it is holding can produce.
 ```
 
 The machine flags are the same either way — `--rom`, `--card-rom`, `--bin`,
-`--accessory`, `--no-serial-card`, `--baud`, `--pause`, `--debug`, `--symbols`.
+`--accessory`, `--no-serial-card`, `--baud`, `--flow-control`, `--pause`, `--debug`, `--symbols`.
 What differs is everything that only makes sense for one of them: `--fullscreen`,
 `--detach` and `--serial <port>` for a window; `--realtime`, `--max-cycles`,
 `--timeout`, `--exit-on`, `--input-after`, `--lcd` and `--json` for headless.
@@ -402,8 +405,16 @@ Further reading:
   firmware has a console sits unread in the ACIA and blocks everything behind it.
   Use `--input-after <regex>`, or boot with `--pause` and buy the boot in cycles.
 - **Input is paced at the serial line rate**, measured in emulated cycles rather
-  than wall time, so a pasted program cannot overrun the 256-byte input buffer and
-  lands at the same point in the program on any host.
+  than wall time, so it lands at the same point in the program on any host. Pacing
+  does not make a long paste safe: the KC Monitor handles each deposit line while
+  the next is arriving, and a paste of more than a few lines at 19,200 baud loses
+  lines from the middle.
+- **RTS/CTS flow control is off by default; `--flow-control` turns it on.** On,
+  input waits while the machine holds the ACIA's RTS high and resumes in order when
+  RTS drops; nothing is dropped. The KC Monitor never raises RTS, so on the stock
+  firmware it holds nothing and changes nothing. It is off by default because
+  firmware that raises RTS and never lowers it stalls with it on, as BIOS 1.6's
+  BASIC and EhBASIC do on 6502-EMULATOR.
 - **Keys are paced too, and never released.** Give a whole sequence to one
   `dbg key` call: the encoder latches one code, and the interrupt handler's read is
   what makes room for the next.

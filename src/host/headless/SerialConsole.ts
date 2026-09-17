@@ -20,10 +20,14 @@ export class SerialConsole {
    * rate rather than all at once.
    *
    * The pacing is not cosmetic. The ACIA's receive queue is unbounded and
-   * drains a byte per CPU tick, but the firmware's input buffer is not, and its
-   * RTS flow control has nothing to push back on here. Dumping a pasted program
-   * in one go would overrun that buffer and silently lose input — which is the
-   * same reason the Paste box in the window paces its bytes.
+   * drains a byte per CPU tick, but the firmware's input buffer is not.
+   * Dumping a pasted program in one go would overrun that buffer and silently
+   * lose input — which is the same reason the Paste box in the window paces its
+   * bytes.
+   *
+   * With the machine's `flowControl` on this also holds the queue while the
+   * machine has RTS raised, as a terminal doing RTS/CTS flow control would.
+   * With it off (the default) RTS is ignored, as it always was.
    */
   private readonly pending: number[] = []
 
@@ -92,6 +96,15 @@ export class SerialConsole {
     const elapsed = this.machine.cycles - this.lastCycles
     this.lastCycles = this.machine.cycles
     if (elapsed <= 0) return
+
+    // RTS raised with flow control on: send nothing, and bank nothing, so that
+    // when it drops the next byte takes a whole byte's line time to arrive
+    // rather than the backlog going in a burst. Never taken with flow control
+    // off, where `serialReady` is always true.
+    if (!this.machine.serialReady) {
+      this.cycleDebt = 0
+      return
+    }
 
     this.cycleDebt += elapsed
 

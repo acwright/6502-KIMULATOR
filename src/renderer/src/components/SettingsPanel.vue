@@ -142,6 +142,13 @@ async function toggleSerial(): Promise<void> {
   }
 }
 
+/** Applies at once, and is saved with the rest of the settings on the desktop. */
+function toggleFlowControl(event: Event): void {
+  const on = (event.target as HTMLInputElement).checked
+  store.setFlowControl(on)
+  window.api?.settings.set({ flowControl: on }).catch(() => {})
+}
+
 // Only a change the user made here is worth saving. Loading the current settings
 // into the fields below counts as a change to this watcher, and writing that
 // straight back would persist whatever happened to be in effect — including
@@ -426,6 +433,17 @@ onUnmounted(() => {
             </div>
           </div>
         </template>
+
+        <label class="toggle-row">
+          <input type="checkbox" :checked="store.flowControl" @change="toggleFlowControl" />
+          <span>RTS/CTS flow control</span>
+        </label>
+
+        <p class="hint">
+          Off by default. On, input from the port and the Paste box waits while the
+          machine holds RTS high. The KC Monitor never raises it, so this only
+          matters to a program that drives the ACIA itself.
+        </p>
 
         <button
           class="btn-connect"
