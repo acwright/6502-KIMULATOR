@@ -1,6 +1,6 @@
 {
   "name": "ac6502-kimulator",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "private": true,
   "description": "Desktop (Electron) and web emulator for the AC6502 KIM",
   "author": {
