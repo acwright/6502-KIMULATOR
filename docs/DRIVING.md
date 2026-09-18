@@ -250,6 +250,13 @@ and reports whether it matched:
 landed, so a reply that arrives before the wait is set up still counts. In turbo
 that is not a rare race, it is the normal case.
 
+`wait --stopped` answers with the stop the machine is already sitting on, for
+the same reason: the breakpoint fired while the previous command's process was
+exiting. Adding `--run turbo` means *continue* — but only once you have been
+told what you are continuing from, so the same command is safe either way. The
+first `wait --stopped --run turbo` after a breakpoint or watchpoint fires
+returns it; the next one runs on to the following stop.
+
 **`wait --serial` looks back to that same position and no further**, which is the
 other half of the same rule and the one that surprises people. A script that
 launches a machine and *then* waits for its banner waits forever: the banner was
