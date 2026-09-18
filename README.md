@@ -378,6 +378,7 @@ no arguments:
 6502-kim dbg key --list                     # the pad, with every encoder code
 6502-kim dbg lcd                            # the two lines, as the panel shows them
 6502-kim dbg send '0800: 5A\r' --wait '\r'  # over the serial console
+6502-kim dbg send '0800\r' --wait 'EA' --since 4096  # ... from a cursor you already hold
 6502-kim dbg runcycles 500000               # an exact cycle budget
 6502-kim dbg state save ready.state         # snapshot the whole machine
 6502-kim dbg state load ready.state         # ... and restore it in ~1 ms

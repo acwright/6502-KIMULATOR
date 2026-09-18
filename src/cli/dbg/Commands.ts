@@ -1,6 +1,6 @@
 import { resolve as resolvePath } from 'node:path'
 import { parseArgs } from 'node:util'
-import { UsageError, parseAddress, parseByte, parseCount, parseDuration } from '../args'
+import { UsageError, parseAddress, parseByte, parseCount, parseCursor, parseDuration } from '../args'
 import { resolveTarget, httpCall, RpcClientError } from './Connection'
 import { ExitCode } from './ExitCode'
 import { unescape, parseByteList } from './text'
@@ -498,6 +498,7 @@ async function send(argv: string[]): Promise<number> {
   const OPTIONS = {
     ...COMMON_OPTIONS,
     wait: { type: 'string' },
+    since: { type: 'string' },
     timeout: { type: 'string' },
     encoding: { type: 'string' }
   } as const
@@ -515,11 +516,18 @@ async function send(argv: string[]): Promise<number> {
     return ExitCode.OK
   }
 
+  // The wait looks back to where this write landed, so a reply that arrives
+  // before it is set up still counts. `--since` overrides that with a cursor the
+  // caller already holds — the one the previous `--json` result ended on — so a
+  // sequence of commands reads the console with no gap between them.
+  const since =
+    values.since !== undefined ? parseCursor(values.since, '--since') : written.cursor
+
   const waited = (await call(values, 'wait.for', {
     serial: values.wait,
-    ...(written.cursor !== undefined ? { since: written.cursor } : {}),
+    ...(since !== undefined ? { since } : {}),
     ...(values.timeout ? { timeoutMs: parseDuration(values.timeout, '--timeout') } : {})
-  })) as { matched: boolean; reason: string; output?: string }
+  })) as { matched: boolean; reason: string; output?: string; cursor?: number }
 
   show(values.json, waited, () => waited.output ?? waited.reason)
   return waited.matched ? ExitCode.OK : ExitCode.TIMEOUT
@@ -543,7 +551,7 @@ async function wait(argv: string[]): Promise<number> {
     ...(values.stopped ? { stopped: true } : {}),
     ...(values.cycles !== undefined ? { cycles: parseCount(values.cycles, '--cycles') } : {}),
     ...(values.expression !== undefined ? { expression: values.expression } : {}),
-    ...(values.since !== undefined ? { since: parseCount(values.since, '--since') } : {}),
+    ...(values.since !== undefined ? { since: parseCursor(values.since, '--since') } : {}),
     ...(values.run !== undefined ? { run: values.run } : {}),
     ...(values.timeout ? { timeoutMs: parseDuration(values.timeout, '--timeout') } : {})
   })) as { matched: boolean; reason: string; output?: string; stop?: { kind: string } }

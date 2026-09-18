@@ -250,6 +250,27 @@ and reports whether it matched:
 landed, so a reply that arrives before the wait is set up still counts. In turbo
 that is not a rare race, it is the normal case.
 
+**What you get back ends at the match.** A wait that matches returns the console
+output up to and including the match, and nothing after it — so a pattern that
+matches mid-line gives the same transcript every run rather than however much of
+the line the host happened to flush. `--json` also gives you a `cursor`: the
+stream position the transcript ends on. Hand it to the next call as `--since` and
+you get everything the machine printed in between, with nothing lost and nothing
+repeated.
+
+```sh
+first=$(6502-kim dbg send '0800\r' --wait 'EA' --timeout 5s --json)
+at=$(printf '%s' "$first" | python3 -c 'import json,sys; print(json.load(sys.stdin)["cursor"])')
+
+# The rest of that line and the prompt after it, with no gap from the first call.
+6502-kim dbg wait --serial '\\' --since "$at" --timeout 5s
+6502-kim dbg send '0801\r' --wait '\\' --since "$at" --timeout 5s   # or carry on typing
+```
+
+Without `--since`, a wait looks back only as far as its own write, which is right
+for "send this, wait for its reply" and wrong for picking up where a previous call
+stopped.
+
 `wait --stopped` answers with the stop the machine is already sitting on, for
 the same reason: the breakpoint fired while the previous command's process was
 exiting. Adding `--run turbo` means *continue* — but only once you have been

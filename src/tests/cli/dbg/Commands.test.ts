@@ -56,15 +56,39 @@ let server: DebugServer
 let session: Session
 let port: number
 let token: string
+/** Print to the machine's console, as the emulated ACIA would. */
+let emitSerial: (text: string) => void
+/** What the console has printed so far, for checking a cursor against. */
+let serialStream: () => string
 
 beforeEach(async () => {
   session = bareSession()
+  let stream = ''
+  const listeners = new Set<(text: string) => void>()
+  emitSerial = (text) => {
+    stream += text
+    for (const listener of listeners) listener(text)
+  }
+  serialStream = () => stream
+
   const target: DebugTarget = {
     session,
     symbols: new SymbolTable(),
     hostName: 'test',
     version: '9.9.9',
     consoleMode: () => 'serial',
+    writeSerial: () => {},
+    readSerial: ({ since, max, clear }) => {
+      let data = since === undefined ? stream : stream.slice(Math.min(since, stream.length))
+      if (max !== undefined) data = data.slice(-max)
+      const cursor = stream.length
+      if (clear) stream = ''
+      return { data, cursor, truncated: false }
+    },
+    onSerial: (callback) => {
+      listeners.add(callback)
+      return () => listeners.delete(callback)
+    },
     // sym.load and media.load* resolve a path against the host's own
     // filesystem — see Commands.ts's symLoad, which sends an absolute path
     // rather than reading the file itself.
@@ -348,6 +372,56 @@ describe('wait command', () => {
     expect(exitCode).toBe(ExitCode.OK)
     expect(out).toContain('breakpoint')
     expect(session.cycles).toBeGreaterThan(stoppedAt)
+  })
+})
+
+describe('send command', () => {
+  /**
+   * `--wait` looks back to its own write and no further, which is right for
+   * "send this, wait for its reply" and wrong for a client picking up where a
+   * previous call left off. `--since` is how it says where that was.
+   */
+  it('--since asks from a cursor the caller holds rather than from this write', async () => {
+    // Printed before this command ran: the gap a one-shot client used to have
+    // no way of asking for.
+    emitSerial('0800: EA 4C 00 08\r\n')
+
+    const missed = await run('send', ['0800\\r', '--wait', '4C', '--timeout', '200ms'])
+    expect(missed.exitCode).toBe(ExitCode.TIMEOUT)
+
+    // 0 is the start of the stream, not a missing argument — a machine that has
+    // printed nothing yet hands out exactly that cursor.
+    const found = await run('send', ['0800\\r', '--wait', '4C', '--since', '0', '--timeout', '2s'])
+    expect(found.exitCode).toBe(ExitCode.OK)
+    expect(found.out).toContain('0800: EA 4C')
+
+    const bad = await runErr('send', ['0800\\r', '--wait', '4C', '--since', '-1'])
+    expect(bad.exitCode).toBe(ExitCode.ERROR)
+    expect(bad.err).toContain('--since')
+  })
+
+  /**
+   * The DOCS case that found this (bug 21): a pattern matching mid-line while
+   * the machine keeps printing. The transcript now ends at the match, and the
+   * cursor it reports picks the rest up with nothing lost and nothing seen
+   * twice.
+   */
+  it('reports the cursor its transcript ends on, and the rest reads on from there', async () => {
+    emitSerial('KIM\r\n0800: EA 4C 00 08\r\n\\\r\n')
+
+    const first = await run('send', [
+      '0800\\r', '--wait', 'EA', '--since', '0', '--timeout', '2s', '--json'
+    ])
+    const matched = JSON.parse(first.out) as { output: string; cursor: number }
+    expect(matched.output).toBe('KIM\r\n0800: EA')
+    expect(matched.cursor).toBe(matched.output.length)
+
+    const second = await run('send', [
+      '0800\\r', '--wait', '\\\\', '--since', String(matched.cursor), '--timeout', '2s', '--json'
+    ])
+    const rest = JSON.parse(second.out) as { output: string; cursor: number }
+    expect(rest.output).toBe(' 4C 00 08\r\n\\')
+    expect(matched.output + rest.output).toBe(serialStream().slice(0, rest.cursor))
   })
 })
 
