@@ -160,6 +160,36 @@ describe('HeadlessHost', () => {
       expect(h.session.machine.peek(0x0800)).toBe(0x5a)
     })
 
+    /**
+     * A breakpoint that never fires must not change the run (6502-EMULATOR#2).
+     *
+     * The instrumented run loop used to step whole instructions, so a chunk ran
+     * past its budget and every later chunk boundary moved. Paced serial input
+     * is released at chunk boundaries, so arming one breakpoint — even at an
+     * address the firmware never executes — changed when each pasted byte
+     * reached the ACIA and when its IRQ landed. Byte-identical output and an
+     * identical cycle count is the whole assertion: a debugger has to be able
+     * to watch without touching.
+     */
+    it('pastes identically whether or not an unhit breakpoint is armed', async () => {
+      async function pasteRun(armed: boolean) {
+        const { host: h, read } = host({ maxCycles: 12_000_000, inputAfter: /ESC TO START/ })
+        // $0003 is zero page, which the firmware never executes.
+        if (armed) h.session.addBreakpoint({ address: 0x0003 })
+        h.write(`${ESC}0800: A9 41 EA${CR}0808: DE AD BE EF${CR}0800.080B${CR}`)
+        const result = await h.run('turbo')
+        return { cycles: result.cycles, reason: result.reason, output: read() }
+      }
+
+      const plain = await pasteRun(false)
+      const watched = await pasteRun(true)
+
+      expect(plain.output).toMatch(/0808: DE AD BE EF/)
+      expect(watched.output).toBe(plain.output)
+      expect(watched.cycles).toBe(plain.cycles)
+      expect(watched.reason).toBe(plain.reason)
+    })
+
     describe('a program pasted at 19,200 baud', () => {
       // Twenty Wozmon deposit lines in one write, 160 bytes: the way bin2woz
       // output arrives from the Paste box or a pipe.

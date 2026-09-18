@@ -280,6 +280,13 @@ A watchpoint on `$C000` is a useful thing on this machine: it is the PIA's
 of breakpoints** — execution breakpoints live in a 64K bitmap and watchpoint bus
 taps are attached only while a watchpoint exists.
 
+**An emulator with something armed runs exactly the same program.** Arming a
+breakpoint changes how the run loop is driven, not when anything happens in
+emulated time: a run with a breakpoint that never fires is cycle-for-cycle the
+run without it, down to the cycle each byte of a paste reaches the ACIA. It was
+not always so — see 6502-EMULATOR#2, where one unreached breakpoint moved every
+chunk boundary.
+
 ### reg
 
 | Method | Params | Returns |
