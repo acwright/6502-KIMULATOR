@@ -33,6 +33,7 @@ declare global {
       dataBits?: number
       stopBits?: number
       parity?: string
+      flowControl?: 'none' | 'hardware'
     }): Promise<void>
     close(): Promise<void>
     readable: ReadableStream<Uint8Array> | null

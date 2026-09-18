@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
-import { DEFAULT_APP_SETTINGS, SETTINGS_VERSION } from '../shared/types'
+import { DEFAULT_APP_SETTINGS, DEFAULT_SERIAL_CONFIG, SETTINGS_VERSION } from '../shared/types'
 import type { AppSettings } from '../shared/types'
 
 /**
@@ -53,7 +53,17 @@ export class SettingsService {
     try {
       const raw = readFileSync(this.filePath, 'utf-8')
       const parsed = JSON.parse(raw) as Partial<AppSettings>
-      return this.migrate({ ...DEFAULT_APP_SETTINGS, ...parsed }, parsed.settingsVersion ?? 1)
+      // `serialConfig` is nested, so it needs its own merge: a spread would
+      // take one written by an older version wholesale, and every field added
+      // since would arrive undefined. That is also the whole migration a new
+      // connection setting needs — `rtscts` was never written by 1.0.11 or
+      // earlier, so an older file simply takes the default, which is on.
+      const settings: AppSettings = {
+        ...DEFAULT_APP_SETTINGS,
+        ...parsed,
+        serialConfig: { ...DEFAULT_SERIAL_CONFIG, ...parsed.serialConfig }
+      }
+      return this.migrate(settings, parsed.settingsVersion ?? 1)
     } catch {
       return { ...DEFAULT_APP_SETTINGS }
     }

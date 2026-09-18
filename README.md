@@ -210,11 +210,20 @@ supported keypad-only machine, not a broken one.
 and warm-resets: swapping a breadboard on a running machine is not a thing you do
 with the power on.
 
-**SERIAL** — port, baud, data bits, parity, stop bits, connect. Electron picks
-from the detected list; the browser opens the Web Serial picker. Bytes the
-machine transmits go to the terminal *and* the real port, and bytes typed into
-the terminal arrive as bytes from a port would — connect one and both views show
-the same traffic. **RTS/CTS flow control** is on by default, as a terminal set up
+**SERIAL** — port, baud, data bits, parity, stop bits, flow control, connect.
+Electron picks from the detected list; the browser opens the Web Serial picker.
+Bytes the machine transmits go to the terminal *and* the real port, and bytes
+typed into the terminal arrive as bytes from a port would — connect one and both
+views show the same traffic. **Flow Control** is *this computer's* end of the
+cable, for when the app is the terminal for a real board: RTS/CTS is the default,
+and is what the machine's own documentation asks a terminal for, because the KC
+Monitor raises RTS when its receive ring fills and a terminal that ignores it
+loses lines out of a long paste. **None** is for a cable or adapter with no
+handshake lines. It is saved with the rest of the connection settings, and a
+settings file from 1.0.11 or earlier has no answer in it and comes up on.
+**Emulated machine: RTS/CTS flow control** is the same question asked of the
+*emulated* machine's ACIA, and is unrelated to the port setting above: on by
+default, as a terminal set up
 for the board should be: input from the port and the Paste box waits while the
 machine holds the ACIA's RTS high. RTS is high from reset until `KernalInit`
 programs the ACIA, and the KC Monitor never raises it after that. Off is a
@@ -327,7 +336,8 @@ input it is holding can produce.
 The machine flags are the same either way — `--rom`, `--card-rom`, `--bin`,
 `--accessory`, `--no-serial-card`, `--baud`, `--no-flow-control` (or `--flow-control`), `--pause`, `--debug`, `--symbols`.
 What differs is everything that only makes sense for one of them: `--fullscreen`,
-`--detach` and `--serial <port>` for a window; `--realtime`, `--max-cycles`,
+`--detach`, `--serial <port>`, `--serial-config` and `--serial-flow`
+(`rtscts` or `none`, on the host's port) for a window; `--realtime`, `--max-cycles`,
 `--timeout`, `--exit-on`, `--input-after`, `--lcd` and `--json` for headless.
 Flags from the wrong column are refused with the reason.
 

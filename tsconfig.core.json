@@ -11,7 +11,9 @@
     "baseUrl": ".",
     "paths": {
       "@core/*": ["src/core/*"],
-      "@debug/*": ["src/debug/*"]
+      "@debug/*": ["src/debug/*"],
+      "@shared/*": ["src/shared/*"],
+      "@/*": ["src/renderer/src/*"]
     }
   },
   "include": [
@@ -21,6 +23,9 @@
     "src/cli/**/*",
     "src/shared/boot.ts",
     "src/shared/types.ts",
+    // Ambient only: `window.api` and the Web Serial API, so a test can import
+    // the renderer's serial service (src/tests/renderer/WebSerialFlowControl.test.ts).
+    "src/renderer/src/env.d.ts",
     "src/tests/**/*"
   ]
 }
