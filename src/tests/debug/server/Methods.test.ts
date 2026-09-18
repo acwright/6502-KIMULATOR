@@ -652,13 +652,14 @@ describe('wait.for', () => {
    * Bug 21, and the shape that found it on the DOCS site: a pattern that
    * matches mid-line while the machine is still printing the line.
    *
-   * The old listener appended a whole delivered chunk before testing it and
-   * returned straight after, so the transcript was cut at whatever byte
-   * boundary the host happened to flush at — a different character every run —
-   * and everything past that cut went to nobody. The transcript now ends at the
-   * match, which is a function of the output and the pattern alone.
+   * What the caller could not do was tell where the match ended — output
+   * arrives in whatever chunks the host flushed, so the transcript held a
+   * different amount of the line every run. `matchEnd` says where, while
+   * `output` still holds everything received: cutting it here instead would
+   * take the rest of the chunk away from a caller that reads `output` across
+   * successive waits, which is the same loss this call was fixed to stop.
    */
-  it('ends the transcript at the match, not at the chunk it arrived in', async () => {
+  it('says where the match ends, and still returns the whole chunk', async () => {
     const { methods, emit } = target()
     const pending = methods['wait.for']!({ serial: '(EA|\\\\)', timeoutMs: 2000 })
 
@@ -666,10 +667,44 @@ describe('wait.for', () => {
     // and there are 11 more bytes in the same chunk.
     emit('0800: EA 4C 00 08\r\n')
 
-    const result = (await pending) as { matched: boolean; output: string; cursor: number }
+    const result = (await pending) as {
+      matched: boolean
+      output: string
+      cursor: number
+      matchEnd: number
+    }
     expect(result.matched).toBe(true)
-    expect(result.output).toBe('0800: EA')
-    expect(result.cursor).toBe(8)
+    expect(result.output).toBe('0800: EA 4C 00 08\r\n')
+    expect(result.matchEnd).toBe(8)
+    expect(result.output.slice(0, result.matchEnd)).toBe('0800: EA')
+    expect(result.cursor).toBe(result.output.length)
+  })
+
+  /**
+   * The regression that shipped in 1.1.1 and broke two 6502-DOCS samples.
+   *
+   * A harness waits for one thing, then waits for the next, and builds its
+   * transcript out of what each call returned. When 1.1.1 cut `output` at the
+   * match, whatever followed the match in that same chunk was returned to
+   * nobody unless the caller knew to pass `cursor` back as `since` — so the
+   * second expectation could never be satisfied. Both halves of the machine's
+   * answer arrive in one flush here, which is exactly how a real one behaves.
+   */
+  it('lets a caller reading output across two waits see text that followed the first match', async () => {
+    const { methods, emit } = target()
+    const first = methods['wait.for']!({ serial: '0800', timeoutMs: 2000 })
+
+    emit('0800: EA 4C 00 08\r\n0803: 60 00 00 00\r\n')
+
+    const a = (await first) as { output: string }
+    const b = (await methods['wait.for']!({ serial: '0803', timeoutMs: 500 })) as {
+      output: string
+    }
+
+    // Concatenating what the calls returned — the naive thing every harness
+    // does — must contain both lines.
+    expect(a.output + b.output).toContain('0800: EA 4C 00 08')
+    expect(a.output + b.output).toContain('0803: 60 00 00 00')
   })
 
   /**
@@ -688,13 +723,13 @@ describe('wait.for', () => {
     const result = (await pending) as { output: string; cursor: number }
     const rest = methods['serial.read']!({ since: result.cursor }) as { data: string }
 
-    expect(rest.data).toBe(' 4C 00 08\r\n\\\r\n')
+    expect(rest.data).toBe('\\\r\n')
     // Transcript plus remainder is the whole stream, byte for byte: nothing
     // dropped between them and nothing counted twice.
     expect(result.output + rest.data).toBe('0800: EA 4C 00 08\r\n\\\r\n')
   })
 
-  it('cuts backlog at the match too, and positions it in the stream', async () => {
+  it('positions a backlog transcript in the stream', async () => {
     const { methods, emit } = target()
     emit('KIM\r\n')
 
@@ -705,7 +740,7 @@ describe('wait.for', () => {
       output: string
       cursor: number
     }
-    expect(result.output).toBe('0800\r\n0800: EA\r\n\\')
+    expect(result.output).toBe('0800\r\n0800: EA\r\n\\\r\n')
     // Five bytes of `KIM\r\n` came before the write, and are not in the
     // transcript — but the cursor counts them, because it is a stream position.
     expect(result.cursor).toBe('KIM\r\n'.length + result.output.length)
