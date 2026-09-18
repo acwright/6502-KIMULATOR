@@ -10,7 +10,17 @@ import { cliVersion } from './version'
 import { buildBootConfig, launchApp } from './app'
 import { parseSymbols, formatForPath } from '../debug/symbols/parse'
 import { formatLCD } from './dbg/format'
-import { UsageError, parseAccessory, parseBinarySpec, parseCount, parseDuration, parseFlowControlFlags } from './args'
+import {
+  UsageError,
+  parseAccessory,
+  parseBinarySpec,
+  parseCount,
+  parseDuration,
+  parseFlowControlFlags,
+  parseSerialCardFlags,
+  SERIAL_FLOW_DEPRECATED
+} from './args'
+import { describeSerialCard, isDefaultSerialCard } from '../shared/serialCard'
 
 export const RUN_HELP = `Usage: 6502-kim run [options]
 
@@ -30,8 +40,15 @@ Machine
                             which is a machine the firmware supports and the only
                             way to exercise that path
   --baud <rate>             Serial rate: the ACIA headless, the host port in the app
-  --flow-control            Hold serial input while the machine raises RTS (default: on)
-  --no-flow-control         Send serial input whatever RTS says, as a terminal without it
+  --serial-card <standard|pro>
+                            The serial card in io5 (default: standard, the Serial Card)
+  --cts <ground|cable>      Where CTS EN connects CTS (default: ground); standard only
+  --dcd <ground|cable>      Where DCD Select connects DCD (default: ground); pro only
+  --peer-rts <honour|ignore>
+                            Whether the console holds its input while the machine
+                            raises RTS (default: honour)
+  --flow-control            Deprecated: --peer-rts honour
+  --no-flow-control         Deprecated: --peer-rts ignore
 
 Execution
   --pause                   Start paused, for attaching a debugger before boot
@@ -42,7 +59,7 @@ Window (the default)
   --serial <port>           Connect the ACIA to this host serial port at launch
   --serial-config <8N1>     Framing for that port (default: 8N1)
   --serial-flow <rtscts|none>
-                            Flow control on that port (default: rtscts)
+                            Deprecated and ignored: the machine drives the port's RTS
   --app <path>              The desktop app to launch, if it can't be found
 
 Headless (--headless)
@@ -81,27 +98,39 @@ Notes
   There is no --freq either. PHI2 on this board is 1 MHz — the ACE is the family
   member with the 2 MHz jumper — so there is nothing to choose.
 
-  --baud, --serial-config, --serial-flow, --[no-]flow-control, --accessory and
-  --no-serial-card set what the app's Settings panel sets, for that launch only: they show up in
-  the panel, and nothing is written to your saved settings. Without either flow
-  control flag the app uses its saved setting.
+  --baud, --serial-config, --serial-card, --cts, --dcd, --peer-rts,
+  --accessory and --no-serial-card set what the app's Settings panel sets, for
+  that launch only: they show up in the panel, and nothing is written to your
+  saved settings. Without --peer-rts the app uses its saved setting.
 
-  Serial input honours RTS/CTS flow control by default, as a terminal set up
-  for the board does: while the machine holds the ACIA's RTS high, input waits
+  The console honours the machine's RTS by default, as a terminal set up for
+  the board does: while the machine holds the ACIA's RTS high, input waits
   (nothing is dropped) and resumes when RTS drops. RTS is high from reset until
   KernalInit programs the ACIA, so input sent early waits for it; after that
   the KC Monitor raises it whenever its receive ring fills, which is what makes
-  a long paste arrive whole. It applies to stdin, serial.write, the Paste
-  box and a host serial port in the app. --no-flow-control is a terminal that
-  ignores RTS: input is sent regardless, and what reaches the ACIA while its
-  receiver is off (command register bit 0 clear, as after a reset) is lost, as
-  on the board. --flow-control is still accepted, and says the default out loud.
+  a long paste arrive whole. It applies to stdin, serial.write and the Paste
+  box, and to what a host serial port in the app has already sent. --peer-rts
+  ignore is a terminal that ignores RTS: input is sent regardless, and what
+  reaches the ACIA while its receiver is off (command register bit 0 clear, as
+  after a reset) is lost, as on the board. --flow-control and --no-flow-control
+  are the older spelling, and still work for this release.
 
-  --serial-flow is the other end of the same idea, on real hardware: whether
-  the host port the app opens with --serial does RTS/CTS. It defaults to
-  rtscts, because the board's firmware raises RTS when its input buffer fills
-  and a terminal that ignores it loses lines out of a long paste. --serial-flow
-  none is for a cable or adapter with no handshake lines.
+  --serial-card and its jumper are the other half of the handshake: whether
+  the far end can stop the machine. On the Serial Card, CTS EN at ground (as on
+  every board built) means nothing stops the transmitter; at cable the far
+  end's CTS does, and a far end that drops it leaves the machine silent — no
+  banner, no echo — until it comes back. The KC Monitor gives up on a byte it
+  cannot send within about 27 ms, so what it says meanwhile is lost, while a
+  program printing through the Kernal's Chrout waits and loses nothing. The
+  Serial Card Pro's CTS always reaches the cable; its DCD Select at cable
+  turns the receiver off while DCD is dropped, and loses what arrives
+  meanwhile. There is no ace: the ACE's serial is on the ACE board. Headless,
+  the console asserts its lines; move them with 6502-kim dbg lines. In the
+  app, a --serial port's own lines are used, and the machine's RTS drives the
+  port's.
+
+  --serial-flow is deprecated and ignored: the port opens without the OS's own
+  RTS/CTS, which would fight the machine for the RTS line.
 
   The app the CLI launches is the one that installed it — the shim runs this
   command inside the app's own Electron, so the two can never be different
@@ -143,6 +172,10 @@ const OPTIONS = {
   baud: { type: 'string' },
   'flow-control': { type: 'boolean' },
   'no-flow-control': { type: 'boolean' },
+  'peer-rts': { type: 'string' },
+  'serial-card': { type: 'string' },
+  cts: { type: 'string' },
+  dcd: { type: 'string' },
   serial: { type: 'string' },
   'serial-config': { type: 'string' },
   'serial-flow': { type: 'string' },
@@ -215,7 +248,11 @@ export async function runCommand(argv: string[]): Promise<number> {
   // Windowed is the default: someone cross-developing wants to see the thing
   // run. Everything below this point is the machine that runs in this process.
   if (!values.headless) {
-    return launchApp(buildBootConfig(values, positionals), {
+    const boot = buildBootConfig(values, positionals)
+    if (values['serial-flow'] !== undefined && !values.quiet) {
+      process.stderr.write(`6502-kim: warning: ${SERIAL_FLOW_DEPRECATED}\n`)
+    }
+    return launchApp(boot, {
       ...(values.detach ? { detach: true } : {}),
       ...(values.quiet ? { quiet: true } : {}),
       ...(values.app ? { app: values.app } : {})
@@ -240,6 +277,9 @@ export async function runCommand(argv: string[]): Promise<number> {
   }
 
   const serialCard = !values['no-serial-card']
+  // Parsed before anything is read, so a typo — or an ace — is exit 1 and not a boot.
+  const serialCardConfig = parseSerialCardFlags(values)
+  const flowControl = parseFlowControlFlags(values) ?? true
 
   // Both of these match against serial output, and a machine with no Serial
   // Card produces none. Accepting them would mean a run that can only ever end
@@ -278,9 +318,10 @@ export async function runCommand(argv: string[]): Promise<number> {
       : readCardROM(bundledROMPath('KCMonitor.bin', '--card-rom')),
     binaries,
     serialCard,
+    ...(serialCardConfig ? { serialCardConfig } : {}),
     ...(values.accessory !== undefined ? { accessory: parseAccessory(values.accessory) } : {}),
     baudRate: values.baud ? parseCount(values.baud, '--baud') : undefined,
-    flowControl: parseFlowControlFlags(values) ?? true,
+    flowControl,
     maxCycles: values['max-cycles'] ? parseCount(values['max-cycles'], '--max-cycles') : undefined,
     timeoutMs: values.timeout ? parseDuration(values.timeout, '--timeout') : undefined,
     exitOn,
@@ -298,6 +339,9 @@ export async function runCommand(argv: string[]): Promise<number> {
     process.stderr.write(
       `6502-kim: headless, ${host.consoleMode} console, ` +
         `${(host.session.machine.frequency / 1e6).toFixed(0)} MHz` +
+        // The serial card only when there is one and it is not the Serial Card
+        // at ground: a jumper at the cable is what makes a silent machine likely.
+        `${!host.serial || isDefaultSerialCard(host.serialCardConfig) ? '' : `, ${describeSerialCard(host.serialCardConfig)}`}` +
         `${host.flowControl ? '' : ', no flow control'}` +
         `${values.accessory ? `, ${values.accessory}` : ''}` +
         `${values.realtime ? '' : ', turbo'}\n`

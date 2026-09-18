@@ -67,7 +67,7 @@ Of the eight I/O slots only two are ever filled:
 
 | Slot | Window | Fitted |
 |---|---|---|
-| `io5` | `$9000–$93FF` | **Serial Card** — Rockwell R6551 ACIA. Toggleable; `KC Monitor.asm` guards every ACIA access on `HW_PRESENT & HW_SC`, so unfitting it is the only way to exercise the keypad-only path the firmware supports |
+| `io5` | `$9000–$93FF` | **Serial Card** (or the **Serial Card Pro**) — Rockwell R6551 ACIA. Toggleable; `KC Monitor.asm` guards every ACIA access on `HW_PRESENT & HW_SC`, so unfitting it is the only way to exercise the keypad-only path the firmware supports |
 | `io6` | `$9400–$97FF` | **Accessory bus** — empty, or whatever you wire to it |
 
 Program space is `$0800–$7FFF`. Below it is the machine's own workspace — zero
@@ -203,35 +203,50 @@ Card ROM row is how a freshly built `KC Monitor.bin` gets tested without burning
 an AT28C64; it is the machine's own firmware rather than a cartridge, which is
 why it lives here and not on the toolbar.
 
-**MACHINE** — whether the Serial Card is installed in `io5`. Unfitting it is the
-supported keypad-only machine, not a broken one.
+**MACHINE** — whether a serial card is installed in `io5`, and which. Unfitting
+it is the supported keypad-only machine, not a broken one. Fitted, it is the
+COB's **Serial Card** (the default) or its **Serial Card Pro**, with the one
+jumper that card has: `CTS EN` on the Serial Card, `DCD Select` on the Pro. At
+**Ground**, where every board is built, the pin is always asserted and the far
+end cannot reach it; the Serial Card at ground is the machine every earlier
+version emulated. At **Cable** the far end drives it: CTS dropped stops the
+transmitter, and DCD dropped turns the receiver off and loses what arrives. The
+Pro's CTS always follows the cable, jumper or not. With CTS on the cable and a
+far end that is not asserting it, the machine looks dead on the wire — no
+banner, no echo — while the keypad and LCD carry on; that is what the board
+does. The KC Monitor drops what it cannot send within about 27 ms, so what it
+said meanwhile is lost, and it answers normally once CTS returns. With no port
+connected the lines are held asserted. Changing the card or its jumper is not a
+power cycle. There is no ACE here: its serial is on the ACE board.
 
 **ACCESSORY** — which circuit is wired to `$9400`. Changing it rebuilds the slot
 and warm-resets: swapping a breadboard on a running machine is not a thing you do
 with the power on.
 
-**SERIAL** — port, baud, data bits, parity, stop bits, flow control, connect.
+**SERIAL** — port, baud, data bits, parity, stop bits, connect.
 Electron picks from the detected list; the browser opens the Web Serial picker.
 Bytes the machine transmits go to the terminal *and* the real port, and bytes
 typed into the terminal arrive as bytes from a port would — connect one and both
-views show the same traffic. **Flow Control** is *this computer's* end of the
-cable, for when the app is the terminal for a real board: RTS/CTS is the default,
-and is what the machine's own documentation asks a terminal for, because the KC
-Monitor raises RTS when its receive ring fills and a terminal that ignores it
-loses lines out of a long paste. **None** is for a cable or adapter with no
-handshake lines. It is saved with the rest of the connection settings, and a
-settings file from 1.0.11 or earlier has no answer in it and comes up on.
-**Emulated machine: RTS/CTS flow control** is the same question asked of the
-*emulated* machine's ACIA, and is unrelated to the port setting above: on by
-default, as a terminal set up
-for the board should be: input from the port and the Paste box waits while the
-machine holds the ACIA's RTS high. RTS is high from reset until `KernalInit`
-programs the ACIA, and the KC Monitor raises it again whenever its receive ring
-passes `$C0` unread bytes, lowering it below `$80`, so a long paste waits
-instead of losing lines out of the middle. Off is a
+views show the same traffic. **The port is the far end of the emulated
+machine's cable** — where a terminal or another computer would plug into the
+board — not a terminal for a real board. The machine does the handshake itself:
+its RTS drives the port's RTS line, and the port's CTS, DCD and DSR reach the
+card's pins wherever the card wires them to the cable (see MACHINE). The port
+opens with no flow control of this computer's own, which would fight the
+machine for the RTS line. Before 1.2 the port had its own **Flow Control**
+setting; it is gone, and a settings file that has it is migrated once, keeping
+everything else.
+**Terminal honours RTS** is the far end's manners, for when it has none of its
+own: on by default, as a terminal set up for the board should be. Input from
+the port and the Paste box waits on its side of the cable while the machine
+holds the ACIA's RTS high, and goes in order when RTS drops. RTS is high from
+reset until `KernalInit` programs the ACIA, and the KC Monitor raises it again
+whenever its receive ring passes `$C0` unread bytes, lowering it below `$80`,
+so a long paste waits instead of losing lines out of the middle. Off is a
 terminal that ignores RTS: whatever arrives while the ACIA's receiver is off is
-lost. A settings file from 1.0.11 or earlier is migrated to on once, because
-those versions saved the old default with any other change.
+lost. It is `--peer-rts` on the command line (formerly `--[no-]flow-control`,
+which still works). A settings file from 1.0.11 or earlier is migrated to on
+once, because those versions saved the old default with any other change.
 
 **DEBUG SERVER** (Electron only) — starts the JSON-RPC service on a loopback port
 so `6502-kim dbg` and `6502-kim attach` can drive *this* window. Off until you
@@ -336,10 +351,14 @@ input it is holding can produce.
 ```
 
 The machine flags are the same either way — `--rom`, `--card-rom`, `--bin`,
-`--accessory`, `--no-serial-card`, `--baud`, `--no-flow-control` (or `--flow-control`), `--pause`, `--debug`, `--symbols`.
+`--accessory`, `--no-serial-card`, `--serial-card` (`standard` or `pro`) with its
+jumper `--cts` or `--dcd` (`ground` or `cable`), `--baud`, `--peer-rts`
+(`honour` or `ignore`; the older `--[no-]flow-control` still works), `--pause`,
+`--debug`, `--symbols`. `--serial-card ace` is refused: the ACE's serial is on
+the ACE board.
 What differs is everything that only makes sense for one of them: `--fullscreen`,
-`--detach`, `--serial <port>`, `--serial-config` and `--serial-flow`
-(`rtscts` or `none`, on the host's port) for a window; `--realtime`, `--max-cycles`,
+`--detach`, `--serial <port>` and `--serial-config` for a window
+(`--serial-flow` is still accepted there, deprecated and ignored); `--realtime`, `--max-cycles`,
 `--timeout`, `--exit-on`, `--input-after`, `--lcd` and `--json` for headless.
 Flags from the wrong column are refused with the reason.
 

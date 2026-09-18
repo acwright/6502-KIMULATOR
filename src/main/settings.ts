@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { DEFAULT_APP_SETTINGS, DEFAULT_SERIAL_CONFIG, SETTINGS_VERSION } from '../shared/types'
 import type { AppSettings } from '../shared/types'
+import { DEFAULT_SERIAL_CARD, readSerialCard } from '../shared/serialCard'
 
 /**
  * Persists application settings to `<userData>/settings.json`.
@@ -56,12 +57,14 @@ export class SettingsService {
       // `serialConfig` is nested, so it needs its own merge: a spread would
       // take one written by an older version wholesale, and every field added
       // since would arrive undefined. That is also the whole migration a new
-      // connection setting needs — `rtscts` was never written by 1.0.11 or
-      // earlier, so an older file simply takes the default, which is on.
+      // connection setting needs.
       const settings: AppSettings = {
         ...DEFAULT_APP_SETTINGS,
         ...parsed,
-        serialConfig: { ...DEFAULT_SERIAL_CONFIG, ...parsed.serialConfig }
+        serialConfig: { ...DEFAULT_SERIAL_CONFIG, ...parsed.serialConfig },
+        // Read, not spread: a card this app does not offer — the ACE, say — or
+        // a jumper that card lacks, is not something to build a machine from.
+        serialCardConfig: readSerialCard(parsed.serialCardConfig) ?? DEFAULT_SERIAL_CARD
       }
       return this.migrate(settings, parsed.settingsVersion ?? 1)
     } catch {
@@ -77,11 +80,25 @@ export class SettingsService {
    * file's `flowControl: false` is most likely the old default saved along with
    * some other change, so it takes the new default. From then on the file says
    * version 2, and a later choice to turn it off is kept.
+   *
+   * Version 2 to 3: the port's own flow control went, and the serial card's
+   * model and jumpers came. `flowControl` carries over as it is — it was
+   * always the far end honouring RTS, which is what it still says.
+   * `serialConfig.rtscts` is dropped: the port opens without the OS's RTS/CTS
+   * whatever it says, and a field that is written back but never read would
+   * read as a choice still in force. The card takes `DEFAULT_SERIAL_CARD` (see
+   * `load`), the Serial Card with `CTS EN` at ground, which is the machine
+   * every earlier version ran. `serialCardFitted` is untouched. So a version 2
+   * file behaves exactly as it did.
    */
   private migrate(settings: AppSettings, from: number): AppSettings {
     if (from >= SETTINGS_VERSION) return settings
     const migrated = { ...settings, settingsVersion: SETTINGS_VERSION }
     if (from < 2) migrated.flowControl = DEFAULT_APP_SETTINGS.flowControl
+    if (from < 3) {
+      const { rtscts: _dropped, ...serialConfig } = migrated.serialConfig
+      migrated.serialConfig = serialConfig
+    }
     this.saved = migrated
     this.save()
     return migrated

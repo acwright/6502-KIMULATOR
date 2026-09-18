@@ -105,36 +105,61 @@ describe('buildBootConfig', () => {
       baudRate: 9600,
       dataBits: 8,
       parity: 'none',
-      stopBits: 1,
-      rtscts: true
+      stopBits: 1
     })
     expect(buildBootConfig({ 'serial-config': '7e2' }, []).settings?.serialConfig).toEqual({
       baudRate: 19200,
       dataBits: 7,
       parity: 'even',
-      stopBits: 2,
-      rtscts: true
+      stopBits: 2
     })
     expect(() => buildBootConfig({ 'serial-config': '9Z3' }, [])).toThrow(/like 8N1/)
   })
 
-  /**
-   * The host port's own RTS/CTS, which is a different question from
-   * `--[no-]flow-control`: one is a real cable, the other the emulated ACIA's
-   * far end. On unless a launch says otherwise, because the board's firmware
-   * raises RTS and a terminal that ignores it loses lines out of a paste.
-   */
-  it('sets the host port\'s flow control, separately from the emulated ACIA\'s', () => {
-    expect(buildBootConfig({ 'serial-flow': 'none' }, []).settings?.serialConfig).toEqual({
-      ...DEFAULT_SERIAL_CONFIG,
-      rtscts: false
+  it('sets the serial card and its jumper for the launch, and the console\'s RTS', () => {
+    expect(buildBootConfig({ 'serial-card': 'standard', cts: 'cable' }, []).settings).toEqual({
+      serialCardConfig: { card: 'standard', jumpers: { cts: 'cable' } }
     })
-    expect(buildBootConfig({ 'serial-flow': 'rtscts' }, []).settings?.serialConfig?.rtscts).toBe(
-      true
+    expect(buildBootConfig({ 'serial-card': 'pro' }, []).settings).toEqual({
+      serialCardConfig: { card: 'pro', jumpers: { dcd: 'ground' } }
+    })
+    expect(buildBootConfig({ 'peer-rts': 'ignore' }, []).settings).toEqual({ flowControl: false })
+    expect(() => buildBootConfig({ 'serial-card': 'pro', cts: 'ground' }, [])).toThrow(
+      /the Serial Card Pro has no CTS jumper/
     )
-    // It says nothing about the emulated machine, and the emulated machine's
-    // flag says nothing about the port.
-    expect(buildBootConfig({ 'serial-flow': 'none' }, []).settings?.flowControl).toBeUndefined()
+  })
+
+  /**
+   * The ACE's R6551 is on the ACE board. 6502-EMULATOR offers it, and the
+   * obvious way to port that option parser is to copy all three cards, so the
+   * refusal is pinned here: a usage error that says why, never a quiet
+   * fallback to the Serial Card.
+   */
+  it('refuses the ACE, which cannot be fitted to a KIM', () => {
+    expect(() => buildBootConfig({ 'serial-card': 'ace' }, [])).toThrow(
+      '--serial-card ace: the ACE\'s serial is on the ACE board, and cannot be fitted to a KIM'
+    )
+    expect(() => buildBootConfig({ 'serial-card': 'ACE', dcd: 'cable' }, [])).toThrow(/cannot be fitted to a KIM/)
+  })
+
+  it('refuses a card or jumper for an io5 that --no-serial-card leaves vacant', () => {
+    expect(() => buildBootConfig({ 'no-serial-card': true, cts: 'cable' }, [])).toThrow(
+      '--cts: describes the card in io5, and --no-serial-card leaves io5 vacant'
+    )
+  })
+
+  /**
+   * The host port's own RTS/CTS, deprecated in 1.2: the machine drives the
+   * port's RTS itself now. Still parsed, so a typo is still an error, and a
+   * script that passes it keeps running — but it sets nothing at all.
+   */
+  it('parses --serial-flow and ignores it', () => {
+    expect(buildBootConfig({ 'serial-flow': 'none' }, []).settings).toBeUndefined()
+    expect(buildBootConfig({ 'serial-flow': 'rtscts' }, []).settings).toBeUndefined()
+    expect(buildBootConfig({ 'serial-flow': 'none', baud: '9600' }, []).settings?.serialConfig).toEqual({
+      ...DEFAULT_SERIAL_CONFIG,
+      baudRate: 9600
+    })
     expect(buildBootConfig({ 'no-flow-control': true }, []).settings?.serialConfig).toBeUndefined()
     expect(() => buildBootConfig({ 'serial-flow': 'hardware' }, [])).toThrow(
       /expected rtscts or none/

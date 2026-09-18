@@ -17,6 +17,10 @@ Commands
   regs [--set A=0x42 ...]          Read or write the registers
   reset [--warm]                   Reset the machine (cold by default)
   config [--baud n] [--flow-control on|off]
+  lines [--cts on|off] [--dcd on|off] [--dsr on|off]
+                                   The serial handshake: RTS, the far end's
+                                   lines, and what each pin is wired to.
+                                   Headless, moves the console's lines first
 
   mem <addr> [length] [--space cpu|ram|rom|card]
   mem write <addr> <bytes>         Bytes as hex ("DEADBEEF") or a byte list

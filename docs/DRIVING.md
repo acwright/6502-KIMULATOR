@@ -159,6 +159,36 @@ stdout stays the machine's serial stream.
 Such a machine has no console at all: `--exit-on` and `--input-after` are
 refused, and the way in is the pad, over the debug protocol.
 
+## Which serial card, and the jumper that can silence it
+
+With a card fitted, it is the Serial Card by default, with `CTS EN` at ground,
+as every board is built: nothing on the far end of the cable can stop it, and
+you can ignore this section. `--serial-card pro` fits the Serial Card Pro
+instead. `--serial-card ace` is refused, because the ACE's serial is on the ACE
+board. `6502-kim dbg info` names the card only when it is not the default:
+
+```sh
+6502-kim run --headless --debug --cts cable &
+6502-kim dbg info
+#   headless … — serial console, 1 MHz, Serial Card (CTS EN: cable) fitted, turbo, … cycles
+```
+
+**A jumper on the cable can make the machine look dead.** With `--cts cable`, or
+on the Pro, whose CTS always reaches the cable, a far end that is not asserting
+CTS turns the transmitter off from reset: no banner, no echo, nothing on
+stdout, while the LCD shows the splash as usual. That is what a real board does
+with `CTS EN` moved, not a hang. Headless, the console asserts its lines until
+told otherwise; `6502-kim dbg lines` shows the pins, and `6502-kim dbg lines
+--cts off` / `--cts on` drops and restores CTS.
+
+The KC Monitor does not wait it out. Its `SerPutc` gives up on a byte it cannot
+send within about 27 ms and drops it, so the monitor stays usable from the pad
+with no terminal attached. When CTS comes back, the one byte held in the ACIA
+goes out and what the monitor said meanwhile is gone; it answers the next thing
+it is sent. A program that prints through the Kernal's `Chrout` waits instead,
+and loses nothing. So do not gate a script on the banner after moving a jumper:
+send something and wait for the reply.
+
 ## Driving the pad
 
 Start a machine that serves the protocol, then key it:

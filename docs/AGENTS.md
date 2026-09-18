@@ -188,9 +188,10 @@ and its `APP_BEFORE_QUIT` / `APP_SAVE_COMPLETE` channels are gone, and `close`
 does one thing — stops the debug bridge, so a client mid-call gets an answer
 instead of a timeout.
 
-`AppSettings` is down to three fields: `serialConfig`, `serialCardFitted` and
-`accessory`. There is no `frequency` — PHI2 on this board is 1 MHz and the ACE
-is the machine with the 2 MHz jumper. The last two are the machine's *shape*, and
+`AppSettings` holds `serialConfig`, `serialCardFitted`, `serialCardConfig`,
+`accessory` and `flowControl`. There is no `frequency` — PHI2 on this board is
+1 MHz and the ACE is the machine with the 2 MHz jumper. `serialCardFitted` and
+`accessory` are the machine's *shape*, and
 a card cannot be fitted or pulled with the power on — so `store.init()` builds a
 new Machine and a new Session rather than mutating one. That is why
 `useDebugBridge` keeps its watch armed instead of firing once: a bridge still
@@ -203,8 +204,8 @@ line rate, which is why it takes `bin2woz` output for free: those are Wozmon
 deposit lines, and the machine cannot tell them from someone typing quickly.
 
 **Serial flow control is a setting, on by default** (`AppSettings.flowControl`,
-`--no-flow-control`, `session.info.flowControl`): whether the far end of the cable
-honours RTS. `Machine.flowControl` sets it on the ACIA; `ACIA.readyToReceive` and
+`--peer-rts`, formerly `--no-flow-control`, `session.info.flowControl`): whether
+the far end of the cable honours RTS. `Machine.flowControl` sets it on the ACIA; `ACIA.readyToReceive` and
 `Machine.serialReady` say whether input would be held, and `SerialConsole.pump`
 sends nothing while it would. `ACIA.ts` and its test are byte-identical with
 6502-EMULATOR's: an R6551 whose receiver, transmitter and interrupts are off until
@@ -217,6 +218,38 @@ stays clear of the spin by lowering RTS around each byte it sends and going quie
 above the high mark rather than echoing. BIOS 1.6's and 2.0's BASIC did neither
 until 6502-BIOS `v1.6` and `v2.0.1`. `AppSettings.settingsVersion` 2 marks a file
 migrated to the new default.
+
+**The serial card is a model with jumpers, and the far end is a peer.**
+`core/IO/SerialCard.ts` is the hardware table (which of CTS, DCD and DSR each card
+ties to ground, sends to the cable, or puts on a jumper) and, like `ACIA.ts`, is
+byte-identical with 6502-EMULATOR's; so is the first part of
+`tests/IO/SerialCard.test.ts`, down to the comment where the KIM's machine tests
+start. `diff` both files when touching either. `shared/serialCard.ts` is what this app
+offers of that table: `standard` (the default, `CTS EN` at ground) and `pro`,
+**never `ace`**, whose R6551 is on the ACE board. `--serial-card ace` is a usage
+error with that reason, and a settings file naming it falls back to the default.
+`core/SerialPeer.ts` is the far end: `SerialConsole` headless, `SerialPortPeer`
+for a real port in the app, where the machine's RTS drives the port's and the
+port's lines are polled at about 1 kHz. The port opens with the OS's own RTS/CTS
+off; `SerialConfig.rtscts` is deprecated and ignored, and `settingsVersion` 3
+drops it.
+
+**The name `serialCard` was already taken here.** In this repo it means *whether*
+io5 holds a card — `session.info.serialCard`, `HeadlessOptions.serialCard`,
+`MachineOptions.serialCard`, the embed's `serialcard` — and that is public, so it
+stays a boolean. Which card, with its jumpers, is `serialCardConfig`
+(`session.info`, `AppSettings`, `HeadlessOptions`, the store). Only
+`Machine.serialCard` is the config, as in 6502-EMULATOR's core, because the core
+has no boolean to clash with. 6502-EMULATOR calls the config `serialCard`
+everywhere; a script porting between the two has to rename that one field.
+
+**The KC Monitor drops what it cannot send, where the Kernal waits.** With CTS on
+the cable and dropped, the chip holds one byte and TDRE stays clear, exactly as
+the 2026-09-18 bench measured. BIOS 1.6's `Chrout` blocks on that and loses
+nothing. The KC Monitor's `SerPutc` waits about 27 ms and drops the byte, on
+purpose, so the keypad monitor stays usable without a terminal. So on a KIM a
+dropped CTS loses the monitor's output rather than stalling it, and
+`SerialPeer.test.ts` pins that. It is the firmware's design, not an emulator bug.
 
 **There is one console buffer and everything reads it.** `useConsole` owns a
 `TerminalBuffer`; the Terminal panel draws it, the Paste box feeds it, and

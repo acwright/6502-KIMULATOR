@@ -14,6 +14,8 @@ import type { DebugTarget } from '../../../debug/server/DebugTarget'
 import { SymbolTable } from '../../../debug/symbols/Symbols'
 import { dispatch } from '../../../cli/dbg/Commands'
 import { ExitCode } from '../../../cli/dbg/ExitCode'
+import { LINES_ASSERTED } from '../../../core/SerialPeer'
+import type { SerialLines } from '../../../core/SerialPeer'
 
 /**
  * Integration tests: a real DebugServer on a real loopback port, driven
@@ -60,9 +62,12 @@ let token: string
 let emitSerial: (text: string) => void
 /** What the console has printed so far, for checking a cursor against. */
 let serialStream: () => string
+/** CTS, DCD and DSR as the test's console drives them. */
+let farEnd: SerialLines
 
 beforeEach(async () => {
   session = bareSession()
+  farEnd = { ...LINES_ASSERTED }
   let stream = ''
   const listeners = new Set<(text: string) => void>()
   emitSerial = (text) => {
@@ -96,6 +101,11 @@ beforeEach(async () => {
     readBinaryFile: (path) => new Uint8Array(readFileSync(path)),
     setFlowControl: (on) => {
       session.machine.flowControl = on
+    },
+    serialLines: () => farEnd,
+    setSerialLines: (lines) => {
+      farEnd = { ...farEnd, ...lines }
+      session.machine.setSerialLines(farEnd)
     }
   }
   server = new DebugServer({
@@ -177,6 +187,44 @@ describe('session commands', () => {
     await run('config', ['--flow-control', 'on'])
     expect(session.machine.flowControl).toBe(true)
     expect((await run('info')).out).not.toContain('flow control')
+  })
+
+  it('info names the serial card and its jumper only when it is not the Serial Card at ground', async () => {
+    expect((await run('info')).out).toMatch(/MHz, Serial Card fitted, /)
+    expect(JSON.parse((await run('info', ['--json'])).out)).toMatchObject({
+      serialCard: true,
+      serialCardConfig: { card: 'standard', jumpers: { cts: 'ground' } }
+    })
+
+    session.machine.serialCard = { card: 'standard', jumpers: { cts: 'cable' } }
+    expect((await run('info')).out).toMatch(/MHz, Serial Card \(CTS EN: cable\) fitted, /)
+
+    session.machine.serialCard = { card: 'pro', jumpers: {} }
+    session.machine.flowControl = false
+    expect((await run('info')).out).toMatch(/MHz, Serial Card Pro \(DCD Select: ground\) fitted, no flow control, /)
+  })
+
+  it('lines moves the far end\'s lines and shows what each pin is wired to', async () => {
+    session.machine.serialCard = { card: 'standard', jumpers: { cts: 'cable' } }
+
+    const { exitCode, out } = await run('lines', ['--cts', 'off'])
+    expect(exitCode).toBe(ExitCode.OK)
+    expect(out).toBe(
+      'RTS off\n' +
+        'CTS far end off; pin on the cable, not asserted\n' +
+        'DCD far end on; pin at ground, asserted\n' +
+        'DSR far end on; pin at ground, asserted\n'
+    )
+    expect(farEnd.cts).toBe(false)
+
+    const json = JSON.parse((await run('lines', ['--cts', 'on', '--json'])).out)
+    expect(json).toMatchObject({ rts: false, lines: { cts: true }, pins: { cts: { asserted: true } } })
+  })
+
+  it('lines takes only on or off', async () => {
+    const { exitCode, err } = await runErr('lines', ['--dcd', 'low'])
+    expect(exitCode).not.toBe(ExitCode.OK)
+    expect(err).toContain('--dcd: expected "on" or "off"')
   })
 
   it('config --flow-control takes only on or off', async () => {

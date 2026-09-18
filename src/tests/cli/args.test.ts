@@ -6,6 +6,8 @@ import {
   parseByte,
   parseCount,
   parseDuration,
+  parseFlowControlFlags,
+  parseSerialCardFlags,
   parseSerialFraming
 } from '../../cli/args'
 
@@ -120,5 +122,93 @@ describe('parseAccessory', () => {
   it('refuses one it does not, and lists what there is', () => {
     expect(() => parseAccessory('leds')).toThrow(/no accessory "leds"/)
     expect(() => parseAccessory('leds')).toThrow(/led-latch/)
+  })
+})
+
+/**
+ * `--serial-card`, `--cts`, `--dcd`: the card in io5 and its jumper, from the
+ * COB schematics. A jumper belongs to a card, so one the card lacks is refused
+ * — the Serial Card's DCD is tied to ground, the Pro's CTS always reaches the
+ * cable — rather than quietly dropped. And the ACE is refused by name: its
+ * R6551 is on the ACE board, not a card a KIM can take.
+ */
+describe('parseSerialCardFlags', () => {
+  it('says nothing when no flag is given', () => {
+    expect(parseSerialCardFlags({})).toBeUndefined()
+    expect(parseSerialCardFlags({ 'no-serial-card': true })).toBeUndefined()
+  })
+
+  it('fits each card with its own jumper at ground unless told otherwise', () => {
+    expect(parseSerialCardFlags({ 'serial-card': 'standard' })).toEqual({
+      card: 'standard',
+      jumpers: { cts: 'ground' }
+    })
+    expect(parseSerialCardFlags({ 'serial-card': ' Pro ' })).toEqual({ card: 'pro', jumpers: { dcd: 'ground' } })
+    expect(parseSerialCardFlags({ 'serial-card': 'pro', dcd: 'cable' })).toEqual({
+      card: 'pro',
+      jumpers: { dcd: 'cable' }
+    })
+  })
+
+  it('puts a jumper with no card on the default card, the Serial Card', () => {
+    expect(parseSerialCardFlags({ cts: 'cable' })).toEqual({ card: 'standard', jumpers: { cts: 'cable' } })
+  })
+
+  it('refuses a jumper the card does not have, and says why', () => {
+    expect(() => parseSerialCardFlags({ 'serial-card': 'pro', cts: 'cable' })).toThrow(
+      '--cts: the Serial Card Pro has no CTS jumper — its CTS always reaches the cable'
+    )
+    expect(() => parseSerialCardFlags({ dcd: 'ground' })).toThrow(
+      '--dcd: the Serial Card has no DCD jumper — its DCD is tied to ground'
+    )
+  })
+
+  it('refuses the ACE by name, and never falls back to another card', () => {
+    for (const ace of ['ace', 'ACE', ' Ace ']) {
+      expect(() => parseSerialCardFlags({ 'serial-card': ace })).toThrow(UsageError)
+      expect(() => parseSerialCardFlags({ 'serial-card': ace })).toThrow(
+        '--serial-card ace: the ACE\'s serial is on the ACE board, and cannot be fitted to a KIM'
+      )
+    }
+  })
+
+  it('refuses a card or a position it does not know', () => {
+    expect(() => parseSerialCardFlags({ 'serial-card': 'kim' })).toThrow(
+      '--serial-card: expected "standard" or "pro", got "kim"'
+    )
+    expect(() => parseSerialCardFlags({ cts: 'off' })).toThrow('--cts: expected "ground" or "cable", got "off"')
+  })
+
+  it('refuses any of them with --no-serial-card, which leaves io5 vacant', () => {
+    expect(() => parseSerialCardFlags({ 'no-serial-card': true, 'serial-card': 'pro', dcd: 'cable' })).toThrow(
+      '--serial-card, --dcd: describes the card in io5, and --no-serial-card leaves io5 vacant'
+    )
+  })
+})
+
+/**
+ * `--peer-rts honour|ignore`, and the deprecated `--[no-]flow-control` that
+ * says the same, which still works.
+ */
+describe('parseFlowControlFlags', () => {
+  it.each([
+    [{}, undefined],
+    [{ 'peer-rts': 'honour' }, true],
+    [{ 'peer-rts': 'honor' }, true],
+    [{ 'peer-rts': 'IGNORE' }, false],
+    [{ 'flow-control': true }, true],
+    [{ 'no-flow-control': true }, false],
+    [{ 'peer-rts': 'ignore', 'no-flow-control': true }, false]
+  ] as const)('reads %j as %s', (values, expected) => {
+    expect(parseFlowControlFlags(values)).toBe(expected)
+  })
+
+  it('refuses a value it does not know, and flags that disagree', () => {
+    expect(() => parseFlowControlFlags({ 'peer-rts': 'on' })).toThrow(
+      '--peer-rts: expected "honour" or "ignore", got "on"'
+    )
+    expect(() => parseFlowControlFlags({ 'peer-rts': 'honour', 'no-flow-control': true })).toThrow(
+      '--peer-rts honour and --no-flow-control say opposite things'
+    )
   })
 })

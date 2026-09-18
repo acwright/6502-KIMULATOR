@@ -10,6 +10,8 @@ import type { KeypadAttachment } from '@core/IO/Attachments/KeypadAttachment'
 import type { LCDAttachment } from '@core/IO/Attachments/LCDAttachment'
 import type { IO } from '@core/IO'
 import { loadBinary as writeBinary } from '@core/ProgramImage'
+import type { SerialCardConfig } from '@core/IO/SerialCard'
+import { DEFAULT_SERIAL_CARD } from '@shared/serialCard'
 
 /** How the machine is built. Everything else about it is fixed hardware. */
 export interface MachineOptions {
@@ -43,6 +45,11 @@ export const useEmulatorStore = defineStore('emulator', () => {
   const serialCardFitted = ref(true)
   /** RTS/CTS flow control on serial input; on by default. Carried across rebuilds. */
   const flowControl = ref(true)
+  /**
+   * Which serial card io5 holds when one is fitted, and its jumper; the Serial
+   * Card with `CTS EN` at ground by default. Carried across rebuilds.
+   */
+  const serialCardConfig = ref<SerialCardConfig>(DEFAULT_SERIAL_CARD)
   // Display labels for currently loaded files (shown in SettingsPanel).
   const romName = ref<string>('BIOS (default)')
   const cardROMName = ref<string>('KC Monitor (default)')
@@ -105,6 +112,9 @@ export const useEmulatorStore = defineStore('emulator', () => {
 
     m.transmit = fanOut
     m.flowControl = flowControl.value
+    m.serialCard = serialCardConfig.value
+    // As the machine has it: every jumper the card has, and none it lacks.
+    serialCardConfig.value = m.serialCard
 
     serialCardFitted.value = serialCard
     isHalted.value = false
@@ -236,6 +246,20 @@ export const useEmulatorStore = defineStore('emulator', () => {
     if (machine.value) machine.value.flowControl = on
   }
 
+  /**
+   * Fit a different serial card or move its jumper. Not a power cycle: the
+   * jumper only says where a pin takes its level from, and the chip samples
+   * it again at once, as it would a jumper moved on a running board.
+   */
+  function setSerialCardConfig(config: SerialCardConfig) {
+    if (machine.value) {
+      machine.value.serialCard = config
+      serialCardConfig.value = machine.value.serialCard
+    } else {
+      serialCardConfig.value = config
+    }
+  }
+
   return {
     session,
     machine,
@@ -245,6 +269,8 @@ export const useEmulatorStore = defineStore('emulator', () => {
     serialCardFitted,
     flowControl,
     setFlowControl,
+    serialCardConfig,
+    setSerialCardConfig,
     romName,
     cardROMName,
     binaryName,

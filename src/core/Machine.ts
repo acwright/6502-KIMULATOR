@@ -4,6 +4,8 @@ import { ROM } from './ROM'
 import { CardROM } from './CardROM'
 import { PIA } from './IO/PIA'
 import { ACIA } from './IO/ACIA'
+import { normalizeSerialCard } from './IO/SerialCard'
+import type { SerialCardConfig, SerialPin } from './IO/SerialCard'
 import { Empty } from './IO/Empty'
 import { KeypadAttachment } from './IO/Attachments/KeypadAttachment'
 import { LCDAttachment } from './IO/Attachments/LCDAttachment'
@@ -29,6 +31,17 @@ export type SlotName ='io1' | 'io2' | 'io3' | 'io4' | 'io5' | 'io6' | 'io7' | 'i
  * bank, no RTC, no storage, no SID and no video on this machine.
  */
 export type SlotConfig = Partial<Record<SlotName, IO>>
+
+/**
+ * The serial card a machine is built with when nothing names one: the Serial
+ * Card, with `CTS EN` at ground, where every board has it. Its DCD and DSR are
+ * tied to ground, so this is the machine as it was before cards and jumpers
+ * were modelled.
+ */
+export const DEFAULT_SERIAL_CARD: SerialCardConfig = {
+  card: 'standard',
+  jumpers: { cts: 'ground' }
+}
 
 export class Machine {
 
@@ -118,6 +131,59 @@ export class Machine {
     }
   }
 
+  private _serialCard: SerialCardConfig = DEFAULT_SERIAL_CARD
+
+  /**
+   * Which serial card io5 holds and where its jumpers are, which decide
+   * whether each of CTS, DCD and DSR is tied to ground or follows the cable
+   * (see `SerialCard.ts`). A jumper the card lacks is dropped; one not given is
+   * at ground.
+   *
+   * Which card, not whether there is one: a keypad-only machine keeps this and
+   * simply has no chip for it to reach.
+   *
+   * Configuration, like `flowControl`: not part of a snapshot, and it survives
+   * one being loaded.
+   */
+  get serialCard(): SerialCardConfig {
+    return this._serialCard
+  }
+
+  set serialCard(config: SerialCardConfig) {
+    this._serialCard = normalizeSerialCard(config)
+    for (const io of this.slots()) {
+      if (io instanceof ACIA) io.serialCard = this._serialCard
+    }
+  }
+
+  /**
+   * The far end of the serial cable drives one of its lines. It reaches the
+   * chip only where the card wires that pin to the cable; CTS deasserted there
+   * stops the transmitter, and DCD deasserted stops the receiver.
+   */
+  setSerialLine(pin: SerialPin, asserted: boolean): void {
+    this.setSerialLines({ [pin]: asserted })
+  }
+
+  /** The far end drives several lines at once; the chip sees one change. */
+  setSerialLines(lines: Partial<Record<SerialPin, boolean>>): void {
+    for (const io of this.slots()) {
+      if (io instanceof ACIA) io.setCableLines(lines)
+    }
+  }
+
+  /**
+   * Whether the serial card asserts RTS on the cable (the pin low: "the far
+   * end may send"). RTS reaches the cable on every card. False with no serial
+   * card, where nothing drives the line.
+   */
+  get requestToSend(): boolean {
+    for (const io of this.slots()) {
+      if (io instanceof ACIA) return io.requestToSend
+    }
+    return false
+  }
+
   transmit?: (data: number) => void
 
   //
@@ -162,6 +228,7 @@ export class Machine {
       if (io instanceof ACIA) {
         io.transmit = (data: number) => this.transmit?.(data)
         io.flowControl = this._flowControl
+        io.serialCard = this._serialCard
       }
     }
   }

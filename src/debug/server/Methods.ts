@@ -3,6 +3,8 @@ import { RAM } from '../../core/RAM'
 import { ROM } from '../../core/ROM'
 import { CardROM } from '../../core/CardROM'
 import type { Machine } from '../../core/Machine'
+import type { SerialPin } from '../../core/IO/SerialCard'
+import type { SerialLines } from '../../core/SerialPeer'
 import { KEYPAD, keyForCode, keyForName, keyNames } from '../../core/KeypadMap'
 import type { KeypadKey } from '../../core/KeypadMap'
 import { loadBinary } from '../../core/ProgramImage'
@@ -58,6 +60,8 @@ const MAX_READ_LENGTH = 1 << 20
 //
 
 const SPACES = ['cpu', 'ram', 'rom', 'card'] as const
+
+const SERIAL_PINS: readonly SerialPin[] = ['cts', 'dcd', 'dsr']
 export type MemorySpace = (typeof SPACES)[number]
 
 interface SpaceAccess {
@@ -297,8 +301,9 @@ export function createMethods(target: DebugTarget): MethodTable {
       console: target.consoleMode(),
       frequency: machine.frequency,
       ...(target.baudRate ? { baudRate: target.baudRate() } : {}),
-      // RTS/CTS flow control on serial input: on unless `--no-flow-control`,
-      // `session.config` or the app's Settings turned it off.
+      // RTS/CTS flow control on serial input: on unless `--peer-rts ignore`
+      // (or `--no-flow-control`), `session.config` or the app's Settings
+      // turned it off.
       flowControl: machine.flowControl,
       /**
        * Whether io5 holds the Serial Card.
@@ -309,6 +314,15 @@ export function createMethods(target: DebugTarget): MethodTable {
        * and the answer changes which methods work.
        */
       serialCard: machine.acia() !== undefined,
+      /**
+       * Which serial card, and its jumpers, by the names `--serial-card`,
+       * `--cts` and `--dcd` take — only the jumpers that card has. Null when
+       * `serialCard` is false: there is no card to describe.
+       *
+       * 6502-EMULATOR reports this as `serialCard`, which here already says
+       * whether one is fitted.
+       */
+      serialCardConfig: machine.acia() ? machine.serialCard : null,
       symbols: target.symbols.size,
       ...state()
     }),
@@ -1020,6 +1034,42 @@ export function createMethods(target: DebugTarget): MethodTable {
         clear
       })
       return { data: read.data, length: read.data.length, cursor: read.cursor, truncated: read.truncated }
+    },
+
+    /**
+     * The handshake lines: the machine's RTS, CTS, DCD and DSR as the far end
+     * drives them, and what each of the chip's pins is wired to and reads.
+     * Given `cts`, `dcd` or `dsr`, the far end asserts or drops that line
+     * first — on a host that is the far end (headless). In the app it is a real
+     * port, whose lines are the hardware's.
+     */
+    'serial.lines': (raw) => {
+      const params = asObject(raw, 'serial.lines')
+      const acia = machine.acia()
+      if (!acia) throw notSupported('serial.lines: this machine has no serial card')
+
+      const change: Partial<SerialLines> = {}
+      for (const pin of SERIAL_PINS) {
+        const value = optionalBoolean(params, pin)
+        if (value !== undefined) change[pin] = value
+      }
+      if (Object.keys(change).length > 0) {
+        if (!target.setSerialLines) {
+          throw notSupported(
+            'serial.lines: the far end of the cable here is the app\'s serial port, whose lines are the hardware\'s'
+          )
+        }
+        target.setSerialLines(change)
+      }
+
+      const lines = target.serialLines?.()
+      return {
+        rts: machine.requestToSend,
+        ...(lines ? { lines: { ...lines } } : {}),
+        pins: Object.fromEntries(
+          SERIAL_PINS.map((pin) => [pin, { wiring: acia.pinSourceOf(pin), asserted: acia.pinAsserted(pin) }])
+        ) as Record<SerialPin, { wiring: 'ground' | 'cable'; asserted: boolean }>
+      }
     },
 
     'serial.config': () => ({

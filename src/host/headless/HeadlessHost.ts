@@ -7,6 +7,10 @@ import type { SlotConfig } from '../../core/Machine'
 import { createAccessory } from '../../core/accessories/registry'
 import { loadBinary } from '../../core/ProgramImage'
 import { SerialConsole } from './SerialConsole'
+import { SerialLink } from '../../core/SerialPeer'
+import type { SerialLines } from '../../core/SerialPeer'
+import type { SerialCardConfig } from '../../core/IO/SerialCard'
+import { DEFAULT_SERIAL_CARD } from '../../shared/serialCard'
 import { SymbolTable } from '../../debug/symbols/Symbols'
 
 /**
@@ -38,10 +42,28 @@ export interface HeadlessOptions {
   binaries?: BinaryLoad[]
 
   /**
-   * Whether io5 holds the Serial Card. Fitted by default, because that is the
-   * canonical build and the only one with a console on a TTY.
+   * Whether io5 holds a serial card at all. Fitted by default, because that is
+   * the canonical build and the only one with a console on a TTY.
    */
   serialCard?: boolean
+
+  /**
+   * Which serial card, and its jumpers (`--serial-card`, `--cts`, `--dcd`).
+   * Default `DEFAULT_SERIAL_CARD`: the Serial Card with `CTS EN` at ground,
+   * where nothing the console does with its lines can reach the chip.
+   *
+   * Not `serialCard`, which already says whether one is fitted, here and in
+   * `session.info`; in 6502-EMULATOR, where every machine has one, it is.
+   */
+  serialCardConfig?: SerialCardConfig
+
+  /**
+   * CTS, DCD and DSR as the console drives them from the start; each is
+   * asserted unless given here. A line only reaches the chip where the card
+   * wires its pin to the cable, so with `--cts cable` a console that starts
+   * with CTS dropped holds the machine silent from reset.
+   */
+  serialLines?: Partial<SerialLines>
 
   /**
    * What is wired to the accessory bus at `$9400`, by its id in
@@ -55,7 +77,8 @@ export interface HeadlessOptions {
    * RTS/CTS flow control on console input. On by default: input is paced at
    * the line rate and also waits while the machine holds the ACIA's RTS high,
    * as it does from reset until `KernalInit` programs the ACIA.
-   * `--no-flow-control` turns it off, for a far end that ignores RTS: input is
+   * `--peer-rts ignore` (or the older `--no-flow-control`) turns it off, for
+   * a far end that ignores RTS: input is
    * then sent regardless, and whatever arrives while the receiver is off is
    * lost.
    */
@@ -159,6 +182,12 @@ export class HeadlessHost {
   readonly serial?: SerialConsole
 
   /**
+   * Carries the machine's RTS to the console and the console's lines back.
+   * Absent with the console, on a keypad-only machine.
+   */
+  private readonly link?: SerialLink
+
+  /**
    * Symbols loaded for this machine.
    *
    * Owned by the host rather than by whoever loaded them, so a `--symbols` flag
@@ -240,7 +269,12 @@ export class HeadlessHost {
 
     const machine = this.session.machine
     machine.flowControl = options.flowControl ?? true
-    if (serialCard) this.serial = new SerialConsole(machine, baudRate)
+    machine.serialCard = options.serialCardConfig ?? DEFAULT_SERIAL_CARD
+    if (serialCard) {
+      this.serial = new SerialConsole(machine, baudRate)
+      if (options.serialLines) this.serial.setLines(options.serialLines)
+      this.link = new SerialLink(this.serial)
+    }
 
     machine.loadROM(options.rom)
     machine.loadCardROM(options.cardROM)
@@ -250,6 +284,8 @@ export class HeadlessHost {
     // Everything above changed what the CPU will fetch, so re-read the vectors —
     // which on this machine come out of the Keypad Card, not the BIOS.
     machine.reset(true)
+    // After the reset, so that it takes the pins as the console drives them.
+    this.link?.sync(machine)
 
     this.loadMedia()
     this.lastLCD = this.lcdText().join('\n')
@@ -379,6 +415,27 @@ export class HeadlessHost {
     this.session.machine.flowControl = on
   }
 
+  /** Which serial card, and its jumpers; see `HeadlessOptions.serialCardConfig`. */
+  get serialCardConfig(): SerialCardConfig {
+    return this.session.machine.serialCard
+  }
+
+  /** CTS, DCD and DSR as the console drives them; undefined with no console. */
+  get serialLines(): Readonly<SerialLines> | undefined {
+    return this.serial?.lines
+  }
+
+  /**
+   * The console asserts or drops some of its lines. Reaches the chip at once,
+   * paused or not, wherever the card wires the pin to the cable. Nothing to do
+   * on a keypad-only machine, which has no cable.
+   */
+  setSerialLines(lines: Partial<SerialLines>): void {
+    if (!this.serial) return
+    this.serial.setLines(lines)
+    this.link?.sync(this.session.machine)
+  }
+
   get consoleMode(): ConsoleMode {
     return this.session.machine.acia() ? 'serial' : 'keypad'
   }
@@ -417,6 +474,7 @@ export class HeadlessHost {
   private onChunk(): void {
     if (this.finished) return
 
+    this.link?.sync(this.session.machine)
     if (this.inputGateOpen) this.serial?.pump()
     this.reportLCD()
 

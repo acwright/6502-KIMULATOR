@@ -180,7 +180,7 @@ clock, for a sharper reason — see [keypad](#keypad).
 
 | Method | Params | Returns |
 |---|---|---|
-| `session.info` | — | `protocol`, `host`, `version`, `console`, `frequency`, `baudRate?`, `flowControl`, `serialCard`, `symbols`, plus [run state](#run-state) |
+| `session.info` | — | `protocol`, `host`, `version`, `console`, `frequency`, `baudRate?`, `flowControl`, `serialCard`, `serialCardConfig`, `symbols`, plus [run state](#run-state) |
 | `session.reset` | `cold?` (default `true`) | Run state |
 | `session.config` | `baudRate?`, `flowControl?` | `frequency`, `baudRate?`, `flowControl`, `console` |
 | `session.shutdown` | — | `{ok:true}`, then the host winds down |
@@ -195,6 +195,14 @@ On such a machine every `serial.*` method reports `NOT_SUPPORTED`.
 
 `serialCard` is where 6502-EMULATOR reports `cartridge`. There is no cartridge to
 report: the Keypad Card *is* the cartridge and it is soldered in.
+
+`serialCardConfig` is which card io5 holds and where its jumper is, by the names
+`--serial-card`, `--cts` and `--dcd` take: `{card: "standard", jumpers: {cts:
+"ground"}}` unless something moved them, or `{card: "pro", jumpers: {dcd: ...}}`.
+Only the jumper that card has. `null` when `serialCard` is `false`. There is no
+`ace`: its serial is on the ACE board. 6502-EMULATOR reports the same object as
+`serialCard`, which here already says whether a card is fitted at all. See
+[`serial.lines`](#serial) for what the jumper does.
 
 `session.shutdown` answers before exiting, so the caller sees a result rather
 than a dropped socket.
@@ -386,6 +394,7 @@ reports `NOT_SUPPORTED` — check `session.info`'s `serialCard` first.
 | `serial.write` | `data`, `encoding?` (`text` default, `base64`) | `queued`, `cursor` |
 | `serial.read` | `since?`, `max?`, `clear?` | `data`, `length`, `cursor`, `truncated` |
 | `serial.config` | — | `console`, `baudRate?`, `flowControl`, `frequency` |
+| `serial.lines` | `cts?`, `dcd?`, `dsr?` (booleans) | `rts`, `lines?`, `pins` |
 
 **The cursor is the important part.** It is an absolute position in the console's
 output stream, and `serial.write` returns where the stream stood when the command
@@ -404,24 +413,51 @@ Input is paced at the serial line rate, measured in emulated cycles — so it la
 at the same point in the program whatever speed the host runs at.
 
 `flowControl` is whether serial input honours RTS/CTS flow control. It is `true`
-unless `6502-kim run --no-flow-control`, `session.config` or the app's Settings
-turned it off. `session.config` can set it on a headless host; the app refuses
+unless `6502-kim run --peer-rts ignore` (or the older `--no-flow-control`),
+`session.config` or the app's Settings turned it off. `session.config` can set it on a headless host; the app refuses
 (`NOT_SUPPORTED`), because its Settings panel owns the setting. With it on, while
 the machine holds the ACIA's RTS high — command register bits 3-2 clear and echo
 mode off, which is the reset state — nothing more is sent: `serial.write` still
 queues, and the queue resumes in order, at the line rate, when RTS drops. Nothing
 is dropped.
 
-**Flow control is on by default, and on the KC Monitor it holds input only until
-`KernalInit`,** which writes `$09` (RTS low); the monitor's IRQ handler never
-writes the command register again. It matters to a program that drives the ACIA
-itself and raises RTS, which must lower it again or input stops for good — and
-which must not print in the meantime, because bits 3-2 at `00` turn the R6551's
-transmitter off as well and TDRE never sets.
+**Flow control is on by default, and the KC Monitor uses it.** RTS is high from
+reset until `KernalInit` writes `$09`; after that the monitor raises it once its
+receive ring passes `$C0` unread bytes and lowers it below `$80`, lowering it
+around each byte it sends as well. It also matters to a program that drives the
+ACIA itself and raises RTS, which must lower it again or input stops for good —
+and which must not print in the meantime, because bits 3-2 at `00` turn the
+R6551's transmitter off as well and TDRE never sets.
 
-With it off, the far end ignores RTS: everything is sent at the line rate, and a
+With it off (`session.config {flowControl: false}`, `6502-kim run --peer-rts
+ignore`), the far end ignores RTS: everything is sent at the line rate, and a
 byte that reaches the ACIA while its receiver is disabled — command register bit
 0 clear, as after a reset — is lost, as it would be at the board.
+
+**The far end can stop the machine, where a jumper lets it.** `serial.lines`
+reports the handshake: `rts` is the machine's RTS (`true` asserted, "you may
+send"); `lines` is CTS, DCD and DSR as the far end drives them, on a host that
+is the far end (headless, where the console is); and `pins` gives each of the
+chip's three inputs as `{wiring: "ground" | "cable", asserted}`. Given `cts`,
+`dcd` or `dsr`, the far end asserts (`true`) or drops (`false`) that line first.
+The app refuses that with `NOT_SUPPORTED`: its far end is a real serial port,
+whose lines are the hardware's, or nothing, which leaves them asserted.
+
+A line reaches the chip only where the card wires its pin to the cable. On the
+Serial Card with `CTS EN` at ground, as by default, none does: DCD and DSR are
+tied to ground on that card, and dropping any line changes nothing. With `CTS
+EN` on the cable (`--cts cable`), or on the Serial Card Pro, whose CTS always
+reaches the cable, dropping CTS stops the transmitter exactly as command register
+bits 3-2 at `00` do: the byte is held and TDRE stays clear, from reset if the
+line is already down. No banner, no echo. What happens to the rest is the
+firmware's business. The Kernal's `Chrout` waits for TDRE and loses nothing. The
+KC Monitor's `SerPutc` gives up after about 27 ms and drops the byte, so the
+keypad monitor stays alive with no terminal attached; so when CTS comes back
+the one held byte goes out, what the monitor said meanwhile is gone, and it
+answers the next thing it is sent. With the Pro's `DCD Select` on the cable
+(`--dcd cable`), dropping DCD turns the receiver off and loses what arrives
+meanwhile. DSR is a status bit only (bit 6); on the Pro it always follows the
+cable.
 
 ### keypad
 
@@ -668,6 +704,8 @@ For anyone porting a script across. Everything not listed is identical.
 | `mem.*` space `card` | The same image, byte-addressable and writable. |
 | `sym.load` format `lst` | ca65 listings, which is what the KC Monitor's build produces. |
 | `session.info` `serialCard` | Replaces `cartridge`. |
+| `session.info` `serialCardConfig` | 6502-EMULATOR's `serialCard` object, renamed because `serialCard` was taken. `standard` or `pro`, never `ace`. |
+| `serial.lines` | The same method as 6502-EMULATOR's, but `NOT_SUPPORTED` on a keypad-only machine rather than reporting `pins: null`. |
 | `session.info` `flowControl` | The same field as 6502-EMULATOR's, and it does the same work: the KC Monitor raises RTS once its receive ring passes `$C0` unread bytes, so input really is held. |
 | `session.info` `console` | `serial` or **`keypad`**, not `serial` or `video`. |
 | `state.load` `cardROMMismatch` | The second ROM's `force` report. |

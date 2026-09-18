@@ -15,6 +15,7 @@ import {
   parseBinarySpec,
   parseCount,
   parseFlowControlFlags,
+  parseSerialCardFlags,
   parseSerialFlow,
   parseSerialFraming
 } from './args'
@@ -39,6 +40,10 @@ export interface LaunchFlags {
   baud?: string
   'flow-control'?: boolean
   'no-flow-control'?: boolean
+  'peer-rts'?: string
+  'serial-card'?: string
+  cts?: string
+  dcd?: string
   serial?: string
   'serial-config'?: string
   'serial-flow'?: string
@@ -172,23 +177,23 @@ function settingsFrom(values: LaunchFlags): Partial<AppSettings> {
     ? parseSerialFraming(values['serial-config'], '--serial-config')
     : undefined
   const baudRate = values.baud ? parseCount(values.baud, '--baud') : undefined
-  const rtscts =
-    values['serial-flow'] === undefined
-      ? undefined
-      : parseSerialFlow(values['serial-flow'], '--serial-flow')
+  // Deprecated and ignored (see `parseSerialFlow`), but still checked, so a
+  // typo in a script is still an error.
+  if (values['serial-flow'] !== undefined) parseSerialFlow(values['serial-flow'], '--serial-flow')
   const flowControl = parseFlowControlFlags(values)
+  const serialCardConfig = parseSerialCardFlags(values)
 
   return {
     ...(values['no-serial-card'] ? { serialCardFitted: false } : {}),
+    ...(serialCardConfig ? { serialCardConfig } : {}),
     ...(flowControl !== undefined ? { flowControl } : {}),
     ...(values.accessory !== undefined ? { accessory: parseAccessory(values.accessory) } : {}),
-    ...(framing || baudRate !== undefined || rtscts !== undefined
+    ...(framing || baudRate !== undefined
       ? {
           serialConfig: {
             ...DEFAULT_SERIAL_CONFIG,
             ...framing,
-            ...(baudRate !== undefined ? { baudRate } : {}),
-            ...(rtscts !== undefined ? { rtscts } : {})
+            ...(baudRate !== undefined ? { baudRate } : {})
           }
         }
       : {})

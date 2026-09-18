@@ -133,6 +133,7 @@ export function useMachine() {
     //    rather than failing the boot.
     shape.value = { serialCard: settings.serialCardFitted, accessory: settings.accessory }
     store.setFlowControl(settings.flowControl ?? true)
+    if (settings.serialCardConfig) store.setSerialCardConfig(settings.serialCardConfig)
     store.init({
       serialCard: settings.serialCardFitted,
       accessory: createAccessory(settings.accessory)
