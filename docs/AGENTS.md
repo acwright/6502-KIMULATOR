@@ -211,10 +211,12 @@ sends nothing while it would. `ACIA.ts` and its test are byte-identical with
 command register bit 0 is set, so a byte sent to it before then is lost, and whose
 transmitter is off again whenever bits 3-2 are `00` — raising RTS stops it sending
 as well, and TDRE never sets, so firmware that echoes while RTS is high spins for
-good. RTS is high from reset until `KernalInit` writes `$09`, and the KC Monitor
-never raises it after that, so the monitor is clear of it; BIOS 1.6's and 2.0's
-BASIC are not. `AppSettings.settingsVersion` 2 marks a file migrated to the new
-default.
+good. RTS is high from reset until `KernalInit` writes `$09`; the bundled KC
+Monitor raises it again above `$C0` unread bytes and lowers it below `$80`, and
+stays clear of the spin by lowering RTS around each byte it sends and going quiet
+above the high mark rather than echoing. BIOS 1.6's and 2.0's BASIC did neither
+until 6502-BIOS `v1.6` and `v2.0.1`. `AppSettings.settingsVersion` 2 marks a file
+migrated to the new default.
 
 **There is one console buffer and everything reads it.** `useConsole` owns a
 `TerminalBuffer`; the Terminal panel draws it, the Paste box feeds it, and

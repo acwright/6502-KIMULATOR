@@ -226,7 +226,9 @@ settings file from 1.0.11 or earlier has no answer in it and comes up on.
 default, as a terminal set up
 for the board should be: input from the port and the Paste box waits while the
 machine holds the ACIA's RTS high. RTS is high from reset until `KernalInit`
-programs the ACIA, and the KC Monitor never raises it after that. Off is a
+programs the ACIA, and the KC Monitor raises it again whenever its receive ring
+passes `$C0` unread bytes, lowering it below `$80`, so a long paste waits
+instead of losing lines out of the middle. Off is a
 terminal that ignores RTS: whatever arrives while the ACIA's receiver is off is
 lost. A settings file from 1.0.11 or earlier is migrated to on once, because
 those versions saved the old default with any other change.
