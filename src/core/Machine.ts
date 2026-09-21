@@ -284,13 +284,26 @@ export class Machine {
    *
    * The engine's bulk-execution primitive. Deciding how many cycles to run and
    * when belongs to a scheduler, not here — see src/debug/Scheduler.
+   *
+   * **The counter advances inside the loop, not after it.** Adding the whole
+   * slice at the end is the same arithmetic to anyone reading it between calls,
+   * and wrong to anything that reads it while the loop runs: for the length of
+   * a slice the machine claims no time has passed.
+   *
+   * Nothing here reads it that way today — no card is handed the cycle count on
+   * a bus access, and `SerialConsole.pump()` is called between slices by
+   * contract. The sibling 6502-EMULATOR *does*, and this is the bug it had: its
+   * flash cartridge measures a program's busy window against this counter, so a
+   * frozen one made a 20 µs window last the rest of the slice and a cart
+   * polling its own chip spun until the scheduler came back. The two machines
+   * share this primitive; they should not disagree about what it means.
    */
   runCycles(cycles: number): void {
     for (let i = 0; i < cycles; i++) {
       this.cpu.tick()
       this.tickIO()
+      this.cycles++
     }
-    this.cycles += cycles
   }
 
   step(): void {
@@ -300,8 +313,8 @@ export class Machine {
     // Tick IO cards for each cycle of the instruction
     for (let i = 0; i < cyclesExecuted; i++) {
       this.tickIO()
+      this.cycles++
     }
-    this.cycles += cyclesExecuted
   }
 
   reset(coldStart: boolean): void {

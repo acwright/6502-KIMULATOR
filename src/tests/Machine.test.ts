@@ -337,6 +337,30 @@ describe('Machine', () => {
       expect(machine.cycles).toBe(100)
     })
 
+    /**
+     * The counter has to move *during* a slice, not at the end of one.
+     *
+     * Nothing outside the machine can tell the difference — a caller reads it
+     * between calls either way — and nothing inside this machine reads it that
+     * way yet: no card is handed the cycle count on a bus access, and
+     * `SerialConsole.pump()` is called between slices by contract.
+     *
+     * It is pinned anyway because the sibling 6502-EMULATOR shares this
+     * primitive and *does* read it mid-slice: its flash cartridge measures a
+     * program's busy window against it, and a frozen counter made that window
+     * last the rest of the slice. The two machines should not disagree about
+     * what this counter means.
+     */
+    it('advances the cycle counter inside a slice, not after it', () => {
+      const seen: number[] = []
+      const watcher = new Spy()
+      const watched = new Machine({ io6: watcher })
+      watcher.tick = (): number => { seen.push(watched.cycles); return 0 }
+
+      watched.runCycles(4)
+      expect(seen).toEqual([0, 1, 2, 3])
+    })
+
     it('raises the CPU IRQ while a card asserts it', () => {
       const spy = new Spy()
       const configured = new Machine({ io6: spy })
