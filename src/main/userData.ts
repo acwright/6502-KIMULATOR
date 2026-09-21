@@ -1,6 +1,24 @@
 import { join } from 'path'
 
 /**
+ * What the app calls itself: the window, the About panel, and the macOS
+ * application menu's *About*, *Hide* and *Quit* items, which Electron builds
+ * from `app.name`.
+ *
+ * It must equal `productName` in `electron-builder.yml`, which is what the
+ * bundle is named — the menu saying one thing and the Dock another is exactly
+ * the bug this fixes. Without `app.setName`, `app.name` falls back to `name`
+ * in `package.json`, which is the npm package identifier: up to 1.2.0 the menu
+ * read *About ac6502-kimulator*.
+ *
+ * It is a separate string from `USER_DATA_FOLDER` below on purpose, and the
+ * two must never be spelled from each other. That is the whole point of
+ * pinning the folder: the display name has changed once and may change again,
+ * and people's settings must not follow it.
+ */
+export const APP_NAME = 'AC6502 KIMulator'
+
+/**
  * The folder settings live in, pinned rather than derived.
  *
  * Electron names `userData` after the app: `productName` in the packaged

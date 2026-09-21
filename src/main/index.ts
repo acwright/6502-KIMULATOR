@@ -17,12 +17,22 @@ import { SettingsService } from './settings'
 import { DebugBridgeService } from './debugBridge'
 import { CliShimService } from './cliShim'
 import { bootConfigFrom, readBootPayload } from './boot'
-import { userDataPath } from './userData'
+import { APP_NAME, userDataPath } from './userData'
 
 // Settings stay in the folder every release up to 1.0.10 used, although the
 // app's name no longer says 6502-kimulator. Before `ready`, before any service
 // asks for it. See userData.ts.
 app.setPath('userData', userDataPath(app.getPath('appData')))
+
+// What the app calls itself. The macOS application menu's About, Hide and Quit
+// items are built by Electron from `app.name`, which without this is `name`
+// from package.json — so the menu read "About ac6502-kimulator" while the Dock,
+// the window and the bundle all said "AC6502 KIMulator".
+//
+// **After the line above, never before.** `userData` is pinned to an absolute
+// path there, so renaming the app cannot move it; setting the name first would
+// leave a window in which Electron's name-derived default is the live one.
+app.setName(APP_NAME)
 
 // ── Singletons ───────────────────────────────────────────────────────────────
 
