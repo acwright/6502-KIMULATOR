@@ -73,8 +73,7 @@ export class Machine {
   io8!: IO
 
   /**
-   * PHI2, the CPU clock. 1 MHz, and not selectable: the ACE is the machine in
-   * the family whose board carries the 2 MHz jumper.
+   * PHI2, the CPU clock. 1 MHz, and not selectable: this board has one clock.
    *
    * Still a field rather than a constant because it is what paces a realtime
    * run and what a snapshot records, and because cards receive PHI2 through

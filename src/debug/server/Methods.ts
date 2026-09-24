@@ -335,7 +335,7 @@ export function createMethods(target: DebugTarget): MethodTable {
 
     /**
      * `frequency` is reported here and cannot be set. PHI2 on this board is
-     * 1 MHz; the 2 MHz jumper is the ACE's. Asking for a different one is
+     * 1 MHz. Asking for a different one is
      * refused rather than ignored — a client ported from 6502-EMULATOR's
      * tooling would otherwise believe it had changed the clock.
      */
@@ -344,7 +344,7 @@ export function createMethods(target: DebugTarget): MethodTable {
 
       if (params.frequency !== undefined && params.frequency !== machine.frequency) {
         throw invalidParams(
-          `frequency: PHI2 on this machine is fixed at ${machine.frequency} — only the ACE has the 2 MHz jumper`
+          `frequency: PHI2 on this machine is fixed at ${machine.frequency}`
         )
       }
 

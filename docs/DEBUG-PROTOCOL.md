@@ -185,8 +185,8 @@ clock, for a sharper reason — see [keypad](#keypad).
 | `session.config` | `baudRate?`, `flowControl?` | `frequency`, `baudRate?`, `flowControl`, `console` |
 | `session.shutdown` | — | `{ok:true}`, then the host winds down |
 
-`frequency` is reported and not settable. PHI2 on this board is 1 MHz; the ACE
-is the machine in the family whose board carries the 2 MHz jumper.
+`frequency` is reported and not settable. PHI2 on this board is 1 MHz, as it is
+on the ACE.
 
 `console` is `serial` or `keypad`. `keypad` is not a lesser mode — it is the
 machine with io5 vacant, and the KC Monitor guards every ACIA access on

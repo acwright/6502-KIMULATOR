@@ -46,7 +46,7 @@ export interface Snapshot {
   /** Informational: when the snapshot was taken, in host wall-clock time. */
   createdAt: string
 
-  /** PHI2 in Hz, so a 2 MHz machine does not restore as a 1 MHz one. */
+  /** PHI2 in Hz: 1 MHz on this board, recorded so a snapshot says what it ran at. */
   frequency: number
 
   /**

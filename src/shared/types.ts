@@ -183,9 +183,8 @@ export interface AppSettings {
 export const SETTINGS_VERSION = 3
 
 /**
- * There is no CPU frequency here. PHI2 on this board is 1 MHz — the ACE is the
- * machine in the family with the 2 MHz jumper — so there is nothing to choose
- * and nothing to remember.
+ * There is no CPU frequency here. PHI2 on this board is 1 MHz, so there is
+ * nothing to choose and nothing to remember.
  */
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   serialConfig: DEFAULT_SERIAL_CONFIG,

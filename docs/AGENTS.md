@@ -190,7 +190,7 @@ instead of a timeout.
 
 `AppSettings` holds `serialConfig`, `serialCardFitted`, `serialCardConfig`,
 `accessory` and `flowControl`. There is no `frequency` — PHI2 on this board is
-1 MHz and the ACE is the machine with the 2 MHz jumper. `serialCardFitted` and
+1 MHz, as it is on the ACE. `serialCardFitted` and
 `accessory` are the machine's *shape*, and
 a card cannot be fitted or pulled with the power on — so `store.init()` builds a
 new Machine and a new Session rather than mutating one. That is why

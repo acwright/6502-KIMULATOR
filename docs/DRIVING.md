@@ -389,6 +389,6 @@ they are absent rather than left wondering:
 | `screen text` / `screen png` | `lcd`, `lcd hash`, `lcd pixels` — 16×2, no framebuffer to encode |
 | `input key` / `joystick` / `type` | `key` — the pad is the only input, and it reports presses |
 | `load cart` / `unload cart` | `load card-rom` — the card is the cartridge, and it is soldered in |
-| `--freq` | Nothing. PHI2 is 1 MHz; the ACE has the 2 MHz jumper |
+| `--freq` | Nothing. PHI2 is 1 MHz |
 | `--rtc` | Nothing. No clock card, so every run is already reproducible |
 | `--cf`, `--nvram`, `--prg` | Nothing. No storage, no NVRAM, no BASIC — a KIM loses its RAM when you switch it off |

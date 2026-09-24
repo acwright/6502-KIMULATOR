@@ -95,8 +95,8 @@ Notes
   is --bin. --card-rom replaces the card's own firmware and is a different thing
   entirely from slotting one in.
 
-  There is no --freq either. PHI2 on this board is 1 MHz — the ACE is the family
-  member with the 2 MHz jumper — so there is nothing to choose.
+  There is no --freq either. PHI2 on this board is 1 MHz, so there is nothing
+  to choose.
 
   --baud, --serial-config, --serial-card, --cts, --dcd, --peer-rts,
   --accessory and --no-serial-card set what the app's Settings panel sets, for

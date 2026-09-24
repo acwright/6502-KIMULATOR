@@ -98,7 +98,7 @@ export const useEmulatorStore = defineStore('emulator', () => {
     }
 
     // PHI2 is not configurable: 1 MHz is what this board runs at, and Machine
-    // starts there. The 2 MHz jumper belongs to the ACE.
+    // starts there.
     const s = new Session(slots)
     const m = s.machine
 

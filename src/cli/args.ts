@@ -7,8 +7,8 @@
  * line.
  *
  * Two of 6502-EMULATOR's helpers do not come across. `parseFrequency` has
- * nothing to choose from — PHI2 on this board is 1 MHz and the 2 MHz jumper is
- * the ACE's — and `parseClock` had one caller, `--rtc`, which existed to pin the
+ * nothing to choose from — PHI2 on this board is 1 MHz — and `parseClock` had
+ * one caller, `--rtc`, which existed to pin the
  * one input to the engine that read the host clock. A KIM has no clock card, so
  * there is nothing to pin and every run is already reproducible.
  */

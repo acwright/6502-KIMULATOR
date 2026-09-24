@@ -81,7 +81,7 @@ exactly as nothing stops you on the bench.
 
 | Component | Details |
 |---|---|
-| **CPU** | W65C02S, cycle-accurate, IRQ / NMI, full opcode set including the `WAI` / `STP` halt states. PHI2 is 1 MHz — the 2 MHz jumper is the ACE's |
+| **CPU** | W65C02S, cycle-accurate, IRQ / NMI, full opcode set including the `WAI` / `STP` halt states. PHI2 is 1 MHz, as on the ACE |
 | **RAM** | 32 KB, flat. No banks, and no persistence: a real KIM loses its RAM when you switch it off |
 | **ROM** | 32 KB BIOS (bundled, replaceable) + the Keypad Card's 8 KB AT28C64 (bundled, replaceable) |
 | **PIA** | 65C21 — Port A carries the keypad code (`PA0–PA4`) and the LCD control lines (`PA5`=RS, `PA6`=R/W, `PA7`=E); Port B is the LCD data bus. CA1 is the keypad's data-available interrupt, CA2 the encoder's output enable |

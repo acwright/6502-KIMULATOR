@@ -10,9 +10,8 @@
  * there is no BASIC to load a `.prg` into, only bytes at an address. Mute and
  * the joystick indicator went with the cards they reported on.
  *
- * **There is no clock switch either.** The ACE is the machine in the family with
- * the 2 MHz jumper; PHI2 on this board is 1 MHz, so a button offering to change
- * it would be offering hardware that does not exist.
+ * **There is no clock switch either.** PHI2 on this board is 1 MHz, so a button
+ * offering to change it would be offering hardware that does not exist.
  */
 import { computed, ref } from 'vue'
 import {

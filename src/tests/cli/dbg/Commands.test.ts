@@ -247,7 +247,7 @@ describe('session commands', () => {
   /**
    * The flag exists so a script ported from 6502-EMULATOR is told the clock did
    * not change, rather than being quietly ignored — PHI2 on this board is fixed
-   * at 1 MHz and the 2 MHz jumper is the ACE's.
+   * at 1 MHz.
    */
   it('config refuses a frequency this machine cannot have, and says why', async () => {
     const { exitCode, err } = await runErr('config', ['--frequency', '2'])

@@ -139,8 +139,8 @@ describe('session', () => {
     })
   })
 
-  // The ACE's board carries a 2 MHz jumper; this one does not, so the clock is
-  // something a client is told about rather than something it sets.
+  // PHI2 on this board is fixed, so the clock is something a client is told
+  // about rather than something it sets.
   it('reports the clock, and refuses to change it', async () => {
     const { methods, session } = target()
 

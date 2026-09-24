@@ -160,7 +160,7 @@ const MATCH_WINDOW = 64 * 1024
  * Named here rather than read off the machine because it is wanted before there
  * is one: the session's chunk size is a byte's worth of emulated time, and the
  * session is what builds the machine. There is nothing to keep in sync — this
- * board has one clock and the ACE is the family member with the 2 MHz jumper.
+ * board has one clock.
  */
 const PHI2 = 1_000_000
 
