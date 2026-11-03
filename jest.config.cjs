@@ -21,14 +21,14 @@ module.exports = {
     'src/renderer/src/embed/params.ts',
     'src/renderer/src/embed/keys.ts',
     // The terminal's control-code handling, its picture, the pad's
-    // map-to-panel wiring and the accessory's lamp order. All kept out of their
+    // map-to-panel wiring and the breadboard's lamp order. All kept out of their
     // .vue files precisely so they could be tested.
     'src/renderer/src/terminal/TerminalBuffer.ts',
     'src/renderer/src/terminal/keys.ts',
     'src/renderer/src/terminal/font.ts',
     'src/renderer/src/terminal/render.ts',
     'src/renderer/src/keypad/layout.ts',
-    'src/renderer/src/accessory/leds.ts'
+    'src/renderer/src/breadboard/leds.ts'
   ],
   moduleNameMapper: {
     '^@core/(.*)$': '<rootDir>/src/core/$1',
