@@ -34,7 +34,7 @@ Four things on screen, and one of them is a slot you can wire a circuit into:
 | **Terminal** | 40×24, white on black. Exactly what the serial port sees, in both directions |
 | **LCD** | The 16×2 HD44780 on the Keypad LCD Helper, drawn as a real dot-matrix panel — the unlit dots included |
 | **Keys** | The 24-key pad on the Keypad Helper, laid out and coloured like the real one |
-| **Accessory** | A slot on the bus at `$9400` where a breadboard circuit is wired. First one: eight LEDs behind a 74HC373 latch |
+| **Breadboard** | A slot on the bus at `$9400` where a breadboard circuit is wired. First one: eight LEDs behind a 74HC373 latch |
 
 **There is no cartridge slot.** The Keypad Card *is* this machine's cartridge and
 it is soldered in, so "Load Cart" does not exist here in any form — not on the
@@ -68,7 +68,7 @@ Of the eight I/O slots only two are ever filled:
 | Slot | Window | Fitted |
 |---|---|---|
 | `io5` | `$9000–$93FF` | **Serial Card** (or the **Serial Card Pro**) — Rockwell R6551 ACIA. Toggleable; `KC Monitor.asm` guards every ACIA access on `HW_PRESENT & HW_SC`, so unfitting it is the only way to exercise the keypad-only path the firmware supports |
-| `io6` | `$9400–$97FF` | **Accessory bus** — empty, or whatever you wire to it |
+| `io6` | `$9400–$97FF` | **The breadboard** — empty, or whatever you wire to it |
 
 Program space is `$0800–$7FFF`. Below it is the machine's own workspace — zero
 page, the stack, the 256-byte input buffer at `$0200`, and `KERNAL_VARS` at
@@ -88,7 +88,7 @@ exactly as nothing stops you on the bench.
 | **Keypad** | MM74C922 extended to 24 keys with a 74HC00. Scanning, debounce and encoding are all in hardware — and **releases are ignored**, because the encoder reports the press and nothing else |
 | **LCD** | 16×2 HD44780 with the A00 font — DDRAM, CGRAM, entry mode, display shift, cursor and blink |
 | **Serial** | Rockwell R6551 ACIA — configurable baud/parity/data/stop, 19200 8-N-1 by default |
-| **Accessory** | Whatever is wired to `$9400`. Shipped: the KIM Demo's eight LEDs behind a 74HC373 latch |
+| **Breadboard** | Whatever is wired to `$9400`. Shipped: the KIM Demo's eight LEDs behind a 74HC373 latch |
 
 ---
 
@@ -159,7 +159,7 @@ expands it to fill the window; **F11** (or **⌘ Return**) toggles fullscreen.
 
 No frequency toggle and no mute button: one clock, no sound card.
 
-A **KIM / TERM / BAY** switch appears at the left of the bar when the window is
+A **KIM / TERM / BREADBOARD** switch appears at the left of the bar when the window is
 showing one panel at a time — see *Small windows* below.
 
 ### On-screen Keyboard
@@ -184,7 +184,7 @@ Two columns need a window wider than it is tall and big enough in both
 directions. Below that — a phone either way up, an iPad in portrait, a short
 desktop window — the window shows one panel at a time and the control bar carries
 the switch: **KIM** for the display and the pad, **TERM** for the terminal,
-**BAY** for the accessory. The panel showing is the one the keyboard goes to.
+**BREADBOARD** for the circuit on the breadboard. The panel showing is the one the keyboard goes to.
 
 In landscape the on-screen keyboard sits beside the panels rather than under
 them, and the pad sits beside the display rather than under it: everything in a
@@ -219,7 +219,7 @@ said meanwhile is lost, and it answers normally once CTS returns. With no port
 connected the lines are held asserted. Changing the card or its jumper is not a
 power cycle. There is no ACE here: its serial is on the ACE board.
 
-**ACCESSORY** — which circuit is wired to `$9400`. Changing it rebuilds the slot
+**BREADBOARD** — which circuit is wired to `$9400`. Changing it rebuilds the slot
 and warm-resets: swapping a breadboard on a running machine is not a thing you do
 with the power on.
 
@@ -263,10 +263,10 @@ persist; machine state does not.
 
 ---
 
-## The Accessory Bay
+## The Breadboard
 
 `io6` — `$9400–$97FF` — is where a breadboard gets wired, and it is the address
-both 6502-DOCS type-in cards write to. The bay ships with the **KIM Demo**: eight
+both 6502-DOCS type-in cards write to. The breadboard ships with the **KIM Demo**: eight
 LEDs behind a 74HC373 latch, bit 7 leftmost. A write anywhere in the window
 latches the byte and lights the lamps.
 
@@ -274,8 +274,8 @@ latches the byte and lights the lamps.
 strobe, and a latch that read back would pass the BIOS's `ProbeGPIO` DDR test and
 set `HW_GPIO` on a machine with no VIA in it.
 
-The registry (`src/core/accessories/registry.ts`) is a built-in list rather than a
-plug-in interface. An accessory is an `IO` implementation plus five fields, so
+The registry (`src/core/breadboard/registry.ts`) is a built-in list rather than a
+plug-in interface. A circuit is an `IO` implementation plus five fields, so
 opening it up later is a decision rather than a rewrite.
 
 ---
@@ -351,7 +351,7 @@ input it is holding can produce.
 ```
 
 The machine flags are the same either way — `--rom`, `--card-rom`, `--bin`,
-`--accessory`, `--no-serial-card`, `--serial-card` (`standard` or `pro`) with its
+`--breadboard`, `--no-serial-card`, `--serial-card` (`standard` or `pro`) with its
 jumper `--cts` or `--dcd` (`ground` or `cable`), `--baud`, `--peer-rts`
 (`honour` or `ignore`; the older `--[no-]flow-control` still works), `--pause`,
 `--debug`, `--symbols`. `--serial-card ace` is refused: the ACE's serial is on
@@ -371,7 +371,7 @@ Flags from the wrong column are refused with the reason.
 #   +----------------+
 
 # The LED breadboard on the bus, with the DOCS counter already loaded.
-6502-kim run --headless --accessory led-latch --bin 0x0800=counter.bin
+6502-kim run --headless --breadboard led-latch --bin 0x0800=counter.bin
 
 # A freshly built KC Monitor, without burning an AT28C64.
 6502-kim run --card-rom "build/KC Monitor.bin"
@@ -488,9 +488,9 @@ The parameters most embeds need:
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `panels` | all four | Which of `terminal`, `lcd`, `keys`, `accessory` are shown |
+| `panels` | all four | Which of `terminal`, `lcd`, `keys`, `breadboard` are shown |
 | `bin` | — | `<address>=<url>`, raw bytes in RAM (`bin64=` carries them inline, needing no CORS) |
-| `accessory` | none | What is wired to `$9400` — `led-latch`, or `none` |
+| `breadboard` | none | What is wired to `$9400` — `led-latch`, or `none` |
 | `keys` | — | A sequence keyed on the pad once the machine is up, e.g. `ESC,0,8,0,0,UP` |
 | `serialcard` | `1` | `0` gives the keypad-only machine |
 | `autostart` | `1` | Boot on load; `0` holds the machine until the reader clicks |
@@ -502,7 +502,7 @@ bar's missing toggle: one clock.
 
 An embed lays itself out for the frame it is given rather than for the window, so
 a phone-sized one behaves the way the app does on a phone: one panel at a time
-behind a KIM / TERM / BAY switch, and the on-screen keyboard opened by itself on
+behind a KIM / TERM / BREADBOARD switch, and the on-screen keyboard opened by itself on
 a device that has no keyboard of its own.
 
 **[docs/EMBEDDING.md](docs/EMBEDDING.md)** is the full reference: every parameter,
@@ -557,7 +557,7 @@ bash examples/run-all.sh     # the worked examples, against the real ROMs
 ```
 
 The Jest suite covers the emulator core (CPU, RAM, ROM, the PIA, the keypad and
-LCD attachments, the accessories), the debug layer (session, breakpoints,
+LCD attachments, the breadboard circuits), the debug layer (session, breakpoints,
 disassembler, snapshots, symbols, the protocol method table and the WebSocket
 implementation), the headless host, the CLI and the embed parameters. Several
 suites boot the real bundled BIOS and KC Monitor rather than a stub, so a
@@ -633,7 +633,7 @@ GitHub Actions, on every push to `main` (workflow: `.github/workflows/deploy.yml
 
 ```
 src/
-  core/          Emulator engine (CPU, RAM, ROM, PIA, keypad, LCD, accessories)
+  core/          Emulator engine (CPU, RAM, ROM, PIA, keypad, LCD, breadboard circuits)
                  — no browser or Node dependencies
   debug/         Platform-agnostic debug layer:
                    Session + Scheduler — own execution and pacing

@@ -19,7 +19,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { PlayIcon, CursorArrowRaysIcon } from '@heroicons/vue/24/solid'
 import Terminal from '@/components/Terminal.vue'
 import MachineCard from '@/components/MachineCard.vue'
-import AccessoryPanel from '@/components/AccessoryPanel.vue'
+import BreadboardPanel from '@/components/BreadboardPanel.vue'
 import OnScreenKeyboard from '@/components/OnScreenKeyboard.vue'
 import EmbedControlBar from '@/components/EmbedControlBar.vue'
 import { useEmulatorStore } from '@/stores/emulator'
@@ -38,7 +38,7 @@ import type { MediaSource, PanelName } from '@/embed/params'
 import { tryLoadMedia } from '@/embed/media'
 import { createKeyer } from '@/embed/keys'
 import { useEmbedMessaging } from '@/embed/messaging'
-import { createAccessory } from '@core/accessories/registry'
+import { createCircuit } from '@core/breadboard/registry'
 
 // Parsed before anything else: the machine's shape comes out of it, and
 // `origins` has to be known before the first inbound message can arrive.
@@ -62,11 +62,11 @@ const shown = computed<Record<PanelName, boolean>>(() => ({
   terminal: params.panels.includes('terminal'),
   lcd: params.panels.includes('lcd'),
   keys: params.panels.includes('keys'),
-  accessory: params.panels.includes('accessory')
+  breadboard: params.panels.includes('breadboard')
 }))
 
-/** The left column holds the terminal and the bay; the right, the card. */
-const leftColumn = computed(() => shown.value.terminal || shown.value.accessory)
+/** The left column holds the terminal and the breadboard; the right, the card. */
+const leftColumn = computed(() => shown.value.terminal || shown.value.breadboard)
 const rightColumn = computed(() => shown.value.lcd || shown.value.keys)
 
 /**
@@ -79,7 +79,7 @@ const rightColumn = computed(() => shown.value.lcd || shown.value.keys)
 const availableViews: NarrowView[] = [
   ...(shown.value.lcd || shown.value.keys ? (['machine'] as const) : []),
   ...(shown.value.terminal ? (['terminal'] as const) : []),
-  ...(shown.value.accessory ? (['bay'] as const) : [])
+  ...(shown.value.breadboard ? (['breadboard'] as const) : [])
 ]
 
 const { narrow, view, views, show } = useNarrowLayout({ views: availableViews })
@@ -99,15 +99,15 @@ const canSwitch = computed(() => params.controls !== 'none' && views.length > 1)
 /**
  * What the left-hand column is showing.
  *
- * The terminal and the bay take turns in it, the way they do in the app: the bay
+ * The terminal and the breadboard take turns in it, the way they do in the app: the breadboard
  * squeezed under the terminal has room for a dropdown or a circuit but not both.
  * With only one of the two on show there is nothing to take turns about and it
  * simply stays there, whatever the switch says.
  */
-const leftPanel = computed<'terminal' | 'accessory' | null>(() => {
-  if (!shown.value.terminal) return shown.value.accessory ? 'accessory' : null
-  if (!shown.value.accessory) return 'terminal'
-  return view.value === 'bay' ? 'accessory' : 'terminal'
+const leftPanel = computed<'terminal' | 'breadboard' | null>(() => {
+  if (!shown.value.terminal) return shown.value.breadboard ? 'breadboard' : null
+  if (!shown.value.breadboard) return 'terminal'
+  return view.value === 'breadboard' ? 'breadboard' : 'terminal'
 })
 
 /**
@@ -152,7 +152,7 @@ const hasHostKeyboard = !(window.matchMedia?.('(pointer: coarse) and (hover: non
 // both of which have to happen while the component is still setting up.
 store.init({
   serialCard: params.serialCard,
-  accessory: createAccessory(params.accessory)
+  circuit: createCircuit(params.breadboard)
 })
 
 /** One hand on the pad, shared by the boot sequence and `6502-kim:key`. */
@@ -200,7 +200,9 @@ const messaging = useEmbedMessaging({
   describe: () => ({
     rom: store.romName,
     cardROM: store.cardROMName,
-    accessory: params.accessory,
+    breadboard: params.breadboard,
+    // The same value under its name before 1.3, for pages that read it.
+    accessory: params.breadboard,
     serialCard: params.serialCard,
     panels: params.panels,
     controls: params.controls,
@@ -436,7 +438,7 @@ onUnmounted(() => {
       <div v-if="!canSwitch" class="panels panels-literal">
         <div v-if="leftColumn" class="panel-column flex-3">
           <Terminal v-if="shown.terminal" class="flex-4" />
-          <AccessoryPanel v-if="shown.accessory" class="flex-1" fixed />
+          <BreadboardPanel v-if="shown.breadboard" class="flex-1" fixed />
         </div>
         <MachineCard v-if="rightColumn" class="flex-2" />
       </div>
@@ -446,7 +448,7 @@ onUnmounted(() => {
       <div v-else-if="narrow" class="panels flex-col">
         <MachineCard v-if="view === 'machine'" class="flex-1" />
         <Terminal v-else-if="view === 'terminal'" class="flex-5" />
-        <AccessoryPanel v-else class="flex-1" fixed />
+        <BreadboardPanel v-else class="flex-1" fixed />
       </div>
 
       <!--
@@ -458,7 +460,7 @@ onUnmounted(() => {
       -->
       <div v-else class="panels">
         <div v-if="leftColumn" class="panel-column flex-3">
-          <AccessoryPanel v-if="leftPanel === 'accessory'" class="flex-1" fixed />
+          <BreadboardPanel v-if="leftPanel === 'breadboard'" class="flex-1" fixed />
           <Terminal v-else-if="leftPanel === 'terminal'" class="flex-1" />
         </div>
         <MachineCard v-if="rightColumn" class="flex-2" />

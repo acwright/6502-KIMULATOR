@@ -5,7 +5,7 @@ import {
 } from '../renderer/src/embed/params'
 import type { MediaSource } from '../renderer/src/embed/params'
 import { parseKeys, pressKeys, createKeyer } from '../renderer/src/embed/keys'
-import { LEDLatch } from '@core/accessories/LEDLatch'
+import { LEDLatch } from '@core/breadboard/LEDLatch'
 
 /**
  * The embed's whole configuration surface.
@@ -58,7 +58,7 @@ describe('parseEmbedParams — defaults', () => {
 
     expect(params.rom).toBeNull()
     expect(params.binaries).toEqual([])
-    expect(params.accessory).toBeNull()
+    expect(params.breadboard).toBeNull()
     expect(params.serialCard).toBe(true)
     expect(params.autostart).toBe(true)
     expect(params.autotype).toBeNull()
@@ -152,7 +152,7 @@ describe('bin / bin64', () => {
   })
 
   it('refuses an address above the top of RAM', () => {
-    // $9400 is the accessory bay, not memory — a write there never lands.
+    // $9400 is the breadboard, not memory — a write there never lands.
     const params = parseEmbedParams('?bin64=$9400=qQFg')
     expect(params.binaries).toEqual([])
     expect(params.warnings).toContainEqual(expect.stringContaining('$0000-$7FFF'))
@@ -177,26 +177,34 @@ describe('bin / bin64', () => {
   })
 })
 
-describe('accessory', () => {
+describe('breadboard', () => {
+  it('still takes accessory, the parameter\'s name before 1.3', () => {
+    expect(parseEmbedParams(`?accessory=${LEDLatch.ID}`).breadboard).toBe(LEDLatch.ID)
+  })
+
+  it('prefers breadboard when given both', () => {
+    expect(parseEmbedParams(`?breadboard=none&accessory=${LEDLatch.ID}`).breadboard).toBeNull()
+  })
+
   it('takes a registry id', () => {
-    expect(parseEmbedParams(`?accessory=${LEDLatch.ID}`).accessory).toBe(LEDLatch.ID)
+    expect(parseEmbedParams(`?breadboard=${LEDLatch.ID}`).breadboard).toBe(LEDLatch.ID)
   })
 
   it('is case-insensitive', () => {
-    expect(parseEmbedParams(`?accessory=${LEDLatch.ID.toUpperCase()}`).accessory).toBe(LEDLatch.ID)
+    expect(parseEmbedParams(`?breadboard=${LEDLatch.ID.toUpperCase()}`).breadboard).toBe(LEDLatch.ID)
   })
 
-  it('leaves the bay empty for none, empty and absent', () => {
-    expect(parseEmbedParams('?accessory=none').accessory).toBeNull()
-    expect(parseEmbedParams('?accessory=empty').accessory).toBeNull()
-    expect(parseEmbedParams('?accessory=').accessory).toBeNull()
-    expect(parseEmbedParams('').accessory).toBeNull()
-    expect(parseEmbedParams('?accessory=none').warnings).toEqual([])
+  it('leaves the breadboard empty for none, empty and absent', () => {
+    expect(parseEmbedParams('?breadboard=none').breadboard).toBeNull()
+    expect(parseEmbedParams('?breadboard=empty').breadboard).toBeNull()
+    expect(parseEmbedParams('?breadboard=').breadboard).toBeNull()
+    expect(parseEmbedParams('').breadboard).toBeNull()
+    expect(parseEmbedParams('?breadboard=none').warnings).toEqual([])
   })
 
   it('names what it knows about when the id is not one of them', () => {
-    const params = parseEmbedParams('?accessory=relay-board')
-    expect(params.accessory).toBeNull()
+    const params = parseEmbedParams('?breadboard=relay-board')
+    expect(params.breadboard).toBeNull()
     expect(params.warnings).toContainEqual(expect.stringContaining(LEDLatch.ID))
   })
 })
@@ -312,7 +320,7 @@ describe('keys', () => {
 
 describe('panels', () => {
   it('shows all four by default', () => {
-    expect(parseEmbedParams('').panels).toEqual(['terminal', 'lcd', 'keys', 'accessory'])
+    expect(parseEmbedParams('').panels).toEqual(['terminal', 'lcd', 'keys', 'breadboard'])
   })
 
   it('shows only what was named', () => {
@@ -321,20 +329,25 @@ describe('panels', () => {
   })
 
   it('returns them in layout order, not in the order they were written', () => {
-    expect(parseEmbedParams('?panels=accessory,keys,terminal,lcd').panels).toEqual([
+    expect(parseEmbedParams('?panels=breadboard,keys,terminal,lcd').panels).toEqual([
       'terminal',
       'lcd',
       'keys',
-      'accessory'
+      'breadboard'
     ])
   })
 
+  it('still accepts accessory and bay, the panel\'s names before 1.3', () => {
+    expect(parseEmbedParams('?panels=lcd,accessory').panels).toEqual(['lcd', 'breadboard'])
+    expect(parseEmbedParams('?panels=lcd,bay').panels).toEqual(['lcd', 'breadboard'])
+  })
+
   it('accepts the obvious other names for each panel', () => {
-    expect(parseEmbedParams('?panels=term,display,keypad,bay').panels).toEqual([
+    expect(parseEmbedParams('?panels=term,display,keypad,leds').panels).toEqual([
       'terminal',
       'lcd',
       'keys',
-      'accessory'
+      'breadboard'
     ])
   })
 
@@ -439,13 +452,13 @@ describe('origins', () => {
 describe('several parameters at once', () => {
   it('reads the LED demo the DOCS card describes', () => {
     const params = parseEmbedParams(
-      `?bin64=$0800=qQFg&accessory=${LEDLatch.ID}&panels=lcd,keys,accessory` +
+      `?bin64=$0800=qQFg&breadboard=${LEDLatch.ID}&panels=lcd,keys,breadboard` +
         '&keys=ESC,0,8,0,0,RIGHT,UP&controls=full&serialcard=0'
     )
 
     expect(params.binaries).toHaveLength(1)
-    expect(params.accessory).toBe(LEDLatch.ID)
-    expect(params.panels).toEqual(['lcd', 'keys', 'accessory'])
+    expect(params.breadboard).toBe(LEDLatch.ID)
+    expect(params.panels).toEqual(['lcd', 'keys', 'breadboard'])
     expect(params.keys).toEqual([0x10, 0x0a, 0x08, 0x0a, 0x0a, 0x0b, 0x14])
     expect(params.controls).toBe('full')
     expect(params.serialCard).toBe(false)
@@ -454,7 +467,7 @@ describe('several parameters at once', () => {
 
   it('collects every warning and still returns a usable machine', () => {
     const params = parseEmbedParams(
-      '?rom64=!!&bin=nope&accessory=relay&panels=video&keys=Q&controls=some&autostart=perhaps'
+      '?rom64=!!&bin=nope&breadboard=relay&panels=video&keys=Q&controls=some&autostart=perhaps'
     )
 
     // Eight, not seven: `panels` reports the name it did not know *and* that it
@@ -463,7 +476,7 @@ describe('several parameters at once', () => {
     // Everything fell back to its default, which is a machine that boots.
     expect(params.rom).toBeNull()
     expect(params.binaries).toEqual([])
-    expect(params.accessory).toBeNull()
+    expect(params.breadboard).toBeNull()
     expect(params.panels).toEqual([...ALL_PANELS])
     expect(params.keys).toEqual([])
     expect(params.controls).toBe('minimal')

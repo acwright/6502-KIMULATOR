@@ -16,7 +16,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { Machine } from '../core/Machine'
 import type { SlotConfig } from '../core/Machine'
-import { LEDLatch } from '../core/accessories/LEDLatch'
+import { LEDLatch } from '../core/breadboard/LEDLatch'
 import { keyForName } from '../core/KeypadMap'
 import { captureSnapshot, restoreSnapshot } from '../debug/Snapshot'
 import type { Snapshot } from '../debug/Snapshot'
@@ -127,7 +127,7 @@ const watchLamps = (machine: Machine, latch: LEDLatch, cycles: number): number[]
   return seen
 }
 
-describe('the KIM Demo LED accessory', () => {
+describe('the KIM Demo LED breadboard', () => {
 
   /**
    * The reason the latch reads back open bus, checked where it actually
@@ -237,9 +237,9 @@ describe('the KIM Demo LED accessory', () => {
   })
 
   /**
-   * The bay is part of the machine's shape, so a snapshot carries it — and
-   * because an accessory's registry id *is* its `IO.kind`, the slot-layout check
-   * that already refuses a differently-configured machine covers the bay for
+   * The breadboard is part of the machine's shape, so a snapshot carries it — and
+   * because a circuit's registry id *is* its `IO.kind`, the slot-layout check
+   * that already refuses a differently-configured machine covers the breadboard for
    * free.
    */
   describe('snapshots', () => {
@@ -256,14 +256,14 @@ describe('the KIM Demo LED accessory', () => {
       expect(latch.byte).toBe(0xa5)
     })
 
-    it('refuses to restore a fitted bay into an empty one', () => {
+    it('refuses to restore a fitted breadboard into an empty one', () => {
       const { machine } = fittedAtMonitor()
       const snapshot = captureSnapshot(machine)
 
       expect(() => restoreSnapshot(build(), snapshot)).toThrow(/io6/)
     })
 
-    it('refuses to restore an empty bay into a fitted one', () => {
+    it('refuses to restore an empty breadboard into a fitted one', () => {
       const snapshot = captureSnapshot(build())
 
       expect(() => restoreSnapshot(build({ io6: new LEDLatch() }), snapshot)).toThrow(/io6/)

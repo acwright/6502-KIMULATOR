@@ -4,7 +4,7 @@ import { Empty } from '../../core/IO/Empty'
 import { ROM } from '../../core/ROM'
 import { CardROM } from '../../core/CardROM'
 import type { SlotConfig } from '../../core/Machine'
-import { createAccessory } from '../../core/accessories/registry'
+import { createCircuit } from '../../core/breadboard/registry'
 import { loadBinary } from '../../core/ProgramImage'
 import { SerialConsole } from './SerialConsole'
 import { SerialLink } from '../../core/SerialPeer'
@@ -66,10 +66,10 @@ export interface HeadlessOptions {
   serialLines?: Partial<SerialLines>
 
   /**
-   * What is wired to the accessory bus at `$9400`, by its id in
-   * `core/accessories/registry` — null or omitted for an empty bay.
+   * What is wired to IO6 at `$9400`, by its id in
+   * `core/breadboard/registry` — null or omitted for an empty breadboard.
    */
-  accessory?: string | null
+  breadboard?: string | null
 
   baudRate?: number
 
@@ -237,13 +237,13 @@ export class HeadlessHost {
     this.inputGateOpen = options.inputAfter === undefined
 
     const serialCard = options.serialCard ?? true
-    const accessory = createAccessory(options.accessory)
+    const circuit = createCircuit(options.breadboard)
     const slots: SlotConfig = {
       // An empty io5 is not a broken machine: `HW_PRESENT & HW_SC` comes back
       // clear and the KC Monitor takes the keypad-only path it was written to
-      // support. io6 is the bay — vacant unless a circuit was asked for.
+      // support. io6 is the breadboard — vacant unless a circuit was asked for.
       ...(serialCard ? {} : { io5: new Empty() }),
-      io6: accessory ?? new Empty()
+      io6: circuit ?? new Empty()
     }
 
     // The scheduler drives periodic work at a byte's worth of emulated time, so

@@ -91,7 +91,7 @@ describe('a host serial port as the far end of the cable', () => {
     expect(acia(machine!).receiverEnabled).toBe(true)
   })
 
-  it('follows a new machine, as after fitting a card or wiring an accessory', () => {
+  it('follows a new machine, as after fitting a card or wiring a circuit', () => {
     peer.start()
     service.signals?.({ cts: false, dcd: true, dsr: true })
 

@@ -111,7 +111,7 @@
       <button data-send='{"type":"6502-kim:setKeyboard","open":true}'>keyboard on</button>
       <button data-send='{"type":"6502-kim:setKeyboard","open":false}'>keyboard off</button>
       <button data-send='{"type":"6502-kim:show","view":"terminal"}'>show TERM</button>
-      <button data-send='{"type":"6502-kim:show","view":"bay"}'>show BAY</button>
+      <button data-send='{"type":"6502-kim:show","view":"breadboard"}'>show BREADBOARD</button>
       <button data-send='{"type":"6502-kim:show","view":"machine"}'>show KIM</button>
       <button id="clear-log">clear log</button>
     </div>
@@ -184,7 +184,7 @@
 
       let embedA = frame(
         document.getElementById('embed-a'),
-        'controls=full&accessory=led-latch&keys=ESC'
+        'controls=full&breadboard=led-latch&keys=ESC'
       )
 
       // panels= drops what a page does not need. The pad is 4 x 6 and wants
@@ -271,7 +271,7 @@
         const safe = payload.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
         embedA = frame(
           document.getElementById('embed-a'),
-          `controls=full&accessory=led-latch&bin64=$0800=${safe}&keys=ESC,0,8,0,0,UP`
+          `controls=full&breadboard=led-latch&bin64=$0800=${safe}&keys=ESC,0,8,0,0,UP`
         )
         say(`rebuilt A with bin64= (${safe.length} chars in the URL) — ${note}`)
       }

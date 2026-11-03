@@ -3,7 +3,7 @@
  * Everything about the machine that is not a button on the control bar.
  *
  * Ported from 6502-EMULATOR with the KIM's sections. STORAGE and JOYSTICK are
- * gone with the hardware they configured. MACHINE and ACCESSORY are new, and
+ * gone with the hardware they configured. MACHINE and BREADBOARD are new, and
  * both change the machine's *shape* — which is why they rebuild it rather than
  * poking the one on the bench. You cannot fit a card with the power on.
  *
@@ -16,7 +16,7 @@ import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { ArrowPathIcon, XMarkIcon, ClipboardDocumentIcon, CheckIcon } from '@heroicons/vue/24/solid'
 import { useEmulatorStore } from '@/stores/emulator'
 import { useMachine } from '@/composables/useMachine'
-import { useAccessory } from '@/composables/useAccessory'
+import { useBreadboard } from '@/composables/useBreadboard'
 import { useSerial } from '@/composables/useSerial'
 import {
   loadDefaultBIOS,
@@ -150,22 +150,22 @@ function chooseJumper(pin: JumperPin, position: JumperPosition): void {
   saveSerialCardConfig()
 }
 
-// ── Accessory ─────────────────────────────────────────────────────────────────
+// ── Breadboard ─────────────────────────────────────────────────────────────────
 
 /**
- * The same choice the bay in the window offers, through the same composable —
+ * The same choice the breadboard in the window offers, through the same composable —
  * two dropdowns that could disagree about what is on the bus would be worse
  * than either on its own.
  */
 const {
-  options: accessories,
-  fitted: fittedAccessory,
-  selected: selectedAccessory,
-  fit: fitAccessory
-} = useAccessory()
+  options: circuits,
+  fitted: fittedCircuit,
+  selected: selectedCircuit,
+  fit: fitCircuit
+} = useBreadboard()
 
-function onSelectAccessory(event: Event): void {
-  fitAccessory((event.target as HTMLSelectElement).value || null)
+function onSelectCircuit(event: Event): void {
+  fitCircuit((event.target as HTMLSelectElement).value || null)
 }
 
 // ── Serial ────────────────────────────────────────────────────────────────────
@@ -436,15 +436,15 @@ onUnmounted(() => {
         </template>
       </section>
 
-      <!-- ── Accessory ─────────────────────────────────────────────────────── -->
+      <!-- ── Breadboard ─────────────────────────────────────────────────────── -->
       <section class="panel-section">
-        <h3 class="section-heading">ACCESSORY</h3>
+        <h3 class="section-heading">BREADBOARD</h3>
 
         <div class="config-item">
           <label class="config-label">Wired to <code>$9400</code> (io6)</label>
-          <select class="field" :value="selectedAccessory" @change="onSelectAccessory">
+          <select class="field" :value="selectedCircuit" @change="onSelectCircuit">
             <option value="">Empty</option>
-            <option v-for="option in accessories" :key="option.id" :value="option.id">
+            <option v-for="option in circuits" :key="option.id" :value="option.id">
               {{ option.name }}
             </option>
           </select>
@@ -452,8 +452,8 @@ onUnmounted(() => {
 
         <p class="hint">
           {{
-            fittedAccessory?.description ??
-            'Where a breadboard circuit plugs into the bus. An empty bay is how a KIM sits with nothing attached to it.'
+            fittedCircuit?.description ??
+            'Where a breadboard circuit plugs into the bus. An empty breadboard is how a KIM sits with nothing attached to it.'
           }}
           Wiring something in switches the machine off and on, so RAM is cleared.
         </p>
@@ -849,7 +849,7 @@ onUnmounted(() => {
   line-height: 1.4;
   color: #666;
   /* A top margin as well as a bottom one: a hint explains the control above it,
-     and with none it sat flush against the accessory dropdown's border and read
+     and with none it sat flush against the breadboard dropdown's border and read
      as part of the field rather than as a note about it. */
   margin: 6px 0 10px 0;
 }
@@ -864,7 +864,7 @@ onUnmounted(() => {
   color: #eee;
   /* Padding, not a fixed height. A field pinned to 26px has nowhere to put the
      16px text a touch device raises it to, and the glyphs spill out of the box —
-     which is what the accessory dropdown was doing on an iPad. Sized by its own
+     which is what the breadboard dropdown was doing on an iPad. Sized by its own
      line instead, it comes out the same on a desktop and simply grows when the
      text does. */
   padding: 3px 6px;

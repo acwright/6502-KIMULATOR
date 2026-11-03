@@ -36,7 +36,7 @@ $FFFA–$FFFF   CPU vectors             the Keypad Card's own
 
 The Keypad Card overlays the map, so **it is decoded before ROM**. Of the eight
 slots only two are ever filled: `io5` (`$9000`) holds the ACIA, and `io6`
-(`$9400`) is the accessory bus. The rest are `Empty`, deliberately.
+(`$9400`) is IO6. The rest are `Empty`, deliberately.
 
 **There is no cartridge slot.** The Keypad Card *is* the cartridge, and it is
 soldered into this emulator's identity. "Load Cart" does not exist in any
@@ -65,7 +65,7 @@ can be fitted later without reworking the bus. What does not come across is the
 | `../../Kicad/6502-KIM` | The hardware. `README.md` for the overlay map and the PIA pinout; `Firmware/KC Monitor/` for the ROM and `KC Monitor.asm`. |
 | `../../Assembly/6502-BIOS` | `BIOS.bin`, and `Kernal.asm` / `BIOS.inc` for `KernalInit`, the slot probes and `HW_PRESENT`. |
 | `../6502-DOCS` | `docs/reference/keypad-map.md` — the 24 keycodes. `docs/addons/kim.md`. The LED type-in cards. |
-| `../../Kicad/KIM Demo` | The LED accessory circuit. |
+| `../../Kicad/KIM Demo` | The LED latch circuit. |
 | `../bin2woz` | The upload format the Paste box has to accept. |
 
 ## Principles
@@ -98,7 +98,7 @@ lines. A phase ends with its tests green and its work committed.
 
 ```
 src/core/          the machine — CPU, RAM, ROM, IO cards, attachments
-src/core/accessories/       the bay at $9400 and what plugs into it
+src/core/breadboard/       the breadboard at $9400 and what plugs into it
 src/debug/         session, scheduler, disassembler, snapshots, the debug server
 src/main/          Electron main process
 src/preload/       the contextBridge
@@ -153,7 +153,7 @@ something is the way it is:
 - **3** — debug core & protocol
 - **4** — Electron shell
 - **5** — the interface
-- **6** — accessories
+- **6** — breadboard circuits
 - **7** — command line
 - **8** — web build & embed
 - **9** — README, LICENSE & examples
@@ -161,7 +161,7 @@ something is the way it is:
 
 `npm run dev` opens a window onto a KIM you can use: it boots both ROMs, prints
 the KC Monitor's banner to the terminal, shows `KIM MONITOR v1.0` on the glass,
-answers the pad, and — with the KIM Demo wired to the bay — runs both of the
+answers the pad, and — with the KIM Demo wired to the breadboard — runs both of the
 DOCS type-in cards and lights the LEDs. `6502-kim run --headless` is the same
 machine with no window: `printf '\x1b0800: A9 41\r'` into it deposits a byte
 through the monitor's serial prompt, and `6502-kim dbg key`/`lcd` drive the pad
@@ -189,9 +189,9 @@ does one thing — stops the debug bridge, so a client mid-call gets an answer
 instead of a timeout.
 
 `AppSettings` holds `serialConfig`, `serialCardFitted`, `serialCardConfig`,
-`accessory` and `flowControl`. There is no `frequency` — PHI2 on this board is
+`breadboard` and `flowControl`. There is no `frequency` — PHI2 on this board is
 1 MHz, as it is on the ACE. `serialCardFitted` and
-`accessory` are the machine's *shape*, and
+`breadboard` are the machine's *shape*, and
 a card cannot be fitted or pulled with the power on — so `store.init()` builds a
 new Machine and a new Session rather than mutating one. That is why
 `useDebugBridge` keeps its watch armed instead of firing once: a bridge still
@@ -335,15 +335,15 @@ typing into any `input`/`textarea`/`select` is not input to the machine at all
 (without that, keying an address into Load Binary would also key it into the
 monitor).
 
-**The accessory bay is one identifier all the way down.** A circuit's registry
+**A breadboard circuit is one identifier all the way down.** A circuit's registry
 `id` *is* its `IO.kind` (`led-latch`) — the string settings persist, the one
-`--accessory` will take, and the one `Snapshot.ts`'s slot-layout check compares.
+`--breadboard` will take, and the one `Snapshot.ts`'s slot-layout check compares.
 So a snapshot taken with the LEDs fitted already refuses to restore into an empty
-bay, with no accessory-specific code in the snapshot at all. `registry.ts` is the
+breadboard, with no circuit-specific code in the snapshot at all. `registry.ts` is the
 only list; adding a circuit is an entry there plus one line in
-`AccessoryPanel.vue`'s `VIEWS` map, which is the single place a component *name*
+`BreadboardPanel.vue`'s `VIEWS` map, which is the single place a component *name*
 becomes a component — core knows nothing about Vue. An id this build has never
-heard of leaves the bay empty rather than failing the boot, because a settings
+heard of leaves the breadboard empty rather than failing the boot, because a settings
 file written by a later version should still give you a machine you can use.
 
 **`LEDLatch` reads back open bus, and that is load-bearing.** `ProbeGPIO` writes
@@ -360,8 +360,8 @@ own $AA does flicker the lamps on every boot, exactly as on the bench.
 a program leaves the lamps holding whatever it last wrote; that is the hardware,
 not an oversight.
 
-**Fitting a circuit rebuilds the machine, and `useAccessory` is shared.** The bay
-in the window and the ACCESSORY section in Settings are two views of one choice —
+**Fitting a circuit rebuilds the machine, and `useBreadboard` is shared.** The breadboard
+in the window and the BREADBOARD section in Settings are two views of one choice —
 two dropdowns that could disagree about what is on the bus would be worse than
 either alone. What is *fitted* is read back off `machine.io6` rather than from the
 remembered selection, because after a rebuild the machine is the only thing that
@@ -533,7 +533,7 @@ half of all of this.
 **The embed was verified in a browser, not reasoned about.** Headless Chrome
 over CDP against `vite preview`: the app boots to `KIM MONITOR v1.0` with the
 splash on the glass, ESC typed into the terminal starts the monitor,
-`panels=lcd,keys` shows exactly those two, `bin64=$0800=…&accessory=led-latch&
+`panels=lcd,keys` shows exactly those two, `bin64=$0800=…&breadboard=led-latch&
 keys=ESC,UP` runs the DOCS binary counter with the lamps counting, and a host
 page framing `embed.html` drove it to `$1234` entirely over `postMessage`. Do
 that again rather than trusting a build that merely compiles — three of the
@@ -562,9 +562,9 @@ page-down key on load would be a bad one. The same click-to-focus router runs in
 both, and `focus()` is simply never called before the first pointer event.
 
 **`params.ts` reaches into `@core` for two lookup tables** — `KeypadMap` through
-`embed/keys.ts`, and the accessory registry — which is a deliberate exception to
+`embed/keys.ts`, and the circuit registry — which is a deliberate exception to
 its otherwise import-free rule. Both are pure data, they cost the node-only test
-suite nothing, and they are what let a mistyped key name or an unknown accessory
+suite nothing, and they are what let a mistyped key name or an unknown circuit
 be reported at parse time next to every other malformed parameter, rather than
 discovered silently three steps later. `keys=` and `6502-kim:key` read a bare
 token as a **name** (`0` is the zero key, reporting `$0A`) exactly as

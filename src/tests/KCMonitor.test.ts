@@ -188,7 +188,7 @@ describe('KC Monitor', () => {
   /**
    * `HW_PRESENT` after `KernalInit` is the BIOS's own account of what it found
    * on this bus. On a KIM it should read exactly `HW_SC` — nothing else is
-   * fitted, and in particular no VIA, which is why the accessory bay in phase 6
+   * fitted, and in particular no VIA, which is why the breadboard in phase 6
    * has to read back open bus.
    */
   describe('the BIOS slot probe', () => {

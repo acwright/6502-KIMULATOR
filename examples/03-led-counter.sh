@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Wire the LED breadboard to the accessory bus and run the type-in card on it.
+# Wire the LED latch to IO6 and run the type-in card on it.
 #
 # io6 — $9400-$97FF — is where a circuit gets wired on this machine, and the
 # first thing to plug into it is the KIM Demo: eight LEDs behind a 74HC373
@@ -42,7 +42,7 @@ latched() {
 
 say '1. Boot with the LEDs fitted and the card already typed in'
 
-# --bin is the type-in card without the typing. --accessory names a circuit from
+# --bin is the type-in card without the typing. --breadboard names a circuit from
 # the built-in registry; a typo is a message here rather than a run that quietly
 # proves nothing.
 printf '%s' "$COUNTER" | node -e '
@@ -54,8 +54,8 @@ printf '%s' "$COUNTER" | node -e '
   })
 ' "$WORK/counter.bin"
 
-show '6502-kim run --headless --debug --accessory led-latch --bin 0x0800=counter.bin'
-start_emulator --pause --accessory led-latch --bin "0x0800=$WORK/counter.bin"
+show '6502-kim run --headless --debug --breadboard led-latch --bin 0x0800=counter.bin'
+start_emulator --pause --breadboard led-latch --bin "0x0800=$WORK/counter.bin"
 
 dbg info
 boot_to_monitor
@@ -116,10 +116,10 @@ for step in 1 2 3; do
   expect "count after step $step" "$value" "$((first + step))"
 done
 
-say '5. The accessory survives a snapshot round-trip'
+say '5. The circuit survives a snapshot round-trip'
 
 # The snapshot records what is fitted as well as what it holds, so one taken
-# with the LEDs in refuses to restore into an empty bay — a test that thinks it
+# with the LEDs in refuses to restore into an empty breadboard — a test that thinks it
 # is driving a breadboard cannot silently be driving nothing.
 before=$(latched)
 dbg state save "$WORK/counting.state" >/dev/null
@@ -130,14 +130,14 @@ expect 'the lamps after the round-trip' "$(latched)" "$before"
 
 stop_emulator
 
-show '6502-kim run --headless --debug   # no --accessory: an empty bay'
+show '6502-kim run --headless --debug   # no --breadboard: an empty breadboard'
 start_emulator
 set +e
 message=$(dbg state load "$WORK/counting.state" 2>&1)
 status=$?
 set -e
 
-expect 'restoring an LED snapshot into an empty bay' "$status" 1
+expect 'restoring an LED snapshot into an empty breadboard' "$status" 1
 expect_match 'and the reason' "$message" 'slot'
 
 say 'Example 3 passed'

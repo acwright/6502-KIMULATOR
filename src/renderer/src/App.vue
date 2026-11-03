@@ -2,7 +2,7 @@
 /**
  * The KIMulator window.
  *
- * Terminal top-left, LCD top-right, keys beneath the LCD, the accessory bay
+ * Terminal top-left, LCD top-right, keys beneath the LCD, the breadboard
  * beneath the terminal, control bar across the bottom. The two panels that stand
  * for physical objects — the LCD and the pad — keep their proportions as the
  * window resizes, because a stretched keypad or a squashed display is the one
@@ -10,7 +10,7 @@
  *
  * Below 700px there is not room for two columns of that without squashing all
  * four, so the window shows the machine or the terminal, one at a time, with the
- * bay under both and a switch in the control bar — see useNarrowLayout.
+ * breadboard under both and a switch in the control bar — see useNarrowLayout.
  *
  * The keyboard goes to whichever panel you clicked; see useFocusRouter.
  */
@@ -22,7 +22,7 @@ import { useMachine } from '@/composables/useMachine'
 import { focus } from '@/composables/useFocusRouter'
 import Terminal from '@/components/Terminal.vue'
 import MachineCard from '@/components/MachineCard.vue'
-import AccessoryPanel from '@/components/AccessoryPanel.vue'
+import BreadboardPanel from '@/components/BreadboardPanel.vue'
 import ControlBar from '@/components/ControlBar.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import PasteModal from '@/components/PasteModal.vue'
@@ -77,9 +77,9 @@ onMounted(async () => {
       <MachineCard v-if="view === 'machine'" class="flex-1" />
       <Terminal v-else-if="view === 'terminal'" class="flex-5" />
 
-      <!-- The bay gets the whole panel here rather than a strip under one, so
+      <!-- The breadboard gets the whole panel here rather than a strip under one, so
            the dropdown and the circuit both have room. -->
-      <AccessoryPanel v-else class="flex-1" />
+      <BreadboardPanel v-else class="flex-1" />
     </div>
 
     <!--
@@ -90,17 +90,17 @@ onMounted(async () => {
     <div v-else class="panels flex min-h-0 flex-1 gap-px bg-neutral-800">
       <!--
         The left column takes turns, the same way the whole window does when it
-        is narrow: the terminal, or the accessory bay — the bus at $9400 and
-        whatever is wired to it. An empty bay is what a KIM is with nothing
+        is narrow: the terminal, or the breadboard — the bus at $9400 and
+        whatever is wired to it. An empty breadboard is what a KIM is with nothing
         plugged in.
 
-        The bay used to be a strip under the terminal, which suited eight LEDs
+        The breadboard used to be a strip under the terminal, which suited eight LEDs
         lying flat and would not suit a circuit of any height. As a column it has
         the same room the terminal does, and the terminal gets the whole column
         back when it is the one showing.
       -->
       <div class="flex min-w-0 flex-3 flex-col gap-px">
-        <AccessoryPanel v-if="view === 'bay'" class="flex-1" />
+        <BreadboardPanel v-if="view === 'breadboard'" class="flex-1" />
         <Terminal v-else class="flex-1" />
       </div>
 

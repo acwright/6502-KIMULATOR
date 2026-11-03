@@ -1,32 +1,32 @@
 import { computed } from 'vue'
-import { ACCESSORIES, accessoryOf } from '@core/accessories/registry'
+import { CIRCUITS, circuitOf } from '@core/breadboard/registry'
 import { useEmulatorStore } from '@/stores/emulator'
 import { useMachine } from '@/composables/useMachine'
 
 /**
- * What is wired to the accessory bus, and changing it.
+ * What is wired to IO6, and changing it.
  *
- * Shared by the bay in the window and the ACCESSORY section in Settings, which
+ * Shared by the breadboard in the window and the BREADBOARD section in Settings, which
  * are two views of one choice — a dropdown in each that could disagree would be
  * worse than either alone.
  *
  * What is *fitted* is read back off the machine rather than from a remembered
  * selection. The machine is the thing being described, and after a rebuild it is
  * the only thing that knows what actually went in: an id from a settings file
- * this build does not recognise leaves the bay empty, and the panel should then
+ * this build does not recognise leaves the breadboard empty, and the panel should then
  * say empty rather than name a circuit that is not there.
  */
-export function useAccessory() {
+export function useBreadboard() {
   const store = useEmulatorStore()
   const machine = useMachine()
 
-  /** The card on the bus, or null for an empty bay. */
-  const card = computed(() => store.getAccessory())
+  /** The card on the bus, or null for an empty breadboard. */
+  const card = computed(() => store.getCircuit())
 
   /** Its registry entry — name, description, and the component that draws it. */
-  const fitted = computed(() => accessoryOf(card.value))
+  const fitted = computed(() => circuitOf(card.value))
 
-  /** What the dropdowns show. The empty string is the empty bay. */
+  /** What the dropdowns show. The empty string is the empty breadboard. */
   const selected = computed(() => fitted.value?.id ?? '')
 
   /**
@@ -41,9 +41,9 @@ export function useAccessory() {
     const next = id || null
     if (next === (selected.value || null)) return
 
-    machine.rebuild({ accessory: next })
-    window.api?.settings.set({ accessory: next }).catch(() => {})
+    machine.rebuild({ breadboard: next })
+    window.api?.settings.set({ breadboard: next }).catch(() => {})
   }
 
-  return { options: ACCESSORIES, card, fitted, selected, fit }
+  return { options: CIRCUITS, card, fitted, selected, fit }
 }

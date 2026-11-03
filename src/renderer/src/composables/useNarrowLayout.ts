@@ -5,20 +5,20 @@ import { focus } from '@/composables/useFocusRouter'
 /**
  * What to do when the window cannot hold the whole machine at once.
  *
- * The four panels assume two columns: the terminal and the accessory bay down
+ * The four panels assume two columns: the terminal and the breadboard down
  * one side, the LCD and the pad down the other. On a phone in portrait that
  * gives every one of them about a third of the room it needs — a keypad you
  * cannot hit, and an LCD too small to read, which is the one distortion you
  * notice immediately.
  *
  * So below the threshold the window shows one of them at a time: the machine
- * itself — the LCD and the pad — the terminal, or the accessory bay.
+ * itself — the LCD and the pad — the terminal, or the breadboard.
  *
- * The bay is a view rather than a strip under one, and that holds at every size.
+ * The breadboard is a view rather than a strip under one, and that holds at every size.
  * Squeezed beneath a panel it had room for a dropdown or a circuit but not both,
  * which was fine for eight LEDs lying flat and will not be fine for the next
- * accessory. Wide, the card keeps the right-hand column and the terminal and the
- * bay share the left one; narrow, all three take turns. Either way the bay gets
+ * breadboard. Wide, the card keeps the right-hand column and the terminal and the
+ * breadboard share the left one; narrow, all three take turns. Either way the breadboard gets
  * a whole panel when it is the one being looked at.
  *
  * Two columns need a window that is wider than it is tall, and big enough in
@@ -36,13 +36,13 @@ import { focus } from '@/composables/useFocusRouter'
  *     at a time.
  */
 
-export type NarrowView = 'machine' | 'terminal' | 'bay'
+export type NarrowView = 'machine' | 'terminal' | 'breadboard'
 
 /**
  * Layout order, which is also preference order: the card first, because the pad
  * is the machine.
  */
-export const ALL_VIEWS: readonly NarrowView[] = ['machine', 'terminal', 'bay']
+export const ALL_VIEWS: readonly NarrowView[] = ['machine', 'terminal', 'breadboard']
 
 const QUERY = '(max-width: 700px), (max-height: 480px), (orientation: portrait)'
 
@@ -99,7 +99,7 @@ export function useNarrowLayout(options: NarrowLayoutOptions = {}): {
    * the render: the region being switched to does not exist until Vue has
    * mounted it, and the one being switched away from deregisters as it goes.
    *
-   * The bay is not a region and takes no keys. Its dropdown takes focus when it
+   * The breadboard is not a region and takes no keys. Its dropdown takes focus when it
    * is used, and the focus router leaves fields alone. What the keyboard should
    * do instead depends on what else is on screen: wide, the pad is still there
    * and should have the keys the terminal just gave up; narrow, nothing that
@@ -108,7 +108,7 @@ export function useNarrowLayout(options: NarrowLayoutOptions = {}): {
   const show = (next: NarrowView): void => {
     if (!views.includes(next)) return
     view.value = next
-    if (next === 'bay') {
+    if (next === 'breadboard') {
       if (!narrow.value) void nextTick(() => focus('keypad'))
       return
     }

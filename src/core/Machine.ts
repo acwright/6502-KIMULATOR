@@ -27,7 +27,7 @@ export type SlotName ='io1' | 'io2' | 'io3' | 'io4' | 'io5' | 'io6' | 'io7' | 'i
  * Omitted slots get the standard card.
  *
  * A KIM only ever fills two of the eight: io5 holds the Serial Card and io6 is
- * the accessory bus. The other six are `Empty` deliberately — there is no RAM
+ * IO6. The other six are `Empty` deliberately — there is no RAM
  * bank, no RTC, no storage, no SID and no video on this machine.
  */
 export type SlotConfig = Partial<Record<SlotName, IO>>

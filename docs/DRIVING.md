@@ -127,8 +127,8 @@ failing; it is the emulator being accurate. Put programs at `$0800`.
 # Bytes at an address — a type-in card without the typing.
 6502-kim run --headless --bin 0x0800=build/counter.bin --max-cycles 5e6
 
-# With the LED breadboard wired to the accessory bus at $9400.
-6502-kim run --headless --accessory led-latch --bin 0x0800=build/counter.bin
+# With the LED latch wired to IO6 at $9400.
+6502-kim run --headless --breadboard led-latch --bin 0x0800=build/counter.bin
 
 # A freshly built KC Monitor, without burning an AT28C64.
 6502-kim run --headless --card-rom "build/KC Monitor.bin"
@@ -260,7 +260,7 @@ HD44780's four ~41 ms software delays. Pay it once:
 ```
 
 A snapshot records the machine's shape as well as its contents, so one taken
-with the LEDs fitted refuses to restore into an empty bay, and one taken by
+with the LEDs fitted refuses to restore into an empty breadboard, and one taken by
 6502-EMULATOR is refused outright — the format string is `6502-kim-snapshot`.
 
 ## Waiting, not sleeping
@@ -357,7 +357,7 @@ to do, and reporting that as a timeout would fail a passing CI job.
 set -euo pipefail
 
 # One machine, one boot, driven from the pad.
-6502-kim run --headless --debug --pause --accessory led-latch \
+6502-kim run --headless --debug --pause --breadboard led-latch \
   --bin 0x0800=build/counter.bin --timeout 2m --quiet &
 emulator=$!
 trap 'kill $emulator 2>/dev/null || true' EXIT

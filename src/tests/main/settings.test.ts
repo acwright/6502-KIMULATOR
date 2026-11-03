@@ -38,8 +38,8 @@ describe('SettingsService', () => {
   it('turns flow control on once in a file without a version, keeps everything else, and writes the version back', () => {
     writeFileSync(settingsFile, JSON.stringify(legacy))
     const settings = new SettingsService()
-    expect(settings.get()).toMatchObject({ flowControl: true, accessory: 'leds', settingsVersion: SETTINGS_VERSION })
-    expect(onDisk()).toMatchObject({ flowControl: true, accessory: 'leds', settingsVersion: SETTINGS_VERSION })
+    expect(settings.get()).toMatchObject({ flowControl: true, breadboard: 'leds', settingsVersion: SETTINGS_VERSION })
+    expect(onDisk()).toMatchObject({ flowControl: true, breadboard: 'leds', settingsVersion: SETTINGS_VERSION })
   })
 
   it('keeps flow control off when it is turned off after the migration', () => {
@@ -143,9 +143,9 @@ describe('SettingsService', () => {
         serialConfig: { baudRate: 9600, dataBits: 8, parity: 'none', stopBits: 1 },
         serialCardFitted: true,
         serialCardConfig: { card: 'standard', jumpers: { cts: 'ground' } },
-        accessory: 'led-latch',
+        breadboard: 'led-latch',
         flowControl,
-        settingsVersion: 3
+        settingsVersion: SETTINGS_VERSION
       })
       // Once, and written back.
       expect(onDisk()).toEqual(loaded)
@@ -181,10 +181,10 @@ describe('SettingsService', () => {
 
     it('keeps a keypad-only machine keypad-only', () => {
       writeFileSync(settingsFile, JSON.stringify({ ...written112(true, true), serialCardFitted: false }))
-      expect(new SettingsService().get()).toMatchObject({ serialCardFitted: false, settingsVersion: 3 })
+      expect(new SettingsService().get()).toMatchObject({ serialCardFitted: false, settingsVersion: SETTINGS_VERSION })
     })
 
-    it('leaves a version 3 file alone', () => {
+    it('leaves a current file alone', () => {
       writeFileSync(
         settingsFile,
         JSON.stringify({ ...DEFAULT_APP_SETTINGS, serialCardConfig: { card: 'pro', jumpers: { dcd: 'cable' } } })
@@ -195,10 +195,36 @@ describe('SettingsService', () => {
     })
   })
 
+  /**
+   * `accessory` became `breadboard` in 1.3. Someone with the LEDs wired in should
+   * still have them after the update, and the old key should leave the file.
+   */
+  describe('migrating a file written by 1.2 (version 3)', () => {
+    const written12 = (accessory: string | null): Record<string, unknown> => {
+      const { breadboard: _new, ...rest } = DEFAULT_APP_SETTINGS
+      return { ...rest, accessory, settingsVersion: 3 }
+    }
+
+    it('moves accessory to breadboard, and writes it back without the old key', () => {
+      writeFileSync(settingsFile, JSON.stringify(written12('led-latch')))
+      const loaded = new SettingsService().get()
+      expect(loaded.breadboard).toBe('led-latch')
+      expect(loaded.settingsVersion).toBe(SETTINGS_VERSION)
+      expect(loaded).not.toHaveProperty('accessory')
+      expect(onDisk()).toMatchObject({ breadboard: 'led-latch', settingsVersion: SETTINGS_VERSION })
+      expect(onDisk()).not.toHaveProperty('accessory')
+    })
+
+    it('keeps an empty breadboard empty', () => {
+      writeFileSync(settingsFile, JSON.stringify(written12(null)))
+      expect(new SettingsService().get().breadboard).toBeNull()
+    })
+  })
+
   it('keeps a --no-flow-control launch out of the file', () => {
     const settings = new SettingsService()
     settings.override({ flowControl: false })
-    settings.set({ accessory: null })
+    settings.set({ breadboard: null })
     expect(settings.get().flowControl).toBe(false)
     expect(onDisk()).toMatchObject({ flowControl: true })
   })

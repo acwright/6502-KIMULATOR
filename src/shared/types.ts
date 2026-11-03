@@ -129,15 +129,15 @@ export interface AppSettings {
    */
   serialCardFitted: boolean
   /**
-   * The accessory wired to the bus at $9400, by its `id` in
-   * `core/accessories/registry` — null for an empty bay, which is what a KIM is
+   * The breadboard wired to the bus at $9400, by its `id` in
+   * `core/breadboard/registry` — null for an empty breadboard, which is what a KIM is
    * without a breadboard plugged into it.
    *
    * An id this build does not recognise leaves io6 vacant rather than failing
    * the boot: a settings file written by a later version should give you a
    * machine you can still use.
    */
-  accessory: string | null
+  breadboard: string | null
   /**
    * Which serial card io5 holds when one is fitted, and its jumpers
    * (`--serial-card`, `--cts`, `--dcd`). Not in a file written before 1.2,
@@ -180,7 +180,7 @@ export interface AppSettings {
  * `flowControl`, loses `rtscts`, and gets the Serial Card with `CTS EN` at
  * ground: the machine it always had.
  */
-export const SETTINGS_VERSION = 3
+export const SETTINGS_VERSION = 4
 
 /**
  * There is no CPU frequency here. PHI2 on this board is 1 MHz, so there is
@@ -190,7 +190,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   serialConfig: DEFAULT_SERIAL_CONFIG,
   serialCardFitted: true,
   serialCardConfig: DEFAULT_SERIAL_CARD,
-  accessory: null,
+  breadboard: null,
   flowControl: true,
   settingsVersion: SETTINGS_VERSION
 }

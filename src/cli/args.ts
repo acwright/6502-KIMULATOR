@@ -13,7 +13,7 @@
  * there is nothing to pin and every run is already reproducible.
  */
 
-import { ACCESSORIES, accessoryFor } from '../core/accessories/registry'
+import { CIRCUITS, circuitFor } from '../core/breadboard/registry'
 import { SERIAL_CARDS, normalizeSerialCard } from '../core/IO/SerialCard'
 import type { SerialCardConfig } from '../core/IO/SerialCard'
 import {
@@ -130,17 +130,25 @@ export function parseDuration(text: string, label: string): number {
 }
 
 /**
- * `--accessory led-latch` — which circuit is wired to the bus at `$9400`.
+ * `--breadboard led-latch` — which circuit is wired to the bus at `$9400`.
  *
  * Checked against the registry here rather than left to the machine, which
- * leaves the bay empty for an id it does not recognise. That is right for a
+ * leaves the breadboard empty for an id it does not recognise. That is right for a
  * settings file written by a later version and wrong for a command line: a typo
  * should be a message in the terminal, not a run that quietly proves nothing.
  */
-export function parseAccessory(id: string): string {
-  if (accessoryFor(id)) return id
-  const known = ACCESSORIES.map((accessory) => accessory.id).join(', ')
-  throw new UsageError(`--accessory: no accessory "${id}" — this build has ${known}`)
+export function parseBreadboard(id: string): string {
+  if (circuitFor(id)) return id
+  const known = CIRCUITS.map((circuit) => circuit.id).join(', ')
+  throw new UsageError(`--breadboard: no circuit "${id}" — this build has ${known}`)
+}
+
+/**
+ * `--breadboard`, or `--accessory`, its name before 1.3. Scripts written against
+ * an older release keep working. Given both, `--breadboard` wins.
+ */
+export function breadboardFlag(values: { breadboard?: string; accessory?: string }): string | undefined {
+  return values.breadboard ?? values.accessory
 }
 
 /**

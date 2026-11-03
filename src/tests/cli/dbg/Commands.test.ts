@@ -26,7 +26,7 @@ import type { SerialLines } from '../../../core/SerialPeer'
  * not a second copy of LockFile's tests.
  */
 
-/** A machine in its standard shape: the Serial Card in io5, the bay empty. */
+/** A machine in its standard shape: the Serial Card in io5, the breadboard empty. */
 function bareSession(): Session {
   return new Session()
 }

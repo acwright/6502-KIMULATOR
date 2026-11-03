@@ -1,4 +1,4 @@
-import { LEDLatch } from '../../core/accessories/LEDLatch'
+import { LEDLatch } from '../../core/breadboard/LEDLatch'
 import { StateError } from '../../core/DeviceState'
 import { Machine } from '../../core/Machine'
 
@@ -92,7 +92,7 @@ describe('LEDLatch', () => {
 
   /**
    * On the bus rather than in isolation: io6 is decoded at $9400-$97FF, and the
-   * accessory is the only card on a KIM that a program is expected to write to
+   * breadboard is the only card on a KIM that a program is expected to write to
    * directly.
    */
   describe('on the bus', () => {

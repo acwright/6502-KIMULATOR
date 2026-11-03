@@ -50,9 +50,9 @@ frame: a real KIM sits on the same splash until you touch it.
 |---|---|---|
 | `rom` | bundled BIOS | URL of a 32 KB BIOS image |
 | `bin` | — | `<address>=<url>`, raw bytes at an explicit address in RAM. Repeatable |
-| `accessory` | none | What is wired to the bay at `$9400`. `led-latch`, or `none` |
+| `breadboard` | none | What is wired to the breadboard at `$9400`. `led-latch`, or `none`. `accessory` is its name before 1.3, and still works |
 | `serialcard` | `1` | Whether io5 holds the ACIA. `0` gives the keypad-only machine |
-| `panels` | all four | Which of `terminal`, `lcd`, `keys`, `accessory` are shown |
+| `panels` | all four | Which of `terminal`, `lcd`, `keys`, `breadboard` are shown |
 | `keys` | — | A sequence keyed on the pad once the machine is up, e.g. `ESC,0,8,0,0,UP` |
 | `autotype` | — | Text typed down the serial line once the machine is up |
 | `autostart` | `1` | Boot the machine on load |
@@ -101,12 +101,12 @@ frame shows:
 | `terminal` | `term`, `serial` | 40×24, white on black — what the serial port sees, both ways |
 | `lcd` | `display` | The 16×2 HD44780 on the Keypad LCD Helper |
 | `keys` | `keypad`, `pad` | The 24-key pad |
-| `accessory` | `bay`, `leds` | The bus at `$9400` and whatever is wired to it |
+| `breadboard` | `leds`, and `accessory` and `bay` from before 1.3 | The bus at `$9400` and whatever is wired to it |
 
 ```
 ?panels=lcd,keys        the machine you hold
 ?panels=terminal        the serial monitor alone
-?panels=lcd,accessory   a program's output, with no way to interfere
+?panels=lcd,breadboard   a program's output, with no way to interfere
 ```
 
 They come back in layout order however you write them, so the panels sit the way
@@ -193,7 +193,7 @@ bytes in the URL instead of naming a file to fetch:
 
 ```html
 <!-- The DOCS binary counter, running on the LEDs, fetching nothing. -->
-<iframe src="…/embed.html?bin64=$0800=ZDalNo0AlKkyogAgdaDmNoDw&accessory=led-latch&keys=ESC,UP"></iframe>
+<iframe src="…/embed.html?bin64=$0800=ZDalNo0AlKkyogAgdaDmNoDw&breadboard=led-latch&keys=ESC,UP"></iframe>
 ```
 
 This is the form to reach for on a documentation site. It needs no CORS headers,
@@ -341,14 +341,14 @@ it was asked for.
 Four panels assume two columns, and a phone-sized frame has room for neither. So
 below a frame wider than it is tall and big enough in both directions — the same
 threshold the full app uses — the embed shows **one panel at a time**, with a
-KIM / TERM / BAY switch in the control bar. The display and the pad count as one
+KIM / TERM / BREADBOARD switch in the control bar. The display and the pad count as one
 choice, because they are one card.
 
 The switch only offers what `panels=` asked for. `panels=lcd,keys` is one view
-and gets no switch at all; `panels=terminal,accessory` gets two.
+and gets no switch at all; `panels=terminal,breadboard` gets two.
 
 Wide, the same thing happens in the left-hand column only: the terminal and the
-bay take turns in it while the card keeps the right-hand column. The bay squeezed
+breadboard take turns in it while the card keeps the right-hand column. The breadboard squeezed
 under the terminal had room for a dropdown or a circuit but not both.
 
 **`controls=none` turns all of this off.** There is no bar, so there is no
@@ -375,8 +375,8 @@ panels you asked for:
 | `lcd,keys` | 360 × 520 — the pad is 4 × 6, and wants height | One card, no switch |
 | `terminal` | 480 × 400 — the tube is 4:3 | One panel, no switch |
 | `lcd` | 400 × 140 | One card, no switch |
-| `lcd,accessory` | 400 × 300 | Two views behind a switch |
-| `lcd,accessory` | 640 × 520 | Two columns |
+| `lcd,breadboard` | 400 × 300 | Two views behind a switch |
+| `lcd,breadboard` | 640 × 520 | Two columns |
 
 **560 and not 480, which this used to say.** Two columns need a frame wider than
 it is tall and at least 481 points high; below that the panels take turns behind
@@ -444,7 +444,7 @@ frame.postMessage({ type: '6502-kim:reset' }, '*')
 | `6502-kim:reset` | — | Warm reset — pulses RESET, keeps RAM |
 | `6502-kim:powerCycle` | — | Cold reset — zeroes RAM |
 | `6502-kim:setKeyboard` | `open` | Show or hide the on-screen keyboard. Refused on a frame with `serialcard=0` |
-| `6502-kim:show` | `view` | Bring a panel to the front: `machine`, `terminal` or `bay`. Ignored on a frame showing them all already, or one whose `panels=` does not include it |
+| `6502-kim:show` | `view` | Bring a panel to the front: `machine`, `terminal` or `breadboard` (`bay` before 1.3, which still works). Ignored on a frame showing them all already, or one whose `panels=` does not include it |
 
 `data` may be a base64 string, an `ArrayBuffer`, a typed array, or an array of
 byte values. A string is the one that survives being written into a JSON blob or
@@ -480,7 +480,7 @@ window.addEventListener('message', (event) => {
 
 | Message | Fields |
 |---|---|
-| `6502-kim:ready` | `rom`, `cardROM`, `accessory`, `serialCard`, `panels`, `controls`, `keyboard`, `view`, `views`, `warnings` — sent once, after the boot sequence. `keyboard` is the resolved boolean, not the `keyboard=` mode; `views` is empty on a frame that cannot switch |
+| `6502-kim:ready` | `rom`, `cardROM`, `breadboard` (also sent as `accessory`, its name before 1.3), `serialCard`, `panels`, `controls`, `keyboard`, `view`, `views`, `warnings` — sent once, after the boot sequence. `keyboard` is the resolved boolean, not the `keyboard=` mode; `views` is empty on a frame that cannot switch |
 | `6502-kim:stopped` | `reason`, the debug protocol's `StopReason`. A program ending in `STP` arrives as `{ kind: 'trap', detail: 'stp' }` — see [DEBUG-PROTOCOL.md](DEBUG-PROTOCOL.md) |
 | `6502-kim:serial` | `bytes` (numbers) and `text`, from the ACIA. Coalesced over ~32 ms rather than one message per character. Silent on a machine with `serialcard=0` |
 

@@ -12,7 +12,8 @@ import { parseSymbols, formatForPath } from '../debug/symbols/parse'
 import { formatLCD } from './dbg/format'
 import {
   UsageError,
-  parseAccessory,
+  breadboardFlag,
+  parseBreadboard,
   parseBinarySpec,
   parseCount,
   parseDuration,
@@ -34,7 +35,8 @@ Machine
                             KC Monitor (8 KB) — for testing a fresh build of the
                             firmware without burning an AT28C64
   --bin <addr>=<file>       Load raw bytes at an address (repeatable)
-  --accessory <id>          Wire a circuit to the accessory bus at $9400
+  --breadboard <id>         Wire a breadboard circuit to IO6 at $9400.
+                            --accessory is its older name, and still works
   --no-serial-card          Leave io5 vacant. HW_PRESENT comes back without
                             HW_SC and the KC Monitor takes its keypad-only path,
                             which is a machine the firmware supports and the only
@@ -99,7 +101,7 @@ Notes
   to choose.
 
   --baud, --serial-config, --serial-card, --cts, --dcd, --peer-rts,
-  --accessory and --no-serial-card set what the app's Settings panel sets, for
+  --breadboard and --no-serial-card set what the app's Settings panel sets, for
   that launch only: they show up in the panel, and nothing is written to your
   saved settings. Without --peer-rts the app uses its saved setting.
 
@@ -147,7 +149,7 @@ Notes
 
 Examples
   # Cross-development: build, then key it in on a real-looking pad.
-  6502-kim run --bin 0x0800=build/counter.bin --accessory led-latch
+  6502-kim run --bin 0x0800=build/counter.bin --breadboard led-latch
 
   # Same machine, no window, for a script or an agent.
   6502-kim run --headless --bin 0x0800=build/counter.bin --max-cycles 5e6
@@ -167,6 +169,7 @@ const OPTIONS = {
   rom: { type: 'string' },
   'card-rom': { type: 'string' },
   bin: { type: 'string', multiple: true },
+  breadboard: { type: 'string' },
   accessory: { type: 'string' },
   'no-serial-card': { type: 'boolean' },
   baud: { type: 'string' },
@@ -284,6 +287,7 @@ export async function runCommand(argv: string[]): Promise<number> {
   // Both of these match against serial output, and a machine with no Serial
   // Card produces none. Accepting them would mean a run that can only ever end
   // on its timeout, reporting exit 2 for a program that did nothing wrong.
+  const breadboard = breadboardFlag(values)
   const needsConsole = (['exit-on', 'input-after'] as const).filter(
     (flag) => values[flag] !== undefined
   )
@@ -319,7 +323,7 @@ export async function runCommand(argv: string[]): Promise<number> {
     binaries,
     serialCard,
     ...(serialCardConfig ? { serialCardConfig } : {}),
-    ...(values.accessory !== undefined ? { accessory: parseAccessory(values.accessory) } : {}),
+    ...(breadboard !== undefined ? { breadboard: parseBreadboard(breadboard) } : {}),
     baudRate: values.baud ? parseCount(values.baud, '--baud') : undefined,
     flowControl,
     maxCycles: values['max-cycles'] ? parseCount(values['max-cycles'], '--max-cycles') : undefined,
@@ -343,7 +347,7 @@ export async function runCommand(argv: string[]): Promise<number> {
         // at ground: a jumper at the cable is what makes a silent machine likely.
         `${!host.serial || isDefaultSerialCard(host.serialCardConfig) ? '' : `, ${describeSerialCard(host.serialCardConfig)}`}` +
         `${host.flowControl ? '' : ', no flow control'}` +
-        `${values.accessory ? `, ${values.accessory}` : ''}` +
+        `${breadboard ? `, ${breadboard}` : ''}` +
         `${values.realtime ? '' : ', turbo'}\n`
     )
   }

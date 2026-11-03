@@ -53,10 +53,10 @@ const props = defineProps<{
 
 /**
  * Wide, `machine` is not a choice — the machine is always there — so any view
- * that is not the bay is the terminal's turn in the column.
+ * that is not the breadboard is the terminal's turn in the column.
  */
 const terminalActive = computed(() =>
-  props.narrow ? props.view === 'terminal' : props.view !== 'bay'
+  props.narrow ? props.view === 'terminal' : props.view !== 'breadboard'
 )
 
 const store = useEmulatorStore()
@@ -163,12 +163,12 @@ async function onLoadBinary(event: Event): Promise<void> {
         TERM
       </button>
       <button
-        :class="{ 'view-on': view === 'bay' }"
-        title="The accessory bay — what is wired to the bus at $9400"
-        :aria-pressed="view === 'bay'"
-        @click="$emit('show-view', 'bay')"
+        :class="{ 'view-on': view === 'breadboard' }"
+        title="The breadboard — what is wired to the bus at $9400"
+        :aria-pressed="view === 'breadboard'"
+        @click="$emit('show-view', 'breadboard')"
       >
-        BAY
+        BREADBOARD
       </button>
     </div>
 

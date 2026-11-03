@@ -123,9 +123,9 @@ read_result=$(rpc mem.read '{"address":"$0800","length":8}')
 printf '%s\n' "$read_result"
 expect_match 'the reply carries base64 data' "$read_result" '"data":"'
 
-# The accessory bay is on the bus like anything else, and reading it is how you
+# The breadboard is on the bus like anything else, and reading it is how you
 # find out it does not read back: a 74HC373 has no read strobe.
-expect 'the empty bay at $9400' "$(rpc mem.read '{"address":"$9400","length":4}' | result data)" 'AAAAAA=='
+expect 'the empty breadboard at $9400' "$(rpc mem.read '{"address":"$9400","length":4}' | result data)" 'AAAAAA=='
 
 say '6. Errors are JSON-RPC errors, with codes a client can branch on'
 

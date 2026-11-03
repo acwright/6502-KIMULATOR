@@ -1,4 +1,4 @@
-import { accessoryFor, ACCESSORIES } from '@core/accessories/registry'
+import { circuitFor, CIRCUITS } from '@core/breadboard/registry'
 import { parseKeys } from './keys'
 
 /**
@@ -8,8 +8,8 @@ import { parseKeys } from './keys'
  * testable as plain TypeScript under the existing node-environment Jest setup.
  * Anything that needs a browser (fetching a URL, mounting the app) lives in
  * `media.ts` and `EmbedApp.vue`. The two core modules it does reach for,
- * `KeypadMap` (through `./keys`) and the accessory registry, are lookup tables:
- * they are here so that a mistyped key or an accessory this build has never
+ * `KeypadMap` (through `./keys`) and the circuit registry, are lookup tables:
+ * they are here so that a mistyped key or a circuit this build has never
  * heard of is reported at parse time, next to every other malformed parameter,
  * rather than discovered silently three steps later.
  *
@@ -35,7 +35,7 @@ import { parseKeys } from './keys'
  * that is not on it. Nothing persists either, because a real KIM loses its RAM
  * when you switch it off.
  *
- * What replaces them is the machine's own shape — `accessory` and `serialcard`,
+ * What replaces them is the machine's own shape — `breadboard` and `serialcard`,
  * the two things `AppSettings` keeps — plus `panels` and `keys`, which have no
  * counterpart upstream because no other machine in the family is four separate
  * physical objects with a 24-key pad among them.
@@ -65,9 +65,9 @@ export type ControlsMode = 'full' | 'minimal' | 'none'
 export type KeyboardMode = 'auto' | 'on' | 'off'
 
 /** The four things you can look at. `panels=` names a subset. */
-export type PanelName = 'terminal' | 'lcd' | 'keys' | 'accessory'
+export type PanelName = 'terminal' | 'lcd' | 'keys' | 'breadboard'
 
-export const ALL_PANELS: readonly PanelName[] = ['terminal', 'lcd', 'keys', 'accessory']
+export const ALL_PANELS: readonly PanelName[] = ['terminal', 'lcd', 'keys', 'breadboard']
 
 /** Where a piece of media comes from: fetched, or carried in the URL itself. */
 export type MediaSource =
@@ -84,8 +84,8 @@ export interface EmbedParams {
   /** BIOS image; null means the bundled one. */
   rom: MediaSource | null
   binaries: BinarySource[]
-  /** Registry id of the circuit wired to the bay at $9400, or null for empty. */
-  accessory: string | null
+  /** Registry id of the circuit wired to the breadboard at $9400, or null for empty. */
+  breadboard: string | null
   /** Whether io5 holds the ACIA. `false` gives the keypad-only machine. */
   serialCard: boolean
   autostart: boolean
@@ -370,7 +370,7 @@ export function parseEmbedParams(search: string | URLSearchParams = ''): EmbedPa
   return {
     rom: readMedia(query, 'rom', warnings),
     binaries: readBinaries(query, warnings),
-    accessory: readAccessory(query, warnings),
+    breadboard: readBreadboard(query, warnings),
     serialCard,
     autostart: readBoolean(query.get('autostart'), 'autostart', true, warnings),
     autotype: readAutotype(query, warnings),
@@ -424,23 +424,26 @@ function readKeyboardMode(raw: string | null, warnings: string[]): KeyboardMode 
 }
 
 /**
- * What is wired to the bay at $9400.
+ * What is wired to the breadboard at $9400.
  *
- * The value is a registry id — the same string `--accessory` takes and settings
+ * The value is a registry id — the same string `--breadboard` takes and settings
  * persist, because a circuit's id *is* its `IO.kind` all the way down. Absent,
- * empty or `none` leaves the bay vacant, which is what a KIM is with nothing
+ * empty or `none` leaves the breadboard vacant, which is what a KIM is with nothing
  * plugged in.
+ *
+ * `accessory` is the parameter's name before 1.3, and still works so that links
+ * already on other sites keep their circuit. Given both, `breadboard` wins.
  */
-function readAccessory(query: URLSearchParams, warnings: string[]): string | null {
-  const raw = query.get('accessory')
+function readBreadboard(query: URLSearchParams, warnings: string[]): string | null {
+  const raw = query.get('breadboard') ?? query.get('accessory')
   if (raw === null) return null
 
   const id = raw.trim().toLowerCase()
   if (id === '' || id === 'none' || id === 'empty') return null
 
-  if (!accessoryFor(id)) {
-    const known = ACCESSORIES.map((accessory) => accessory.id).join(', ')
-    warnings.push(`accessory: no circuit called "${raw}" — the bay is empty. Known: ${known}.`)
+  if (!circuitFor(id)) {
+    const known = CIRCUITS.map((circuit) => circuit.id).join(', ')
+    warnings.push(`breadboard: no circuit called "${raw}" — the breadboard is empty. Known: ${known}.`)
     return null
   }
   return id
@@ -479,9 +482,11 @@ const PANEL_ALIASES: Readonly<Record<string, PanelName>> = {
   keys: 'keys',
   keypad: 'keys',
   pad: 'keys',
-  accessory: 'accessory',
-  bay: 'accessory',
-  leds: 'accessory'
+  breadboard: 'breadboard',
+  leds: 'breadboard',
+  // The panel's names before 1.3. Links already on other sites use them.
+  accessory: 'breadboard',
+  bay: 'breadboard'
 }
 
 /**
@@ -489,7 +494,7 @@ const PANEL_ALIASES: Readonly<Record<string, PanelName>> = {
  *
  * Absent means all of them. A subset is the point of the parameter: a docs page
  * explaining the pad wants `panels=lcd,keys` and nothing else, because the
- * terminal and the bay are not what that paragraph is about.
+ * terminal and the breadboard are not what that paragraph is about.
  *
  * Hiding a panel hides the *view*, never the hardware. The LCD is still being
  * driven, the ACIA still transmits, and the latch still lights lamps nobody can

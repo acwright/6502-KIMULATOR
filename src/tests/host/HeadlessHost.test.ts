@@ -14,7 +14,7 @@ import { SerialConsole } from '../../host/headless/SerialConsole'
 import { Machine } from '../../core/Machine'
 import { ACIA } from '../../core/IO/ACIA'
 import { Empty } from '../../core/IO/Empty'
-import { LEDLatch } from '../../core/accessories/LEDLatch'
+import { LEDLatch } from '../../core/breadboard/LEDLatch'
 import { CardROM } from '../../core/CardROM'
 
 const ROOT = join(__dirname, '../../..')
@@ -67,7 +67,7 @@ function host(options: Partial<HeadlessOptions> = {}) {
 
 describe('HeadlessHost', () => {
   describe('the machine it builds', () => {
-    it('fits the Serial Card by default, and leaves the bay empty', () => {
+    it('fits the Serial Card by default, and leaves the breadboard empty', () => {
       const { host: h } = host()
       expect(h.session.machine.io5).toBeInstanceOf(ACIA)
       expect(h.session.machine.io6).toBeInstanceOf(Empty)
@@ -87,11 +87,11 @@ describe('HeadlessHost', () => {
       expect(h.consoleMode).toBe('keypad')
     })
 
-    it('wires an accessory into the bay by its registry id', () => {
-      expect(host({ accessory: 'led-latch' }).host.session.machine.io6).toBeInstanceOf(LEDLatch)
-      // An id this build has never heard of leaves the bay empty rather than
+    it('wires a circuit into the breadboard by its registry id', () => {
+      expect(host({ breadboard: 'led-latch' }).host.session.machine.io6).toBeInstanceOf(LEDLatch)
+      // An id this build has never heard of leaves the breadboard empty rather than
       // failing the boot — the CLI is what refuses a typo.
-      expect(host({ accessory: 'nope' }).host.session.machine.io6).toBeInstanceOf(Empty)
+      expect(host({ breadboard: 'nope' }).host.session.machine.io6).toBeInstanceOf(Empty)
     })
 
     /**

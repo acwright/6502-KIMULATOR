@@ -20,8 +20,8 @@ const LINK_SYNC_MS = 1
  * always has.
  *
  * The machine is looked up on each sync rather than held, because the app
- * replaces it whenever a card is fitted or pulled, or another accessory is
- * wired to the bay.
+ * replaces it whenever a card is fitted or pulled, or another circuit is
+ * wired to the breadboard.
  */
 export class SerialPortPeer implements SerialPeer {
   lines: SerialLines = { ...LINES_ASSERTED }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * The accessory bay — the bus at $9400, and whatever is wired to it.
+ * The breadboard — the bus at $9400, and whatever is wired to it.
  *
  * A dropdown of the registered circuits and the selected one's own component.
  * It makes no attempt to look like a breadboard: the LCD and the pad stand for
@@ -9,16 +9,16 @@
  * registry is explicitly not committed to.
  *
  * Changing the selection rebuilds the machine and warm-starts it — see
- * `useAccessory`. Swapping a circuit on the bus with the power on is not a thing
+ * `useBreadboard`. Swapping a circuit on the bus with the power on is not a thing
  * you do.
  */
 import { computed } from 'vue'
 import type { Component } from 'vue'
-import { useAccessory } from '@/composables/useAccessory'
+import { useBreadboard } from '@/composables/useBreadboard'
 import LEDLatchView from '@/components/LEDLatchView.vue'
 
 /**
- * `fixed` names the bay rather than offering it — what the embed wants.
+ * `fixed` names the breadboard rather than offering it — what the embed wants.
  *
  * A frame's machine is described by its URL, and changing the circuit rebuilds
  * the machine: a reader who opened the dropdown out of curiosity would clear the
@@ -27,12 +27,12 @@ import LEDLatchView from '@/components/LEDLatchView.vue'
  */
 const props = withDefaults(defineProps<{ fixed?: boolean }>(), { fixed: false })
 
-const { options, card, fitted, selected, fit } = useAccessory()
+const { options, card, fitted, selected, fit } = useBreadboard()
 
 /**
  * The registry names its component as a string, because the registry is core and
  * knows nothing about Vue. This is the one place that mapping is resolved, so an
- * accessory added to the registry has exactly one line to add here.
+ * breadboard added to the registry has exactly one line to add here.
  */
 const VIEWS: Readonly<Record<string, Component>> = {
   LEDLatchView
@@ -49,13 +49,13 @@ function onSelect(event: Event): void {
 <template>
   <section
     class="flex min-h-0 min-w-0 flex-col overflow-hidden bg-neutral-900"
-    aria-label="Accessory"
+    aria-label="Breadboard"
   >
     <!-- The circuit first and the selector under it, centred.
 
-         The bay is a panel about what is plugged in, so what is plugged in gets
+         The breadboard is a panel about what is plugged in, so what is plugged in gets
          the panel; the dropdown is how you change it, which is a thing you do
-         once and then stop looking at. Along the bottom it reads as the bay's
+         once and then stop looking at. Along the bottom it reads as the breadboard's
          own control rather than as a heading the circuit belongs to. -->
     <div class="flex min-h-0 flex-1 items-center justify-center px-3 pt-3 pb-2">
       <component :is="view" v-if="view && card" :card="card" />
@@ -72,10 +72,10 @@ function onSelect(event: Event): void {
            right read as two controls rather than one. -->
       <select
         v-if="!props.fixed"
-        class="accessory-select"
+        class="circuit-select"
         :value="selected"
         title="What is wired to the bus at $9400. Changing it switches the machine off and on."
-        aria-label="Accessory"
+        aria-label="Breadboard"
         @change="onSelect"
       >
         <optgroup label="Bus $9400">
@@ -88,7 +88,7 @@ function onSelect(event: Event): void {
 
       <!-- The embed has no dropdown to open, so the address stays on the panel. -->
       <template v-else>
-        <span class="text-[11px] text-neutral-400" aria-label="Accessory">
+        <span class="text-[11px] text-neutral-400" aria-label="Breadboard">
           {{ fitted?.name ?? 'Empty' }}
         </span>
         <span class="font-mono text-[10px] text-neutral-700">$9400</span>
@@ -98,7 +98,7 @@ function onSelect(event: Event): void {
 </template>
 
 <style scoped>
-.accessory-select {
+.circuit-select {
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 4px;
@@ -111,7 +111,7 @@ function onSelect(event: Event): void {
   line-height: 1.5;
   outline: none;
 }
-.accessory-select:focus {
+.circuit-select:focus {
   border-color: rgba(255, 255, 255, 0.35);
 }
 </style>

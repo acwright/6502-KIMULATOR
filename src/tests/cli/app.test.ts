@@ -81,12 +81,16 @@ describe('buildBootConfig', () => {
   })
 
   it('puts what the Settings panel owns under settings, for the launch only', () => {
-    const config = buildBootConfig({ 'no-serial-card': true, accessory: 'led-latch' }, [])
-    expect(config.settings).toEqual({ serialCardFitted: false, accessory: 'led-latch' })
+    const config = buildBootConfig({ 'no-serial-card': true, breadboard: 'led-latch' }, [])
+    expect(config.settings).toEqual({ serialCardFitted: false, breadboard: 'led-latch' })
   })
 
-  it('refuses an accessory this build does not have', () => {
-    expect(() => buildBootConfig({ accessory: 'leds' }, [])).toThrow(/no accessory "leds"/)
+  it('still takes --accessory, the flag\'s name before 1.3', () => {
+    expect(buildBootConfig({ accessory: 'led-latch' }, []).settings).toEqual({ breadboard: 'led-latch' })
+  })
+
+  it('refuses a circuit this build does not have', () => {
+    expect(() => buildBootConfig({ breadboard: 'leds' }, [])).toThrow(/no circuit "leds"/)
   })
 
   it('carries --flow-control and --no-flow-control into the settings for this launch, and only when given', () => {

@@ -97,7 +97,7 @@ button:not(:disabled),
   /* `!important` because this is not a style, it is the platform's threshold:
      every field in the app sets its own size from a class, and a field that
      loses this argument zooms the machine and does not zoom back. Losing it
-     silently — as the accessory dropdown and the settings fields did — is the
+     silently — as the breadboard dropdown and the settings fields did — is the
      bug. Anything added later inherits the fix rather than having to remember it. */
   input:not([type='checkbox']):not([type='radio']):not([type='file']),
   textarea,

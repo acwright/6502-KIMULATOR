@@ -11,7 +11,8 @@ import { DEFAULT_SERIAL_CONFIG } from '../shared/types'
 import type { AppSettings } from '../shared/types'
 import {
   UsageError,
-  parseAccessory,
+  breadboardFlag,
+  parseBreadboard,
   parseBinarySpec,
   parseCount,
   parseFlowControlFlags,
@@ -35,6 +36,7 @@ export interface LaunchFlags {
   rom?: string
   'card-rom'?: string
   bin?: string[]
+  breadboard?: string
   accessory?: string
   'no-serial-card'?: boolean
   baud?: string
@@ -173,6 +175,7 @@ export function buildBootConfig(values: LaunchFlags, positionals: string[]): Boo
  * nobody asked for.
  */
 function settingsFrom(values: LaunchFlags): Partial<AppSettings> {
+  const breadboard = breadboardFlag(values)
   const framing = values['serial-config']
     ? parseSerialFraming(values['serial-config'], '--serial-config')
     : undefined
@@ -187,7 +190,7 @@ function settingsFrom(values: LaunchFlags): Partial<AppSettings> {
     ...(values['no-serial-card'] ? { serialCardFitted: false } : {}),
     ...(serialCardConfig ? { serialCardConfig } : {}),
     ...(flowControl !== undefined ? { flowControl } : {}),
-    ...(values.accessory !== undefined ? { accessory: parseAccessory(values.accessory) } : {}),
+    ...(breadboard !== undefined ? { breadboard: parseBreadboard(breadboard) } : {}),
     ...(framing || baudRate !== undefined
       ? {
           serialConfig: {

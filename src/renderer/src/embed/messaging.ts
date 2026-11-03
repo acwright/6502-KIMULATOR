@@ -247,7 +247,12 @@ export function useEmbedMessaging(options: EmbedMessagingOptions) {
         options.setKeyboard(!!message.open)
         break
       case '6502-kim:show':
-        if (typeof message.view === 'string') options.show(message.view.trim().toLowerCase())
+        if (typeof message.view === 'string') {
+          const view = message.view.trim().toLowerCase()
+          // `bay` is the breadboard's name before 1.3. Pages already driving a
+          // frame still send it.
+          options.show(view === 'bay' ? 'breadboard' : view)
+        }
         break
       default:
         // Unknown `6502-kim:` verbs are ignored, for the same reason unknown URL

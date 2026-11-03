@@ -7,7 +7,7 @@ import {
   DEFAULT_ROM_LABEL,
   DEFAULT_CARD_ROM_LABEL
 } from '@/composables/useDefaultBIOS'
-import { createAccessory } from '@core/accessories/registry'
+import { createCircuit } from '@core/breadboard/registry'
 import { DEFAULT_APP_SETTINGS } from '@shared/types'
 import type { AppSettings } from '@shared/types'
 
@@ -15,7 +15,7 @@ import type { AppSettings } from '@shared/types'
  * Building the machine, and rebuilding it when its shape changes.
  *
  * A card cannot be fitted or pulled with the power on, so fitting the Serial
- * Card or wiring something to the accessory bay means constructing a *new*
+ * Card or wiring something to the breadboard means constructing a *new*
  * Machine rather than mutating the one on the bench. Which in turn means
  * whatever firmware was loaded has to go back in: the images live with whoever
  * fetched them, so this is where they are remembered.
@@ -38,19 +38,19 @@ const cardROM = ref<Image | null>(null)
 /**
  * The shape the machine was last built with — which cards are in it.
  *
- * The accessory is held as a registry id rather than as a card, because the card
+ * The circuit is held as a registry id rather than as a card, because the card
  * is built fresh for each machine: a shared instance would carry the last
  * machine's latched byte into the new one, and swapping a circuit is exactly the
  * moment the lamps should go out.
  */
 export interface MachineShape {
   serialCard: boolean
-  accessory: string | null
+  breadboard: string | null
 }
 
-const shape = ref<MachineShape>({ serialCard: true, accessory: null })
+const shape = ref<MachineShape>({ serialCard: true, breadboard: null })
 
-/** How the machine on the bench is built. Read by the Settings panel and the bay. */
+/** How the machine on the bench is built. Read by the Settings panel and the breadboard. */
 export function machineShape(): MachineShape {
   return shape.value
 }
@@ -90,7 +90,7 @@ export function useMachine() {
 
     store.init({
       serialCard: shape.value.serialCard,
-      accessory: createAccessory(shape.value.accessory)
+      circuit: createCircuit(shape.value.breadboard)
     })
 
     if (rom.value) store.loadROM(rom.value.bytes, rom.value.label)
@@ -115,7 +115,7 @@ export function useMachine() {
     for (const problem of launch?.errors ?? []) console.error('[boot]', problem)
 
     // 1. Settings, so the machine is built the right shape. Anything
-    //    `6502-kim run` set — --baud, --accessory — is already folded in here by
+    //    `6502-kim run` set — --baud, --breadboard — is already folded in here by
     //    main, for this launch only.
     let settings: AppSettings = DEFAULT_APP_SETTINGS
     if (window.api) {
@@ -129,14 +129,14 @@ export function useMachine() {
     // 2. Build the machine. The Serial Card is the one card that is genuinely
     //    optional — unfitting it is how the keypad-only path the KC Monitor
     //    supports gets exercised — and io6 holds whatever was last wired to the
-    //    accessory bus. An id this build does not recognise leaves the bay empty
+    //    IO6. An id this build does not recognise leaves the breadboard empty
     //    rather than failing the boot.
-    shape.value = { serialCard: settings.serialCardFitted, accessory: settings.accessory }
+    shape.value = { serialCard: settings.serialCardFitted, breadboard: settings.breadboard }
     store.setFlowControl(settings.flowControl ?? true)
     if (settings.serialCardConfig) store.setSerialCardConfig(settings.serialCardConfig)
     store.init({
       serialCard: settings.serialCardFitted,
-      accessory: createAccessory(settings.accessory)
+      circuit: createCircuit(settings.breadboard)
     })
 
     // 3. Firmware. Both images; the command line's win over the bundled ones.

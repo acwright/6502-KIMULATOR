@@ -74,22 +74,22 @@ const switchViews = computed<NarrowView[]>(() => {
 
 /**
  * Wide, `machine` is not a choice — the card is always there — so any view that
- * is not the bay is the terminal's turn in the column.
+ * is not the breadboard is the terminal's turn in the column.
  */
 const terminalActive = computed(() =>
-  props.narrow ? props.view === 'terminal' : props.view !== 'bay'
+  props.narrow ? props.view === 'terminal' : props.view !== 'breadboard'
 )
 
 const VIEW_LABELS: Readonly<Record<NarrowView, string>> = {
   machine: 'KIM',
   terminal: 'TERM',
-  bay: 'BAY'
+  breadboard: 'BREADBOARD'
 }
 
 const VIEW_TITLES: Readonly<Record<NarrowView, string>> = {
   machine: 'The LCD and the pad — the machine itself',
   terminal: 'What the serial port sees',
-  bay: 'The accessory bay — what is wired to the bus at $9400'
+  breadboard: 'The breadboard — what is wired to the bus at $9400'
 }
 
 const isActive = (view: NarrowView): boolean =>

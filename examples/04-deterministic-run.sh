@@ -95,11 +95,11 @@ done
 
 say '3. With the LED breadboard fitted, which has state of its own'
 
-snapshot_at_budget "$WORK/led-a.state" --accessory led-latch
-snapshot_at_budget "$WORK/led-b.state" --accessory led-latch
+snapshot_at_budget "$WORK/led-a.state" --breadboard led-latch
+snapshot_at_budget "$WORK/led-b.state" --breadboard led-latch
 
 if [ "$(canonical "$WORK/led-a.state")" != "$(canonical "$WORK/led-b.state")" ]; then
-  printf '\n!! the two accessory runs diverged\n' >&2
+  printf '\n!! the two circuit runs diverged\n' >&2
   exit 1
 fi
 printf '   ✓ byte-identical, latch included\n'
@@ -108,10 +108,10 @@ printf '   ✓ byte-identical, latch included\n'
 # stops a test restoring a session onto a machine that is not the one it came
 # from.
 if [ "$(canonical "$WORK/led-a.state")" = "$first" ]; then
-  printf '\n!! a machine with an accessory should not match one without\n' >&2
+  printf '\n!! a machine with a circuit should not match one without\n' >&2
   exit 1
 fi
-printf '   ✓ and not equal to the machine with an empty bay\n'
+printf '   ✓ and not equal to the machine with an empty breadboard\n'
 
 say '4. wait --cycles is a different promise, and says so'
 

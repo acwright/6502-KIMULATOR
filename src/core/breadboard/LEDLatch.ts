@@ -31,8 +31,8 @@ import type { DeviceState } from '../DeviceState'
 export class LEDLatch implements IO {
 
   /**
-   * Its `IO.kind`, and its registry id — see `accessories/Accessory.ts`. One
-   * string, so a snapshot's slot check and the accessory's identity cannot drift
+   * Its `IO.kind`, and its registry id — see `breadboard/Circuit.ts`. One
+   * string, so a snapshot's slot check and the circuit's identity cannot drift
    * apart.
    */
   static readonly ID = 'led-latch'

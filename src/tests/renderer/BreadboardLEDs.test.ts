@@ -1,6 +1,6 @@
-import { lamps, readout } from '../../renderer/src/accessory/leds'
+import { lamps, readout } from '../../renderer/src/breadboard/leds'
 
-describe('the LED accessory panel', () => {
+describe('the LED breadboard panel', () => {
 
   /**
    * The one thing about this panel that can be wrong rather than merely ugly.

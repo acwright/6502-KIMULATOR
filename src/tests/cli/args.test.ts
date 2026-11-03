@@ -1,6 +1,7 @@
 import {
   UsageError,
-  parseAccessory,
+  breadboardFlag,
+  parseBreadboard,
   parseAddress,
   parseBinarySpec,
   parseByte,
@@ -109,19 +110,37 @@ describe('parseSerialFraming', () => {
   })
 })
 
-describe('parseAccessory', () => {
+describe('breadboardFlag', () => {
+  it('takes --breadboard', () => {
+    expect(breadboardFlag({ breadboard: 'led-latch' })).toBe('led-latch')
+  })
+
+  it('still takes --accessory, its name before 1.3', () => {
+    expect(breadboardFlag({ accessory: 'led-latch' })).toBe('led-latch')
+  })
+
+  it('prefers --breadboard when given both', () => {
+    expect(breadboardFlag({ breadboard: 'led-latch', accessory: 'other' })).toBe('led-latch')
+  })
+
+  it('is undefined with neither', () => {
+    expect(breadboardFlag({})).toBeUndefined()
+  })
+})
+
+describe('parseBreadboard', () => {
   it('accepts an id the registry has', () => {
-    expect(parseAccessory('led-latch')).toBe('led-latch')
+    expect(parseBreadboard('led-latch')).toBe('led-latch')
   })
 
   /**
-   * The machine leaves the bay empty for an id it does not know, which is right
+   * The machine leaves the breadboard empty for an id it does not know, which is right
    * for a settings file written by a later version and wrong for a command
    * line: a run that silently proves nothing is worse than one that fails.
    */
   it('refuses one it does not, and lists what there is', () => {
-    expect(() => parseAccessory('leds')).toThrow(/no accessory "leds"/)
-    expect(() => parseAccessory('leds')).toThrow(/led-latch/)
+    expect(() => parseBreadboard('leds')).toThrow(/no circuit "leds"/)
+    expect(() => parseBreadboard('leds')).toThrow(/led-latch/)
   })
 })
 

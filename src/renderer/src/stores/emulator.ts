@@ -21,8 +21,8 @@ export interface MachineOptions {
    * `HW_PRESENT & HW_SC`, so this is a configuration to exercise, not a fault.
    */
   serialCard?: boolean
-  /** The card wired to the accessory bus at io6. The bay is empty by default. */
-  accessory?: IO
+  /** The card wired to IO6 at io6. The breadboard is empty by default. */
+  circuit?: IO
 }
 
 export const useEmulatorStore = defineStore('emulator', () => {
@@ -88,13 +88,13 @@ export const useEmulatorStore = defineStore('emulator', () => {
    * fetched them, not in here.
    */
   function init(options: MachineOptions = {}) {
-    const { serialCard = true, accessory } = options
+    const { serialCard = true, circuit } = options
 
     // Six of the eight windows are vacant on a KIM and stay that way. Only io5
     // and io6 are ever named here, and both can be empty.
     const slots: SlotConfig = {
       io5: serialCard ? new ACIA() : new Empty(),
-      io6: accessory ?? new Empty()
+      io6: circuit ?? new Empty()
     }
 
     // PHI2 is not configurable: 1 MHz is what this board runs at, and Machine
@@ -229,8 +229,8 @@ export const useEmulatorStore = defineStore('emulator', () => {
     return machine.value?.keypad ?? null
   }
 
-  /** Whatever is wired to the accessory bus at $9400, or null for an empty bay. */
-  function getAccessory(): IO | null {
+  /** Whatever is wired to IO6 at $9400, or null for an empty breadboard. */
+  function getCircuit(): IO | null {
     const io6 = machine.value?.io6
     return !io6 || io6 instanceof Empty ? null : io6
   }
@@ -288,7 +288,7 @@ export const useEmulatorStore = defineStore('emulator', () => {
     getLCD,
     getPIA,
     getKeypad,
-    getAccessory,
+    getCircuit,
     getACIA,
     onTransmit,
   }

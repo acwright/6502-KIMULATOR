@@ -90,14 +90,22 @@ export class SettingsService {
    * `load`), the Serial Card with `CTS EN` at ground, which is the machine
    * every earlier version ran. `serialCardFitted` is untouched. So a version 2
    * file behaves exactly as it did.
+   *
+   * Version 3 to 4: `accessory` is now `breadboard`. The circuit a file names
+   * carries over, so nobody's LEDs come unwired by the rename, and the old key
+   * leaves the file.
    */
   private migrate(settings: AppSettings, from: number): AppSettings {
     if (from >= SETTINGS_VERSION) return settings
-    const migrated = { ...settings, settingsVersion: SETTINGS_VERSION }
+    let migrated: AppSettings = { ...settings, settingsVersion: SETTINGS_VERSION }
     if (from < 2) migrated.flowControl = DEFAULT_APP_SETTINGS.flowControl
     if (from < 3) {
       const { rtscts: _dropped, ...serialConfig } = migrated.serialConfig
       migrated.serialConfig = serialConfig
+    }
+    if (from < 4) {
+      const { accessory, ...rest } = migrated as AppSettings & { accessory?: string | null }
+      migrated = accessory === undefined ? rest : { ...rest, breadboard: accessory }
     }
     this.saved = migrated
     this.save()

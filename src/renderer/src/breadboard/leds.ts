@@ -1,4 +1,4 @@
-import { LEDLatch } from '@core/accessories/LEDLatch'
+import { LEDLatch } from '@core/breadboard/LEDLatch'
 
 /**
  * How a latched byte reads as eight lamps.

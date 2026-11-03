@@ -49,7 +49,7 @@ export interface BootConfig {
   debug?: BootDebug
   /**
    * Settings the app would otherwise have been given through its own panel —
-   * Serial framing, whether the Serial Card is fitted, which accessory is on
+   * Serial framing, whether the Serial Card is fitted, which circuit is on
    * the bus.
    *
    * Applied to this launch only. Someone trying a build out has not decided to

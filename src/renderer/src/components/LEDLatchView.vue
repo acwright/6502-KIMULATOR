@@ -5,15 +5,15 @@
  * Bit 7 leftmost, bit 0 rightmost, and the byte in hex beneath — the order and
  * the notation both come from the type-in cards in 6502-DOCS, so what someone
  * reads off this panel matches what the card told them to expect. That ordering
- * is `accessory/leds.ts`, tested, because it is the one thing here that can be
+ * is `breadboard/leds.ts`, tested, because it is the one thing here that can be
  * wrong rather than merely ugly.
  *
  * The latch is polled rather than watched: nothing in the core is reactive, and
  * a program can rewrite the lamps far faster than a frame.
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import type { LEDLatch } from '@core/accessories/LEDLatch'
-import { lamps, readout } from '@/accessory/leds'
+import type { LEDLatch } from '@core/breadboard/LEDLatch'
+import { lamps, readout } from '@/breadboard/leds'
 
 const props = defineProps<{ card: LEDLatch }>()
 
@@ -36,7 +36,7 @@ const hex = computed(() => readout(byte.value))
 <template>
   <!-- One row, not two. The byte belongs beside the lamps it reads rather than
        under them: it is the same eight bits said twice, and stacking them cost
-       the bay a line of panel it had no room for. -->
+       the breadboard a line of panel it had no room for. -->
   <div class="flex h-full min-h-0 items-center justify-center gap-4">
     <div class="flex items-end gap-3">
       <div v-for="lamp in row" :key="lamp.bit" class="flex flex-col items-center gap-1">

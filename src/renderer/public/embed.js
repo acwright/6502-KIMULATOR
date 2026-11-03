@@ -112,7 +112,7 @@
   function mountAll() {
     var elements = document.querySelectorAll(
       '[data-kim],[data-kim-rom],[data-kim-rom64],[data-kim-bin],[data-kim-bin64],' +
-        '[data-kim-panels],[data-kim-accessory],[data-kim-keys],[data-kim-autotype],' +
+        '[data-kim-panels],[data-kim-breadboard],[data-kim-accessory],[data-kim-keys],[data-kim-autotype],' +
         '[data-kim-controls],[data-kim-autostart],[data-kim-serialcard]'
     )
     for (var i = 0; i < elements.length; i++) mount(elements[i])

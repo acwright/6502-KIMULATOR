@@ -48,7 +48,7 @@ export const LINES_ASSERTED: Readonly<SerialLines> = Object.freeze({ cts: true, 
  * moves them. `sync` is cheap enough to call on every chunk of execution.
  *
  * The machine is passed on each call rather than held, because a host can
- * replace its machine (fitting or pulling a card, or wiring another accessory)
+ * replace its machine (fitting or pulling a card, or wiring another circuit)
  * under a link that outlives it. A new machine starts from nothing known, so both directions are
  * sent afresh.
  */
