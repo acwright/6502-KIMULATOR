@@ -1,4 +1,4 @@
-import { IO } from '../IO'
+import { IO, OPEN_BUS } from '../IO'
 import { expectKind, readNumber } from '../DeviceState'
 import type { DeviceState } from '../DeviceState'
 
@@ -46,12 +46,12 @@ export class LEDLatch implements IO {
   private latched: number = 0
 
   /**
-   * Open bus.
+   * Open bus: the machine answers with the last byte on the data bus.
    *
    * Deliberately not the latched byte: see the note above about `ProbeGPIO`.
    */
   read(address: number): number {
-    return 0
+    return OPEN_BUS
   }
 
   /**

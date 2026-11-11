@@ -315,6 +315,67 @@ describe('Machine', () => {
   // Running
   //
 
+  describe('open bus', () => {
+    /**
+     * A window no card answers reads back the last byte on the data bus, as on
+     * the board, which has no pull-ups. Measured on a real KIM (BIOS plan,
+     * 2026-11-03): with the sound slot empty, `LDA $981B` reads $98, the
+     * operand's high byte, the byte fetched just before. Reading $00 instead
+     * is what hid a probe that found a SID in every empty slot.
+     */
+    it('an empty slot reads the high byte of the address that reached it', () => {
+      // A KIM leaves every slot but io5 empty. With no card ROM loaded, the
+      // reset vector reads $0000, which is RAM.
+      const program = [
+        0xad, 0x1b, 0x98,   // LDA $981B   SID_OSC3, the slot empty
+        0x8d, 0x00, 0x02,   // STA $0200
+        0xad, 0x07, 0x8c,   // LDA $8C07   the CF status register: $8C is BSY
+        0x8d, 0x01, 0x02,   // STA $0201
+        0xa9, 0x0a,         // LDA #$0A
+        0x8d, 0x02, 0x98,   // STA $9802   a write the slot does not keep...
+        0xad, 0x02, 0x98,   // LDA $9802   ...so a read-back probe fails
+        0x8d, 0x02, 0x02,   // STA $0202
+        0xdb                // STP
+      ]
+      program.forEach((byte, i) => machine.poke(i, byte))
+      machine.reset(false)
+      machine.runCycles(100)
+
+      expect(machine.cpu.stopped).toBe(true)
+      expect(machine.peek(0x0200)).toBe(0x98)
+      expect(machine.peek(0x0201)).toBe(0x8c)
+      expect(machine.peek(0x0202)).toBe(0x98)
+    })
+
+    it('a card that answers is unchanged', () => {
+      const spy = new Spy()
+      const configured = new Machine({ io7: spy })
+      configured.write(0x0400, 0x11)
+      expect(configured.read(0x9800)).toBe(spy.value)
+    })
+
+    /**
+     * The debugger reads an empty slot as a program would, without moving the
+     * bus: `peek` gives the address's high byte, the byte any CPU read of that
+     * address fetches just before the data, as `kimctl read 9800` shows `98` on
+     * a real KIM. Neither `peek` nor `poke` changes the bus; `read` and `write`
+     * do, as every CPU access does.
+     */
+    it('peek and poke show what a program would read, and never move the bus', () => {
+      machine.write(0x0400, 0x5a)
+      expect(machine.bus).toBe(0x5a)
+      expect(machine.peek(0x9800)).toBe(0x98)
+
+      machine.poke(0x0401, 0x11)
+      expect(machine.peek(0x9800)).toBe(0x98)
+      expect(machine.bus).toBe(0x5a)
+
+      machine.read(0x0401)
+      expect(machine.bus).toBe(0x11)
+      expect(machine.read(0x9800)).toBe(0x11)
+    })
+  })
+
   describe('running', () => {
     it('ticks the PIA and every slot once per cycle', () => {
       const spies = Array.from({ length: 8 }, () => new Spy())

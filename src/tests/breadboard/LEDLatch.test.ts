@@ -1,3 +1,4 @@
+import { OPEN_BUS } from '../../core/IO'
 import { LEDLatch } from '../../core/breadboard/LEDLatch'
 import { StateError } from '../../core/DeviceState'
 import { Machine } from '../../core/Machine'
@@ -48,8 +49,8 @@ describe('LEDLatch', () => {
     it('returns open bus, not the latched byte', () => {
       const latch = new LEDLatch()
       latch.write(0x002, 0xaa)
-      expect(latch.read(0x002)).toBe(0)
-      expect(latch.read(0x000)).toBe(0)
+      expect(latch.read(0x002)).toBe(OPEN_BUS)
+      expect(latch.read(0x000)).toBe(OPEN_BUS)
     })
   })
 
@@ -102,7 +103,7 @@ describe('LEDLatch', () => {
 
       machine.poke(0x9400, 0x81)
       expect(latch.byte).toBe(0x81)
-      expect(machine.peek(0x9400)).toBe(0)
+      expect(machine.peek(0x9400)).toBe(0x94)      // open bus, not the latch
 
       machine.poke(0x97ff, 0x18)
       expect(latch.byte).toBe(0x18)

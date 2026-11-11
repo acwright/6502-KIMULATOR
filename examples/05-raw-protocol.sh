@@ -82,7 +82,7 @@ say '3. Boot it, and read the glass'
 # exec.runCycles is the exact-budget primitive; the machine was started paused,
 # so this is the whole boot in one call and it lands on the same cycle every run.
 rpc exec.runCycles '{"cycles":3000000}' >/dev/null
-expect 'the splash' "$(rpc lcd.text | result lines.0)" 'KIM MONITOR v1.0'
+expect 'the splash' "$(rpc lcd.text | result lines.0)" 'KIM MONITOR v1.1'
 
 # keypad.press takes a name, an encoder code, or a list of either. The code is
 # not the key's value — `0` is $0A and C-F run backwards — so pass names and let
@@ -124,8 +124,9 @@ printf '%s\n' "$read_result"
 expect_match 'the reply carries base64 data' "$read_result" '"data":"'
 
 # The breadboard is on the bus like anything else, and reading it is how you
-# find out it does not read back: a 74HC373 has no read strobe.
-expect 'the empty breadboard at $9400' "$(rpc mem.read '{"address":"$9400","length":4}' | result data)" 'AAAAAA=='
+# find out it does not read back: a 74HC373 has no read strobe, so the read is
+# open bus, the address's high byte ($94), as on a real KIM.
+expect 'the empty breadboard at $9400: $94 four times' "$(rpc mem.read '{"address":"$9400","length":4}' | result data)" 'lJSUlA=='
 
 say '6. Errors are JSON-RPC errors, with codes a client can branch on'
 

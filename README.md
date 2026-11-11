@@ -272,7 +272,10 @@ latches the byte and lights the lamps.
 
 **Reads return open bus**, and that is not a shortcut. A 74HC373 has no read
 strobe, and a latch that read back would pass the BIOS's `ProbeGPIO` DDR test and
-set `HW_GPIO` on a machine with no VIA in it.
+set `HW_GPIO` on a machine with no VIA in it. Open bus is the last byte on the
+data bus, as on the board, which has no pull-ups: a read of `$9400` gives the
+address's high byte, `$94`, and so does every empty slot (`$98` at `$981B`), as
+the real KIM shows.
 
 The registry (`src/core/breadboard/registry.ts`) is a built-in list rather than a
 plug-in interface. A circuit is an `IO` implementation plus five fields, so
@@ -320,7 +323,7 @@ can never drift from the app version — it is the same file either way.
 
 ```sh
 printf '\x1b0800: A9 41 EA\r0800.0802\r' | 6502-kim run --headless --input-after 'ESC TO START' --max-cycles 12e6
-#   KIM MONITOR v1.0
+#   KIM MONITOR v1.1
 #   --ESC TO START--
 #   > 0800: A9 41 EA
 #   0800: 00
@@ -366,7 +369,7 @@ Flags from the wrong column are refused with the reason.
 # The keypad-only machine, with the panel printed to stderr as it changes.
 6502-kim run --headless --no-serial-card --lcd --max-cycles 5e6
 #   +----------------+
-#   |KIM MONITOR v1.0|
+#   |KIM MONITOR v1.1|
 #   |--ESC TO START--|
 #   +----------------+
 

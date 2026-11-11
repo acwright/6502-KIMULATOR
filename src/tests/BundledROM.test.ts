@@ -23,12 +23,10 @@ const ROMS = [
   {
     name: 'BIOS.bin',
     bytes: 32768,
-    // 6502-BIOS tag v1.6 (8acb4fc1d410f523a0ba64308ac1c1d9e22098a2), the 1.x line: 1.6 reissued in
-    // place with the four serial flow-control fixes the bench found against a real R6551 — RTS
-    // lowered around each byte sent (water marks $C0 up, $80 down), the console quiet above the high
-    // mark, the input ring never lapping its reader, and the IRQ handler reading the data register
-    // only when a byte is really there
-    sha256: '4b4154afac681e26324d3f5a845e41770d977c05db1ef6516c9d2c5e210d8c56',
+    // 6502-BIOS tag v1.7 (387d29d5396b821568e7b9a41fa7e7fccf6d1b76), the 1.x line: 1.6's serial
+    // flow control, plus a SID probe that no longer takes an empty slot's open bus for a SID and a
+    // CF probe that recognises an empty slot, waits up to 3.0 s for a card, and records how long
+    sha256: '49be5865bde74220f37ad10bd773619b17f052b37c89f79c1a3564b7da51d799',
     // Guards against bundling a truncated or unrelated binary. The KIM stays on
     // BIOS 1.x permanently, so a 2.x ROM must fail here rather than ship.
     version: /6502 BIOS v1\.\d+/
@@ -36,12 +34,10 @@ const ROMS = [
   {
     name: 'KCMonitor.bin',
     bytes: 8192,
-    // 6502-KIM @ 53cb4e15b403e3e6ebab13dae4afc66ac483291f — the first image since the monitor
-    // shipped that is not the byte-frozen one: the serial console now takes the Kernal's RTS
-    // scheme (up at $C0 unread bytes, down below $80, lowered around each byte sent and held up
-    // instead of sent while flooded), drains its receive ring dry per loop pass and repaints the
-    // LCD once, and drops an incoming byte rather than lapping the reader on a full ring
-    sha256: '19c7ed60cd66f7e96c95581e603a5817fb8e75d386ebb3346c7b6478713d26f4',
+    // 6502-KIM @ b01b5dcda9409385188abab4ec47bed237dac3c0 — KC Monitor v1.1: serial R waits for
+    // the ACIA to take the monitor's last byte before calling the program, so the program's first
+    // Chrout no longer overwrites it; with 53cb4e1's RTS scheme and receive ring
+    sha256: '4defbbea6dca97fde50c69a5bdd9c584c946b0010003fc2aaa66ba78a1d015a0',
     version: /KIM MONITOR v\d+\.\d+/
   }
 ]

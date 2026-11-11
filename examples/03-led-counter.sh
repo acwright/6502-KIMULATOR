@@ -65,11 +65,13 @@ say '2. The BIOS did not mistake the latch for a VIA'
 
 # A 74HC373 has no read strobe, so reads come back as open bus — and that is
 # what keeps the BIOS's ProbeGPIO from finding a DDR here and setting HW_GPIO on
-# a machine with no VIA in it. $030D is HW_PRESENT, out of BIOS.inc.
+# a machine with no VIA in it. Open bus is the last byte on the data bus, which
+# for a read of $9400 is the address's high byte, $94, as on a real KIM: the
+# latch's lamps are not what comes back. $030D is HW_PRESENT, out of BIOS.inc.
 show '6502-kim dbg mem 0x9400 4'
 dbg mem 0x9400 4
 
-expect 'a read of the latch' "$(dbg mem 0x9400 4 --json | json data)" 'AAAAAA=='
+expect 'a read of the latch: $94 four times' "$(dbg mem 0x9400 4 --json | json data)" 'lJSUlA=='
 expect 'HW_PRESENT — HW_SC ($10) and nothing else' "$(dbg mem 0x030d 1 --json | json data)" 'EA=='
 
 say '3. Run it from the pad, the way the card says to'

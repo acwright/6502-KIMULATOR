@@ -66,5 +66,5 @@ numbers on both sides so that it breaks if either moves.
 ## The bundled BIOS comes from the 1.x line
 
 The KIM never takes BIOS 2.x. `assets/roms/BIOS.bin` comes from 6502-BIOS's `v1.x`
-branch (tag `v1.6` today), never its `main`, and `BundledROM.test.ts` refuses any
+branch (tag `v1.7` today), never its `main`, and `BundledROM.test.ts` refuses any
 version string but `6502 BIOS v1.x`. See `assets/roms/README.md`.

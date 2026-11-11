@@ -62,6 +62,17 @@ export interface Snapshot {
   cycles: number
 
   /**
+   * The last byte on the data bus (`Machine.bus`), which an empty slot reads back.
+   *
+   * Optional, and no version bump: a snapshot saved before the bus was modelled has
+   * none and restores as `0`, and nothing a program does can tell the difference,
+   * because a restored machine's first bus access (an opcode fetch, or an interrupt's
+   * stack push) replaces it. It is stored so that capture, restore and capture again
+   * come back the same.
+   */
+  bus?: number
+
+  /**
    * The BIOS the snapshot was taken against, by identity rather than by content.
    *
    * A snapshot is worthless without the matching BIOS — the PC in it may point
@@ -124,6 +135,7 @@ export function captureSnapshot(machine: Machine): Snapshot {
     createdAt: new Date().toISOString(),
     frequency: machine.frequency,
     cycles: machine.cycles,
+    bus: machine.bus,
     rom: romIdentity(machine.rom),
     cardROM: romIdentity(machine.cardROM),
     cpu: machine.cpu.serialize(),
@@ -217,6 +229,7 @@ export function restoreSnapshot(
 
   machine.frequency = state.frequency
 
+  machine.bus = state.bus ?? 0
   machine.cpu.deserialize(state.cpu)
   machine.ram.deserialize(state.ram)
   machine.pia.deserialize(state.pia)
@@ -245,6 +258,10 @@ function validate(snapshot: unknown): Snapshot {
   }
   if (typeof candidate.frequency !== 'number' || !Number.isFinite(candidate.frequency)) {
     throw new StateError('snapshot.frequency: expected a number')
+  }
+  const bus = candidate.bus
+  if (bus !== undefined && (!Number.isInteger(bus) || (bus as number) < 0 || (bus as number) > 0xFF)) {
+    throw new StateError('snapshot.bus: expected a byte')
   }
 
   for (const field of ['rom', 'cardROM'] as const) {

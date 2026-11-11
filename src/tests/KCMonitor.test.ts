@@ -73,9 +73,9 @@ describe('KC Monitor', () => {
     it('reaches the monitor from BIOS.bin and KC Monitor.bin', () => {
       const machine = build()
 
-      expect(runUntil(machine, () => machine.lcd.getRowText(0).startsWith('KIM MONITOR'))).toBe(true)
-      expect(machine.lcd.getRowText(0)).toBe('KIM MONITOR v1.0')
-      expect(machine.lcd.getRowText(1)).toBe('--ESC TO START--')
+      // Row 1 is painted after row 0, so wait for the splash to finish.
+      expect(runUntil(machine, () => machine.lcd.getRowText(1) === '--ESC TO START--')).toBe(true)
+      expect(machine.lcd.getRowText(0)).toBe('KIM MONITOR v1.1')
     })
 
     it('starts the monitor at $0800 with the byte stored there', () => {
@@ -102,7 +102,7 @@ describe('KC Monitor', () => {
       runUntil(machine, () => machine.lcd.getRowText(0).startsWith('KIM MONITOR'))
       machine.runCycles(500_000)
 
-      expect(String.fromCharCode(...sent)).toContain('KIM MONITOR v1.0')
+      expect(String.fromCharCode(...sent)).toContain('KIM MONITOR v1.1')
     })
 
     /**
@@ -275,7 +275,10 @@ describe('KC Monitor', () => {
       const machine = atMonitor()
 
       press(machine, '1')
-      expect(machine.lcd.getRowText(0)).toBe('---$8001: $00---')
+      // $8001 is in io1, which is empty: the monitor reads it through a zero-page
+      // pointer, so the byte left on the bus is the pointer's high byte, $80, as a
+      // real KIM shows. (Open bus; BIOS plan B3.)
+      expect(machine.lcd.getRowText(0)).toBe('---$8001: $80---')
       press(machine, '2')
       expect(machine.lcd.getRowText(0)).toBe('---$0012: $00---')
       press(machine, '3')
@@ -414,7 +417,7 @@ describe('KC Monitor', () => {
       machine.runCycles(2_000)
       expect(machine.peek(0xc001) & 0x80).toBe(0x00)  // already serviced
       machine.runCycles(200_000)
-      expect(machine.lcd.getRowText(0)).toBe('---$8001: $00---')
+      expect(machine.lcd.getRowText(0)).toBe('---$8001: $80---')   // open bus: see above
     })
   })
 
@@ -582,6 +585,7 @@ describe('KC Monitor', () => {
       const SC_CMD = 0x9002
       const SER_RXHEAD = 0x46
       const SER_RXTAIL = 0x47
+      const SER_IDX = 0x50   // the line buffer's index: 0 once a line has been handled
 
       /** Forty one-byte deposits into $0900.., as one pasted block. */
       const DEPOSITS = Array.from({ length: 40 }, (_, i) => ({
@@ -604,8 +608,11 @@ describe('KC Monitor', () => {
         (machine.peek(SER_RXHEAD) - machine.peek(SER_RXTAIL)) & 0xff
 
       /**
-       * Run until the far end has nothing left and the ring is empty, sampling
-       * RTS and the ring depth as it goes.
+       * Run until the far end has nothing left, the ring is empty and the parser
+       * has finished the last line, sampling RTS and the ring depth as it goes.
+       * An empty ring alone is not enough: the parser takes a line's bytes out of
+       * the ring before it acts on the CR, so the last deposit can still be to
+       * come. That passed by luck until the boot's timing moved (BIOS 1.7).
        */
       const settle = (machine: Machine): { rtsRaised: boolean; deepest: number } => {
         let rtsRaised = false
@@ -614,7 +621,7 @@ describe('KC Monitor', () => {
           machine.runCycles(5_000)
           if ((machine.peek(SC_CMD) & 0x0c) === 0x00) rtsRaised = true
           deepest = Math.max(deepest, ring(machine))
-          if (machine.acia()!.queuedBytes === 0 && ring(machine) === 0) break
+          if (machine.acia()!.queuedBytes === 0 && ring(machine) === 0 && machine.peek(SER_IDX) === 0) break
         }
         return { rtsRaised, deepest }
       }

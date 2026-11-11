@@ -64,7 +64,7 @@ One process in, one answer out. No server, no session.
 
 ```sh
 printf '\x1b0800: A9 41 EA\r0800.0802\r' | 6502-kim run --headless --input-after 'ESC TO START' --max-cycles 12e6
-#   KIM MONITOR v1.0
+#   KIM MONITOR v1.1
 #   --ESC TO START--
 #   > 0800: A9 41 EA
 #   0800: 00
@@ -147,7 +147,7 @@ that path.
 ```sh
 6502-kim run --headless --no-serial-card --lcd --max-cycles 5e6
 #   +----------------+
-#   |KIM MONITOR v1.0|
+#   |KIM MONITOR v1.1|
 #   |--ESC TO START--|
 #   +----------------+
 ```

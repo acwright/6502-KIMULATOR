@@ -91,10 +91,11 @@ async function atMonitor(slots: SlotConfig = {}): Promise<Fixture> {
 describe('the KC Monitor over the debug protocol', () => {
   it('boots to the splash and reports it as text', async () => {
     const f = fixture()
-    expect(runUntil(f, () => line(f).startsWith('KIM MONITOR'))).toBe(true)
+    // Row 1 is painted after row 0, so wait for the splash to finish.
+    expect(runUntil(f, () => (f.methods['lcd.text']!({}) as { lines: string[] }).lines[1] === '--ESC TO START--')).toBe(true)
 
     expect(f.methods['lcd.text']!({})).toEqual({
-      lines: ['KIM MONITOR v1.0', '--ESC TO START--']
+      lines: ['KIM MONITOR v1.1', '--ESC TO START--']
     })
   })
 
@@ -121,7 +122,10 @@ describe('the KC Monitor over the debug protocol', () => {
     expect(line(f)).toBe('---$0800: $00---')
 
     await press(f, '1')
-    expect(line(f)).toBe('---$8001: $00---')
+    // $8001 is in io1, which is empty: the monitor reads it through a zero-page
+    // pointer, so the byte left on the bus is the pointer's high byte, $80, as a
+    // real KIM shows. (Open bus; BIOS plan B3.)
+    expect(line(f)).toBe('---$8001: $80---')
 
     await press(f, '2')
     expect(line(f)).toBe('---$0012: $00---')
@@ -188,7 +192,7 @@ describe('the KC Monitor over the debug protocol', () => {
     runUntil(f, () => line(f).startsWith('KIM MONITOR'))
     f.methods['exec.runCycles']!({ cycles: 500_000 })
 
-    expect(f.output()).toContain('KIM MONITOR v1.0')
+    expect(f.output()).toContain('KIM MONITOR v1.1')
   })
 
   /**
@@ -207,7 +211,7 @@ describe('the KC Monitor over the debug protocol', () => {
     expect(() => f.methods['serial.write']!({ data: 'x' })).toThrow(/no serial console/)
 
     await press(f, '1')
-    expect(line(f)).toBe('---$8001: $00---')
+    expect(line(f)).toBe('---$8001: $80---')   // open bus, as above
   })
 
   /**

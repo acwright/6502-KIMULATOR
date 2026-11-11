@@ -22,35 +22,43 @@ is visible on a KIM: the Kernal at `$A000–$B7FF` and the CP437 character set a
 `$B800–$BFFF`. The Keypad Card overlays everything above.
 
 - **Source** — `/Users/acwright/Developer/Assembly/6502-BIOS`, `BIOS.bin` at tag
-  **`v1.6`**, cut on branch `v1.x`, not the repository's `main`, which is BIOS
+  **`v1.7`**, cut on branch `v1.x`, not the repository's `main`, which is BIOS
   2.x
-- **Commit** — `8acb4fc1d410f523a0ba64308ac1c1d9e22098a2` (2026-09-17)
-- **Version string** — `6502 BIOS v1.6`
-- **SHA-256** — `4b4154afac681e26324d3f5a845e41770d977c05db1ef6516c9d2c5e210d8c56`
+- **Commit** — `387d29d5396b821568e7b9a41fa7e7fccf6d1b76` (2026-11-11)
+- **Version string** — `6502 BIOS v1.7`
+- **SHA-256** — `49be5865bde74220f37ad10bd773619b17f052b37c89f79c1a3564b7da51d799`
 
-**`v1.6` is reissued in place**, always as 1.6 and always with the same banner,
-so the digest above is the only thing that tells one 1.6 from another. Earlier
-images this repository bundled, newest first: `f858890` (sha256 `29ed506f…`),
-which lowered RTS around each byte sent; `27bd4e0` (sha256 `4ec29214…`), which
-lowered RTS as BASIC read the buffer but still deadlocked a real R6551; and
-`71e1e66` (sha256 `fc0002d0…`), 1.6 as first released. The tag as it now stands
-adds the rest of what the bench found: the input ring no longer laps its reader
-at 256 unread bytes, the IRQ handler reads the data register only when `RDRF`
-says a byte is there, and the console goes quiet above the high-water mark
-rather than reopening the gate for an echo. Pastes to 14 KB arrive byte-perfect
-on hardware with flow control on.
+**1.7 is two probes the KIM itself found wrong** (6502-WORKING's BIOS plan, B1 and
+B4, measured on a real KIM on 3 and 11 November 2026), and both are visible here
+now that this machine reads an empty slot as open bus, as the board does:
 
-None of that is reachable from a KIM's own console — the KC Monitor is what runs
-there, and it carries its own copy of the same scheme (see below) — but it is
-the ROM the Serial Card's BIOS path runs, and the digest has to match what the
-tag holds.
+- **The SID probe no longer finds a SID in an empty slot.** 1.6 read voice 3
+  once and took anything but `$00` or `$FF`; an empty slot reads `$98`, so a KIM
+  with no Sound Card booted with `HW_PRESENT` `$50` and ran the SID setup into an
+  empty window. 1.7 wants voice 3's noise to change between reads. A KIM without
+  a Sound Card now reads `$10`.
+- **The CF probe recognises an empty slot and skips the wait**, which 1.6 spent
+  0.85 s on at every boot of a KIM without a Storage Card. An empty slot reads
+  `$8C` at `$8C07` and `$8F` at `$8F07`; a card answers one status at both. With
+  a card it waits up to 3.0 s and leaves how long it took for a `PEEK`:
+  `CF_PROBE_POLLS` at `$0376–$0377` (polls of 0.1 ms) and `CF_PROBE_STAT` at
+  `$0378`, the first status byte.
 
-On a KIM, 1.6 changes only what `KernalVersion` reports. Its NVRAM save slots
-need an RTC card, which a KIM doesn't have, so every `Nv*` entry returns carry
-set.
+Every 1.6 routine address holds. Earlier images this repository bundled, newest
+first: 1.6 at `8acb4fc` (sha256 `4b4154af…`), the last of 1.6's in-place reissues
+(`f858890`, `29ed506f…`; `27bd4e0`, `4ec29214…`; `71e1e66`, `fc0002d0…`, 1.6 as
+first released), whose serial flow control is what this ROM still carries: RTS
+lowered around each byte sent, the input ring never lapping its reader, the IRQ
+handler reading the data register only when `RDRF` says a byte is there, and the
+console quiet above the high-water mark. None of that is reachable from a KIM's
+own console — the KC Monitor is what runs there, and it carries its own copy of
+the same scheme (see below).
 
-**The KIM stays on BIOS 1.x.** Future updates come only from 6502-BIOS `v1.x`,
-as 1.6.x. `BundledROM.test.ts` refuses any other version string.
+Its NVRAM save slots need an RTC card, which a KIM doesn't have, so every `Nv*`
+entry returns carry set.
+
+**The KIM stays on BIOS 1.x.** Future updates come only from 6502-BIOS `v1.x`.
+`BundledROM.test.ts` refuses any other version string.
 
 ## KCMonitor.bin — 8 KB
 
@@ -63,17 +71,30 @@ awkward in a URL the web build has to fetch.
 
 - **Source** — `/Users/acwright/Developer/Kicad/6502-KIM`,
   `Firmware/KC Monitor/KC Monitor.bin`
-- **Commit** — `53cb4e15b403e3e6ebab13dae4afc66ac483291f` (2026-09-17)
-- **Version string** — `KIM MONITOR v1.0`
-- **SHA-256** — `19c7ed60cd66f7e96c95581e603a5817fb8e75d386ebb3346c7b6478713d26f4`
+- **Commit** — `b01b5dcda9409385188abab4ec47bed237dac3c0` (2026-11-11)
+- **Version string** — `KIM MONITOR v1.1`
+- **SHA-256** — `4defbbea6dca97fde50c69a5bdd9c584c946b0010003fc2aaa66ba78a1d015a0`
 
-The version string does not move with the image. Earlier images this repository
-bundled, newest first: `3b5aa80` (sha256 `06601fb6…`), which made serial `R` a
+The first image whose version string moved. Earlier images this repository
+bundled, newest first, all `v1.0`: `53cb4e1` (sha256 `19c7ed60…`), which brought
+the RTS scheme below; `3b5aa80` (sha256 `06601fb6…`), which made serial `R` a
 call; before it, the build that put the splash gate on both consoles.
+
+### Serial `R` lets the monitor's last byte out first (v1.1)
+
+`R` now waits, for a bounded time, for the ACIA to take the monitor's last byte
+before it calls the program. The monitor's `SerPutc` waits for TDRE and then
+writes, so that byte could still be in the transmit register when the program
+started, and the BIOS's `Chrout`, which writes first and waits afterwards,
+overwrote it: *Hello, KIM* printed `0800: AHELLO` on a real KIM where this
+emulator showed `0800: ADHELLO`. This emulator's ACIA does not model a byte
+waiting in that register, so it never showed the bug and shows no change; the
+machine now agrees with it. The wait is `SerPutc`'s own, so a KIM with no
+terminal still runs the program.
 
 ### The serial console holds the far end off with RTS
 
-New in this image, and the reason the digest moved. A 20-line Wozmon deposit
+New in `53cb4e1`, and the reason the digest moved then. A 20-line Wozmon deposit
 paste at 19,200 baud used to lose nine lines — at 9600 all twenty arrived — and
 the transcripts with flow control on and off were byte-identical, because
 nothing wrote the ACIA's command register after `InitSC`'s `$09`.

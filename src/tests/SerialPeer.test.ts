@@ -176,7 +176,7 @@ describe('a headless console as the far end of the cable', () => {
     host.session.runCycles(BOOT_BUDGET)
     expect(read()).toBe('')
     // Alive the whole time: the splash is on the glass.
-    expect(host.lcdText()).toEqual(['KIM MONITOR v1.0', '--ESC TO START--'])
+    expect(host.lcdText()).toEqual(['KIM MONITOR v1.1', '--ESC TO START--'])
 
     host.setSerialLines({ cts: true })
     host.write('\x1b0800: A9 41 EA\r0800.0802\r')

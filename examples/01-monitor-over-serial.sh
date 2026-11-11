@@ -109,7 +109,7 @@ panel=$(cat "$WORK/keypad-only.lcd")
 # last frame is the one worth looking at.
 tail -4 "$WORK/keypad-only.lcd"
 
-expect_match 'the splash reached the panel' "$panel" 'KIM MONITOR v1.0'
+expect_match 'the splash reached the panel' "$panel" 'KIM MONITOR v1.1'
 expect_match 'and asked for a key' "$panel" 'ESC TO START'
 expect 'nothing at all came out of the serial port' "$(wc -c < "$WORK/keypad-only.out" | tr -d ' ')" 0
 

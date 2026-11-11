@@ -85,7 +85,10 @@ each to that record.
 **Hardware behaviour, not convenient behaviour.** The keypad encoder ignores key
 releases because the 74C922 does. The LED latch reads back open bus because a
 74HC373 has no read strobe — and that is what keeps the BIOS's `ProbeGPIO` from
-mistaking it for a VIA.
+mistaking it for a VIA. Open bus, there and in every empty slot, is the last byte
+on the data bus (`OPEN_BUS` in `IO.ts`, held in `Machine.bus`), not `$00`: a read
+of `$981B` gives `$98`, as on the real KIM. `$00` once hid a BIOS probe that found
+a SID in every empty slot. `peek` shows the address's high byte and never moves it.
 
 **Tests come with the code.** Every ported module brings its test file. Every new
 device ships with one. CI runs the suite, the typecheck, and the worked examples
@@ -160,7 +163,7 @@ something is the way it is:
 - **10** — release v1.0.0
 
 `npm run dev` opens a window onto a KIM you can use: it boots both ROMs, prints
-the KC Monitor's banner to the terminal, shows `KIM MONITOR v1.0` on the glass,
+the KC Monitor's banner to the terminal, shows `KIM MONITOR v1.1` on the glass,
 answers the pad, and — with the KIM Demo wired to the breadboard — runs both of the
 DOCS type-in cards and lights the LEDs. `6502-kim run --headless` is the same
 machine with no window: `printf '\x1b0800: A9 41\r'` into it deposits a byte
@@ -531,7 +534,7 @@ the two have almost nothing in common. `docs/EMBEDDING.md` is the user-facing
 half of all of this.
 
 **The embed was verified in a browser, not reasoned about.** Headless Chrome
-over CDP against `vite preview`: the app boots to `KIM MONITOR v1.0` with the
+over CDP against `vite preview`: the app boots to `KIM MONITOR v1.1` with the
 splash on the glass, ESC typed into the terminal starts the monitor,
 `panels=lcd,keys` shows exactly those two, `bin64=$0800=…&breadboard=led-latch&
 keys=ESC,UP` runs the DOCS binary counter with the lamps counting, and a host

@@ -33,14 +33,19 @@ const BOOT_BUDGET = 6_000_000
 /**
  * The paste test's transcripts, with the far end honouring RTS and ignoring it.
  *
- * Captured from the bundled KC Monitor (6502-KIM `53cb4e1`) with the procedure
- * in `pasteInto` below. The 1.0.9 pair used to be one number, because the two
- * runs were byte-identical: nothing in that firmware ever raised RTS.
+ * Captured from the bundled ROMs (BIOS 1.7, KC Monitor v1.1 at 6502-KIM
+ * `b01b5dc`) with the procedure in `pasteInto` below. They moved from 909 and
+ * 828 at 1.4.0 for two reasons, neither a lost deposit: the banner reads v1.1,
+ * and the boot reaches the monitor at a different cycle (1.7's CF probe skips
+ * the empty slot; its SID probe takes ~75 ms over it), which moves which echo
+ * characters a flooded ring drops. The 1.0.9 pair used to be one number,
+ * because the two runs were byte-identical: nothing in that firmware ever
+ * raised RTS.
  */
-const PASTE_TRANSCRIPT_ON_LENGTH = 909
-const PASTE_TRANSCRIPT_ON_SHA256 = 'db1597f4e3c24d902ef6f91c4c43b1705762a0991b1608ed56ca88e4c66aefd2'
-const PASTE_TRANSCRIPT_OFF_LENGTH = 828
-const PASTE_TRANSCRIPT_OFF_SHA256 = '8560b1c5f72377fa3478357d07c38b5f0a29aea981fda81966692148cb1bf82a'
+const PASTE_TRANSCRIPT_ON_LENGTH = 897
+const PASTE_TRANSCRIPT_ON_SHA256 = '36cadf297851955f686472744566eeadafa9dce65fc4a463dbfa44d5d1374796'
+const PASTE_TRANSCRIPT_OFF_LENGTH = 816
+const PASTE_TRANSCRIPT_OFF_SHA256 = '473fcf74f0665baed15b541252ed39ea0867f0dc43daefbb3633be48f2d6b117'
 
 // These boot real ROMs, and under parallel workers they contend for CPU with
 // every other suite. The work is bounded in emulated cycles, not wall time, so
