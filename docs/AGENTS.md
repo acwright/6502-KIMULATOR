@@ -458,8 +458,9 @@ headless run is already reproducible**. That is worth stating in the guide
 rather than leaving someone to discover it.
 
 **`--freq 1|2` came in 1.5**, as in 6502-EMULATOR: 1 MHz is the standard, and
-2 MHz is a Setting with a note, never a control-bar toggle, because the KIM
-Board is not cleared for it (6502-WORKING P11). `session.config`, `dbg config
+2 MHz is a Setting with a note, never a control-bar toggle, because it is
+untested on the KIM (6502-WORKING P11). The note names the machine and nothing
+below it: no board, revision or part (owner, 2026-11-21). `session.config`, `dbg config
 --frequency` and an embed's `freq=` take the same two clocks. `src/shared/clock.ts`
 holds them and the note.
 

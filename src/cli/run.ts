@@ -43,7 +43,7 @@ Machine
                             which is a machine the firmware supports and the only
                             way to exercise that path
   --freq <1|2>              CPU clock in MHz (default: 1, the standard). 2 MHz is
-                            untested on the KIM Board and at the builder's risk
+                            untested on the KIM
   --baud <rate>             Serial rate: the ACIA headless, the host port in the app
   --serial-card <standard|pro>
                             The serial card in io5 (default: standard, the Serial Card)

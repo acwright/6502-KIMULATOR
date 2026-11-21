@@ -6,7 +6,12 @@
  * RAM at 2 MHz (6502-WORKING P11, 2026-11-11). 2 MHz is the builder's risk. So
  * this emulator offers it as a Setting with that said beside it, and on the
  * command line, but never on the control bar, as 6502-EMULATOR does
- * (`src/shared/clock.ts` there, whose note is about the ACE).
+ * (`src/shared/clock.ts` there).
+ *
+ * The note names the machine, the KIM, and nothing below it: no board, PCB,
+ * revision or part. This emulator represents the KIM, not a particular build of
+ * it, and build notes belong in each board's own documentation (owner,
+ * 2026-11-21).
  */
 export const CLOCK_1MHZ = 1_000_000
 export const CLOCK_2MHZ = 2_000_000
@@ -18,8 +23,7 @@ export const DEFAULT_FREQUENCY = CLOCK_1MHZ
 
 /** What the Settings panel, `--help` and the docs say beside the choice. */
 export const CLOCK_NOTE =
-  '1 MHz is the AC6502 standard, and the KIM is tested at it. 2 MHz is untested on the KIM Board and ' +
-  'at the builder’s risk.'
+  '1 MHz is the AC6502 standard, and the KIM is tested at it. 2 MHz is untested on the KIM.'
 
 /** True for a clock this emulator runs at. */
 export function isClockFrequency(value: unknown): value is number {

@@ -186,7 +186,7 @@ clock, for a sharper reason — see [keypad](#keypad).
 | `session.shutdown` | — | `{ok:true}`, then the host winds down |
 
 `frequency` is PHI2 in Hz: `1000000`, the AC6502 standard, or `2000000`, which
-the KIM Board is not cleared for and the app offers in Settings and the CLI as
+is untested on the KIM and which the app offers in Settings and the CLI as
 `--freq 2`. Any other value is invalid and changes nothing. (Before 1.5 it was
 reported and not settable.) A snapshot records the clock and restores it.
 
