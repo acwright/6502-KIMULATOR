@@ -504,7 +504,7 @@ PGDN ◄ ►` — which is also what the panel colours by.
 
 ### lcd
 
-The 16×2 on the Keypad LCD Helper. Where 6502-EMULATOR reads a video card, this
+The KIM's 16×2 LCD. Where 6502-EMULATOR reads a video card, this
 reads the machine's own display — the one the KC Monitor draws its address and
 byte on. It is never `NOT_SUPPORTED`: the video card is optional, the Keypad Card
 is soldered in.

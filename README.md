@@ -32,8 +32,8 @@ Four things on screen, and one of them is a slot you can wire a circuit into:
 | Panel | What it is |
 |---|---|
 | **Terminal** | 40×24, white on black. Exactly what the serial port sees, in both directions |
-| **LCD** | The 16×2 HD44780 on the Keypad LCD Helper, drawn as a real dot-matrix panel — the unlit dots included |
-| **Keys** | The 24-key pad on the Keypad Helper, laid out and coloured like the real one |
+| **LCD** | The KIM's 16×2 HD44780 LCD, drawn as a real dot-matrix panel — the unlit dots included |
+| **Keys** | The KIM's 24-key pad, laid out and coloured like the real one |
 | **Breadboard** | A slot on the bus at `$9400` where a breadboard circuit is wired. First one: eight LEDs behind a 74HC373 latch |
 
 **There is no cartridge slot.** The Keypad Card *is* this machine's cartridge and

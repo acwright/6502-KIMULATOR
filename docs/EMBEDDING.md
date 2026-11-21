@@ -100,7 +100,7 @@ frame shows:
 | Name | Also accepts | What it is |
 |---|---|---|
 | `terminal` | `term`, `serial` | 40×24, white on black — what the serial port sees, both ways |
-| `lcd` | `display` | The 16×2 HD44780 on the Keypad LCD Helper |
+| `lcd` | `display` | The KIM's 16×2 HD44780 LCD |
 | `keys` | `keypad`, `pad` | The 24-key pad |
 | `breadboard` | `leds`, and `accessory` and `bay` from before 1.3 | The bus at `$9400` and whatever is wired to it |
 
