@@ -19,7 +19,7 @@ export const DEFAULT_FREQUENCY = CLOCK_1MHZ
 /** What the Settings panel, `--help` and the docs say beside the choice. */
 export const CLOCK_NOTE =
   '1 MHz is the AC6502 standard, and the KIM is tested at it. 2 MHz is untested on the KIM Board and ' +
-  'at the builder’s risk: the bench KIM misread its RAM at 2 MHz.'
+  'at the builder’s risk.'
 
 /** True for a clock this emulator runs at. */
 export function isClockFrequency(value: unknown): value is number {

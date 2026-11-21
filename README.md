@@ -203,7 +203,7 @@ Card ROM row is how a freshly built `KC Monitor.bin` gets tested without burning
 an AT28C64; it is the machine's own firmware rather than a cartridge, which is
 why it lives here and not on the toolbar.
 
-**CPU CLOCK** — 1 MHz, the AC6502 standard, or 2 MHz. The KIM Board is not cleared for 2 MHz: it has never run at it, and the bench KIM misread its RAM at 2 MHz, so it is the builder's risk and the panel says so. Not a power cycle; saved in the desktop app's settings (a file from before 1.5 starts at 1 MHz), and `--freq` sets it for one launch.
+**CPU CLOCK** — 1 MHz, the AC6502 standard, or 2 MHz. The KIM Board is not cleared for 2 MHz: it is untested and the builder's risk, and the panel says so. Not a power cycle; saved in the desktop app's settings (a file from before 1.5 starts at 1 MHz), and `--freq` sets it for one launch.
 
 **MACHINE** — whether a serial card is installed in `io5`, and which. Unfitting
 it is the supported keypad-only machine, not a broken one. Fitted, it is the
