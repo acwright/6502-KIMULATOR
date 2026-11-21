@@ -182,11 +182,13 @@ clock, for a sharper reason — see [keypad](#keypad).
 |---|---|---|
 | `session.info` | — | `protocol`, `host`, `version`, `console`, `frequency`, `baudRate?`, `flowControl`, `serialCard`, `serialCardConfig`, `symbols`, plus [run state](#run-state) |
 | `session.reset` | `cold?` (default `true`) | Run state |
-| `session.config` | `baudRate?`, `flowControl?` | `frequency`, `baudRate?`, `flowControl`, `console` |
+| `session.config` | `frequency?` (1000000 or 2000000), `baudRate?`, `flowControl?` | `frequency`, `baudRate?`, `flowControl`, `console` |
 | `session.shutdown` | — | `{ok:true}`, then the host winds down |
 
-`frequency` is reported and not settable. PHI2 on this board is 1 MHz, as it is
-on the ACE.
+`frequency` is PHI2 in Hz: `1000000`, the AC6502 standard, or `2000000`, which
+the KIM Board is not cleared for and the app offers in Settings and the CLI as
+`--freq 2`. Any other value is invalid and changes nothing. (Before 1.5 it was
+reported and not settable.) A snapshot records the clock and restores it.
 
 `console` is `serial` or `keypad`. `keypad` is not a lesser mode — it is the
 machine with io5 vacant, and the KC Monitor guards every ACIA access on

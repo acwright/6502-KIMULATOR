@@ -113,6 +113,21 @@ describe('HeadlessHost', () => {
   })
 
   describe('serial console', () => {
+    // --freq 2: the KIM runs at 2 MHz, and the KC Monitor still boots and
+    // answers over serial, since the ACIA's baud clock is its own crystal.
+    it('runs at 2 MHz when asked, and still boots to the KC Monitor', async () => {
+      const { host: h, read } = host({ frequency: 2_000_000 })
+      expect(h.session.machine.frequency).toBe(2_000_000)
+
+      await h.run('turbo')
+
+      expect(read()).toContain('KIM MONITOR')
+    })
+
+    it('runs at 1 MHz unless asked', () => {
+      expect(host().host.session.machine.frequency).toBe(1_000_000)
+    })
+
     it('boots to the KC Monitor and answers on the wire', async () => {
       const { host: h, read } = host()
 

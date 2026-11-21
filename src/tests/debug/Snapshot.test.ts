@@ -61,6 +61,20 @@ describe('Snapshot', () => {
       expect(Date.parse(snapshot.createdAt)).not.toBeNaN()
     })
 
+    it('restores the clock it was taken at, and a clock it has no setting for at 1 MHz', () => {
+      const m = machine()
+      m.frequency = 2_000_000
+      m.runCycles(5000)
+      const saved = captureSnapshot(m)
+
+      const restored = machine()
+      restoreSnapshot(restored, wire(saved))
+      expect(restored.frequency).toBe(2_000_000)
+
+      restoreSnapshot(restored, wire({ ...saved, frequency: 3_000_000 }))
+      expect(restored.frequency).toBe(1_000_000)
+    })
+
     it('survives a JSON round trip', () => {
       const m = machine()
       m.runCycles(5000)

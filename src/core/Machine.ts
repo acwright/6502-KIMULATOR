@@ -73,11 +73,12 @@ export class Machine {
   io8!: IO
 
   /**
-   * PHI2, the CPU clock. 1 MHz, and not selectable: this board has one clock.
+   * PHI2, the CPU clock: 1 MHz, the family's standard, or 2 MHz, which the KIM
+   * Board is not cleared for (see `shared/clock.ts`). The app sets it from its
+   * Settings, the CLI from `--freq`.
    *
-   * Still a field rather than a constant because it is what paces a realtime
-   * run and what a snapshot records, and because cards receive PHI2 through
-   * tick() and are responsible for their own clock.
+   * It paces a realtime run and a snapshot records it, and cards receive PHI2
+   * through tick() and are responsible for their own clock.
    */
   frequency: number = 1_000_000
 

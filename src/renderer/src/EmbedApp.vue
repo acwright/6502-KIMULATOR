@@ -154,6 +154,7 @@ store.init({
   serialCard: params.serialCard,
   circuit: createCircuit(params.breadboard)
 })
+store.setFrequency(params.frequency)
 
 /** One hand on the pad, shared by the boot sequence and `6502-kim:key`. */
 const keyer = createKeyer((code: number) => store.pressKey(code))

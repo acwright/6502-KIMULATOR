@@ -1,3 +1,4 @@
+import { DEFAULT_FREQUENCY } from '@shared/clock'
 import { ref } from 'vue'
 import { useEmulatorStore } from '@/stores/emulator'
 import { useSerial } from '@/composables/useSerial'
@@ -115,7 +116,7 @@ export function useMachine() {
     for (const problem of launch?.errors ?? []) console.error('[boot]', problem)
 
     // 1. Settings, so the machine is built the right shape. Anything
-    //    `6502-kim run` set — --baud, --breadboard — is already folded in here by
+    //    `6502-kim run` set — --freq, --baud, --breadboard — is already folded in here by
     //    main, for this launch only.
     let settings: AppSettings = DEFAULT_APP_SETTINGS
     if (window.api) {
@@ -132,6 +133,7 @@ export function useMachine() {
     //    IO6. An id this build does not recognise leaves the breadboard empty
     //    rather than failing the boot.
     shape.value = { serialCard: settings.serialCardFitted, breadboard: settings.breadboard }
+    store.setFrequency(settings.frequency ?? DEFAULT_FREQUENCY)
     store.setFlowControl(settings.flowControl ?? true)
     if (settings.serialCardConfig) store.setSerialCardConfig(settings.serialCardConfig)
     store.init({

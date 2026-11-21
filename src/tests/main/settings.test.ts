@@ -106,6 +106,34 @@ describe('SettingsService', () => {
     rmSync(settingsFile)
   })
 
+  describe('the CPU clock', () => {
+    it('reads a file written before 1.5, which has no clock, at 1 MHz', () => {
+      const { frequency: _none, ...older } = DEFAULT_APP_SETTINGS
+      writeFileSync(settingsFile, JSON.stringify(older))
+      expect(new SettingsService().get().frequency).toBe(1_000_000)
+    })
+
+    it('keeps a choice of 2 MHz across a restart', () => {
+      new SettingsService().set({ frequency: 2_000_000 })
+      expect(onDisk()).toMatchObject({ frequency: 2_000_000 })
+      expect(new SettingsService().get().frequency).toBe(2_000_000)
+    })
+
+    it.each([4_000_000, 1_500_000, '2', null])('reads a saved clock of %p as 1 MHz', (frequency) => {
+      writeFileSync(settingsFile, JSON.stringify({ ...DEFAULT_APP_SETTINGS, frequency }))
+      expect(new SettingsService().get().frequency).toBe(1_000_000)
+    })
+
+    it('keeps a --freq 2 launch out of the file', () => {
+      writeFileSync(settingsFile, JSON.stringify(DEFAULT_APP_SETTINGS))
+      const settings = new SettingsService()
+      settings.override({ frequency: 2_000_000 })
+      settings.set({ flowControl: false })
+      expect(settings.get().frequency).toBe(2_000_000)
+      expect(onDisk()).toMatchObject({ frequency: 1_000_000 })
+    })
+  })
+
   describe('migrating a file written by 1.1.2 (version 2)', () => {
     /**
      * What 1.1.2 wrote, spelled out rather than built from today's defaults,
@@ -145,6 +173,7 @@ describe('SettingsService', () => {
         serialCardConfig: { card: 'standard', jumpers: { cts: 'ground' } },
         breadboard: 'led-latch',
         flowControl,
+        frequency: 1_000_000,
         settingsVersion: SETTINGS_VERSION
       })
       // Once, and written back.

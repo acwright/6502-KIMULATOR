@@ -25,6 +25,7 @@ import {
   DEFAULT_CARD_ROM_LABEL
 } from '@/composables/useDefaultBIOS'
 import { DEFAULT_SERIAL_CONFIG } from '@shared/types'
+import { CLOCK_FREQUENCIES, CLOCK_NOTE, DEFAULT_FREQUENCY, describeClock } from '@shared/clock'
 import { SERIAL_CARDS, jumpersOf } from '@core/IO/SerialCard'
 import type { JumperPin, JumperPosition, SerialCardModel } from '@core/IO/SerialCard'
 import { SERIAL_CARDS_OFFERED } from '@shared/serialCard'
@@ -189,6 +190,12 @@ async function toggleSerial(): Promise<void> {
   } else {
     await connect(serialConfig.value, isElectron.value ? selectedPort.value || undefined : undefined)
   }
+}
+
+/** Applies at once, and is saved with the rest of the settings on the desktop. */
+function chooseFrequency(hz: number): void {
+  store.setFrequency(hz)
+  window.api?.settings.set({ frequency: hz }).catch(() => {})
 }
 
 /** Applies at once, and is saved with the rest of the settings on the desktop. */
@@ -434,6 +441,24 @@ onUnmounted(() => {
             or the jumper does not switch the machine off.
           </p>
         </template>
+      </section>
+
+      <!-- ── CPU clock ─────────────────────────────────────────────────────── -->
+      <section class="panel-section">
+        <h3 class="section-heading">CPU CLOCK</h3>
+
+        <label v-for="hz in CLOCK_FREQUENCIES" :key="hz" class="toggle-row">
+          <input
+            type="radio"
+            name="frequency"
+            :value="hz"
+            :checked="store.frequency === hz"
+            @change="chooseFrequency(hz)"
+          />
+          <span>{{ describeClock(hz) }}{{ hz === DEFAULT_FREQUENCY ? ' (standard)' : '' }}</span>
+        </label>
+
+        <p class="hint">{{ CLOCK_NOTE }}</p>
       </section>
 
       <!-- ── Breadboard ─────────────────────────────────────────────────────── -->

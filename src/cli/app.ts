@@ -17,6 +17,7 @@ import {
   parseCount,
   parseFlowControlFlags,
   parseSerialCardFlags,
+  parseFrequency,
   parseSerialFlow,
   parseSerialFraming
 } from './args'
@@ -39,6 +40,7 @@ export interface LaunchFlags {
   breadboard?: string
   accessory?: string
   'no-serial-card'?: boolean
+  freq?: string
   baud?: string
   'flow-control'?: boolean
   'no-flow-control'?: boolean
@@ -188,6 +190,7 @@ function settingsFrom(values: LaunchFlags): Partial<AppSettings> {
 
   return {
     ...(values['no-serial-card'] ? { serialCardFitted: false } : {}),
+    ...(values.freq !== undefined ? { frequency: parseFrequency(values.freq) } : {}),
     ...(serialCardConfig ? { serialCardConfig } : {}),
     ...(flowControl !== undefined ? { flowControl } : {}),
     ...(breadboard !== undefined ? { breadboard: parseBreadboard(breadboard) } : {}),

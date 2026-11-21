@@ -6,13 +6,13 @@
  * would leave someone debugging their 6502 program instead of their command
  * line.
  *
- * Two of 6502-EMULATOR's helpers do not come across. `parseFrequency` has
- * nothing to choose from — PHI2 on this board is 1 MHz — and `parseClock` had
+ * One of 6502-EMULATOR's helpers does not come across. `parseClock` had
  * one caller, `--rtc`, which existed to pin the
  * one input to the engine that read the host clock. A KIM has no clock card, so
  * there is nothing to pin and every run is already reproducible.
  */
 
+import { readClockText } from '../shared/clock'
 import { CIRCUITS, circuitFor } from '../core/breadboard/registry'
 import { SERIAL_CARDS, normalizeSerialCard } from '../core/IO/SerialCard'
 import type { SerialCardConfig } from '../core/IO/SerialCard'
@@ -306,4 +306,15 @@ export function parseSerialFraming(
     parity: parity[match[2]!.toLowerCase() as 'n' | 'e' | 'o'],
     stopBits: Number(match[3]) as 1 | 2
   }
+}
+
+/**
+ * `--freq 1|2`, PHI2 in Hz: 1 MHz, the family's standard, or 2 MHz, which the
+ * KIM Board is not cleared for (see `shared/clock.ts`). Anything else is
+ * refused: there are only the two clocks.
+ */
+export function parseFrequency(text: string, label = '--freq'): number {
+  const frequency = readClockText(text)
+  if (frequency === null) throw new UsageError(`${label}: expected 1 or 2 (MHz), got "${text}"`)
+  return frequency
 }

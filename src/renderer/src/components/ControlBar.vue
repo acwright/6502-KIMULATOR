@@ -10,8 +10,10 @@
  * there is no BASIC to load a `.prg` into, only bytes at an address. Mute and
  * the joystick indicator went with the cards they reported on.
  *
- * **There is no clock switch either.** PHI2 on this board is 1 MHz, so a button
- * offering to change it would be offering hardware that does not exist.
+ * **There is no clock switch either.** 1 MHz is the family's standard and the
+ * KIM Board is not cleared for 2 MHz, so a button would present 2 MHz as tested
+ * and expected. It is a Setting instead, with that said beside it (see
+ * `shared/clock.ts`), as in 6502-EMULATOR.
  */
 import { computed, ref } from 'vue'
 import {

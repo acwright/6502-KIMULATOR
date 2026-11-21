@@ -52,6 +52,7 @@ frame: a real KIM sits on the same splash until you touch it.
 | `bin` | — | `<address>=<url>`, raw bytes at an explicit address in RAM. Repeatable |
 | `breadboard` | none | What is wired to the breadboard at `$9400`. `led-latch`, or `none`. `accessory` is its name before 1.3, and still works |
 | `serialcard` | `1` | Whether io5 holds the ACIA. `0` gives the keypad-only machine |
+| `freq` | `1` | CPU clock, `1` or `2` (MHz). 1 MHz is the AC6502 standard; 2 MHz is untested on the KIM Board, the builder's risk. This frame only, never saved, and no toggle on the control bar. Any other value is a warning and 1 MHz |
 | `panels` | all four | Which of `terminal`, `lcd`, `keys`, `breadboard` are shown |
 | `keys` | — | A sequence keyed on the pad once the machine is up, e.g. `ESC,0,8,0,0,UP` |
 | `autotype` | — | Text typed down the serial line once the machine is up |
@@ -77,12 +78,12 @@ working emulator, not a blank frame.
 
 ### What a KIM does not have
 
-6502-EMULATOR's embed takes `cart`, `prg`, `cf`, `cfsize`, `persist`, `muted` and
-`freq`. Every one of them went with hardware this machine does not carry: there
+6502-EMULATOR's embed takes `cart`, `prg`, `cf`, `cfsize`, `persist` and
+`muted`. Every one of them went with hardware this machine does not carry: there
 is no cartridge slot — the Keypad Card *is* the cartridge, and it is soldered in
-— no BASIC to load a `.prg` into, no CompactFlash, no sound, and one clock, since
-PHI2 on this board is 1 MHz. Nothing persists either: a real KIM loses its RAM
-when you switch it off, and so does this one.
+— no BASIC to load a `.prg` into, no CompactFlash and no sound. Nothing persists
+either: a real KIM loses its RAM when you switch it off, and so does this one.
+`freq` (`1` or `2`) comes across as it is there: this frame's clock, never saved.
 
 The Keypad Card's own ROM is not a parameter either. It is loadable in the
 desktop app, from Settings, because trying a freshly built `KC Monitor.bin`

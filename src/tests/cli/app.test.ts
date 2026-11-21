@@ -93,6 +93,12 @@ describe('buildBootConfig', () => {
     expect(() => buildBootConfig({ breadboard: 'leds' }, [])).toThrow(/no circuit "leds"/)
   })
 
+  it('carries --freq 1|2 into the settings for this launch, and refuses any other clock', () => {
+    expect(buildBootConfig({ freq: '2' }, []).settings).toEqual({ frequency: 2_000_000 })
+    expect(buildBootConfig({ freq: '1' }, []).settings).toEqual({ frequency: 1_000_000 })
+    expect(() => buildBootConfig({ freq: '4' }, [])).toThrow('--freq: expected 1 or 2 (MHz), got "4"')
+  })
+
   it('carries --flow-control and --no-flow-control into the settings for this launch, and only when given', () => {
     expect(buildBootConfig({ 'flow-control': true }, []).settings).toEqual({ flowControl: true })
     expect(buildBootConfig({ 'no-flow-control': true }, []).settings).toEqual({ flowControl: false })

@@ -1,3 +1,4 @@
+import { DEFAULT_FREQUENCY } from '../../shared/clock'
 import { readFileSync } from 'node:fs'
 import { Session } from '../../debug/Session'
 import { Empty } from '../../core/IO/Empty'
@@ -70,6 +71,13 @@ export interface HeadlessOptions {
    * `core/breadboard/registry` — null or omitted for an empty breadboard.
    */
   breadboard?: string | null
+
+  /**
+   * PHI2 in Hz: 1 MHz (the default) or 2 MHz (`--freq`). See `shared/clock.ts`.
+   * Read before there is a machine, since the session's chunk size is a byte's
+   * worth of emulated time and the session is what builds the machine.
+   */
+  frequency?: number
 
   baudRate?: number
 
@@ -154,15 +162,6 @@ export interface RunResult {
  */
 const MATCH_WINDOW = 64 * 1024
 
-/**
- * PHI2, in Hz — the same 1 MHz `Machine.frequency` reports.
- *
- * Named here rather than read off the machine because it is wanted before there
- * is one: the session's chunk size is a byte's worth of emulated time, and the
- * session is what builds the machine. There is nothing to keep in sync — this
- * board has one clock.
- */
-const PHI2 = 1_000_000
 
 /**
  * Runs a machine with no window, wiring its console to a byte stream.
@@ -249,8 +248,9 @@ export class HeadlessHost {
     // The scheduler drives periodic work at a byte's worth of emulated time, so
     // paced input lands at the same point in the program at any host speed.
     const baudRate = options.baudRate ?? 19200
+    const frequency = options.frequency ?? DEFAULT_FREQUENCY
     this.session = new Session(slots, undefined, {
-      chunkCycles: Math.max(1, Math.floor((PHI2 * 10) / baudRate)),
+      chunkCycles: Math.max(1, Math.floor((frequency * 10) / baudRate)),
       onChunk: () => this.onChunk()
     })
 
@@ -268,6 +268,7 @@ export class HeadlessHost {
     })
 
     const machine = this.session.machine
+    machine.frequency = frequency
     machine.flowControl = options.flowControl ?? true
     machine.serialCard = options.serialCardConfig ?? DEFAULT_SERIAL_CARD
     if (serialCard) {

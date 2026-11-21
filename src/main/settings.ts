@@ -1,3 +1,4 @@
+import { DEFAULT_FREQUENCY, isClockFrequency } from '../shared/clock'
 import { app } from 'electron'
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
@@ -64,7 +65,9 @@ export class SettingsService {
         serialConfig: { ...DEFAULT_SERIAL_CONFIG, ...parsed.serialConfig },
         // Read, not spread: a card this app does not offer — the ACE, say — or
         // a jumper that card lacks, is not something to build a machine from.
-        serialCardConfig: readSerialCard(parsed.serialCardConfig) ?? DEFAULT_SERIAL_CARD
+        serialCardConfig: readSerialCard(parsed.serialCardConfig) ?? DEFAULT_SERIAL_CARD,
+        // Read, not spread: only 1 MHz and 2 MHz are clocks to run at.
+        frequency: isClockFrequency(parsed.frequency) ? parsed.frequency : DEFAULT_FREQUENCY
       }
       return this.migrate(settings, parsed.settingsVersion ?? 1)
     } catch {

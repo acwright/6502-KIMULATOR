@@ -8,15 +8,33 @@ import {
   parseCount,
   parseDuration,
   parseFlowControlFlags,
+  parseFrequency,
   parseSerialCardFlags,
   parseSerialFraming
 } from '../../cli/args'
 
+describe('parseFrequency', () => {
+  it.each([
+    ['1', 1_000_000],
+    ['1MHz', 1_000_000],
+    [' 2 ', 2_000_000],
+    ['2 MHz', 2_000_000],
+    ['2000000', 2_000_000],
+    ['2_000_000', 2_000_000],
+  ])('reads %p as %d Hz', (text, hz) => {
+    expect(parseFrequency(text)).toBe(hz)
+  })
+
+  it.each(['4', '1.5', '0', '', 'fast'])('refuses %p: there are only the two clocks', (text) => {
+    expect(() => parseFrequency(text)).toThrow(UsageError)
+    expect(() => parseFrequency(text)).toThrow(/--freq: expected 1 or 2 \(MHz\)/)
+  })
+})
+
 /**
  * The command line is where a mistake should be caught, so every one of these
- * refuses rather than coercing. 6502-EMULATOR's `parseClock` and
- * `parseFrequency` have no counterparts here: this machine has no clock card to
- * pin and one clock speed to choose from.
+ * refuses rather than coercing. 6502-EMULATOR's `parseClock` has no
+ * counterpart here: this machine has no clock card to pin.
  */
 
 describe('parseAddress', () => {

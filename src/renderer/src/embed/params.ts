@@ -1,3 +1,4 @@
+import { DEFAULT_FREQUENCY, readClockText } from '@shared/clock'
 import { circuitFor, CIRCUITS } from '@core/breadboard/registry'
 import { parseKeys } from './keys'
 
@@ -27,13 +28,12 @@ import { parseKeys } from './keys'
  *
  * ## What a KIM does not have
  *
- * 6502-EMULATOR's embed takes `cart`, `prg`, `cf`, `cfsize`, `persist`, `muted`
- * and `freq`. Every one of them went with hardware this machine does not carry:
+ * 6502-EMULATOR's embed takes `cart`, `prg`, `cf`, `cfsize`, `persist` and
+ * `muted`. Every one of them went with hardware this machine does not carry:
  * there is no cartridge slot (the Keypad Card *is* the cartridge and it is
- * soldered in), no BASIC to load a `.prg` into, no CompactFlash, no sound, and
- * one clock — PHI2 on this board is 1 MHz, so `freq` would be offering a jumper
- * that is not on it. Nothing persists either, because a real KIM loses its RAM
- * when you switch it off.
+ * soldered in), no BASIC to load a `.prg` into, no CompactFlash and no sound.
+ * Nothing persists either, because a real KIM loses its RAM when you switch it
+ * off. `freq=1|2` comes across as it is there: this frame's clock, never saved.
  *
  * What replaces them is the machine's own shape — `breadboard` and `serialcard`,
  * the two things `AppSettings` keeps — plus `panels` and `keys`, which have no
@@ -86,6 +86,11 @@ export interface EmbedParams {
   binaries: BinarySource[]
   /** Registry id of the circuit wired to the breadboard at $9400, or null for empty. */
   breadboard: string | null
+  /**
+   * PHI2 in Hz, from `freq=1|2`: 1 MHz unless the page asks for 2. This frame
+   * only, never saved, and never on the control bar (see `shared/clock.ts`).
+   */
+  frequency: number
   /** Whether io5 holds the ACIA. `false` gives the keypad-only machine. */
   serialCard: boolean
   autostart: boolean
@@ -372,6 +377,7 @@ export function parseEmbedParams(search: string | URLSearchParams = ''): EmbedPa
     binaries: readBinaries(query, warnings),
     breadboard: readBreadboard(query, warnings),
     serialCard,
+    frequency: readFrequency(query, warnings),
     autostart: readBoolean(query.get('autostart'), 'autostart', true, warnings),
     autotype: readAutotype(query, warnings),
     keys: readKeys(query, warnings),
@@ -554,4 +560,18 @@ function readOrigins(query: URLSearchParams): string[] | null {
     .filter(Boolean)
   if (origins.length === 0 || origins.includes('*')) return null
   return origins
+}
+
+/**
+ * `freq=1|2`, the CPU clock, spelled as `--freq` spells it. A page that asks
+ * for 2 MHz has chosen it, as someone passing `--freq 2` has. A value that is
+ * not a clock is a warning and 1 MHz.
+ */
+function readFrequency(query: URLSearchParams, warnings: string[]): number {
+  const raw = query.get('freq')
+  if (raw === null) return DEFAULT_FREQUENCY
+  const frequency = readClockText(raw)
+  if (frequency !== null) return frequency
+  warnings.push(`freq: expected 1 or 2 (MHz), got "${raw}" — using 1.`)
+  return DEFAULT_FREQUENCY
 }

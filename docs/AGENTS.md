@@ -192,8 +192,8 @@ does one thing — stops the debug bridge, so a client mid-call gets an answer
 instead of a timeout.
 
 `AppSettings` holds `serialConfig`, `serialCardFitted`, `serialCardConfig`,
-`breadboard` and `flowControl`. There is no `frequency` — PHI2 on this board is
-1 MHz, as it is on the ACE. `serialCardFitted` and
+`breadboard`, `flowControl` and, since 1.5, `frequency`: PHI2, 1 MHz or 2 MHz,
+read with a check (see `src/shared/clock.ts`). `serialCardFitted` and
 `breadboard` are the machine's *shape*, and
 a card cannot be fitted or pulled with the power on — so `store.init()` builds a
 new Machine and a new Session rather than mutating one. That is why
@@ -452,13 +452,16 @@ scripted client can move it and see that it moved."
 `src/cli/` and `src/host/headless/` are a lift too, and the same rule decided
 what came across: the flag survives if the hardware behind it does.
 
-**`--freq` and `--rtc` are gone, and they are gone for opposite reasons.** PHI2
-on this board is 1 MHz, so there is nothing to select — `session.config` refuses
-a different one rather than ignoring it, and `dbg config --frequency` is kept
-precisely so a script ported from the ACE is *told*. `--rtc` existed to pin the
-one input the engine read from the host clock; a KIM has no clock card, so there
-is nothing to pin and **every headless run is already reproducible**. That is
-worth stating in the guide rather than leaving someone to discover it.
+**`--rtc` is gone.** It existed to pin the one input the engine read from the
+host clock; a KIM has no clock card, so there is nothing to pin and **every
+headless run is already reproducible**. That is worth stating in the guide
+rather than leaving someone to discover it.
+
+**`--freq 1|2` came in 1.5**, as in 6502-EMULATOR: 1 MHz is the standard, and
+2 MHz is a Setting with a note, never a control-bar toggle, because the KIM
+Board is not cleared for it (6502-WORKING P11). `session.config`, `dbg config
+--frequency` and an embed's `freq=` take the same two clocks. `src/shared/clock.ts`
+holds them and the note.
 
 **`--no-serial-card` replaces `--empty <cards>`.** Only two of the eight slots
 are ever filled here and each has its own flag, so a comma-separated list of

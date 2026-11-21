@@ -3,6 +3,7 @@
  * renderer processes.
  */
 
+import { DEFAULT_FREQUENCY } from './clock'
 import { DEFAULT_SERIAL_CARD } from './serialCard'
 import type { SerialCardConfig } from '../core/IO/SerialCard'
 import type { SerialLines } from '../core/SerialPeer'
@@ -159,6 +160,12 @@ export interface AppSettings {
    */
   flowControl: boolean
   /**
+   * PHI2 in Hz, 1 MHz or 2 MHz (`--freq`): see `shared/clock.ts`. A Setting,
+   * never on the control bar. Not in a file written before 1.5, which loads at
+   * 1 MHz with no migration: a missing field takes its default.
+   */
+  frequency: number
+  /**
    * The version of this file's format, for one-off migrations when a default
    * changes. Missing in files written before 1.1; see `SETTINGS_VERSION`.
    */
@@ -182,16 +189,13 @@ export interface AppSettings {
  */
 export const SETTINGS_VERSION = 4
 
-/**
- * There is no CPU frequency here. PHI2 on this board is 1 MHz, so there is
- * nothing to choose and nothing to remember.
- */
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   serialConfig: DEFAULT_SERIAL_CONFIG,
   serialCardFitted: true,
   serialCardConfig: DEFAULT_SERIAL_CARD,
   breadboard: null,
   flowControl: true,
+  frequency: DEFAULT_FREQUENCY,
   settingsVersion: SETTINGS_VERSION
 }
 

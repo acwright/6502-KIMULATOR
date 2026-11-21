@@ -18,6 +18,7 @@ import {
   parseCount,
   parseDuration,
   parseFlowControlFlags,
+  parseFrequency,
   parseSerialCardFlags,
   SERIAL_FLOW_DEPRECATED
 } from './args'
@@ -41,6 +42,9 @@ Machine
                             HW_SC and the KC Monitor takes its keypad-only path,
                             which is a machine the firmware supports and the only
                             way to exercise that path
+  --freq <1|2>              CPU clock in MHz (default: 1, the standard). 2 MHz is
+                            untested on the KIM Board and at the builder's risk:
+                            the bench KIM misread its RAM at 2 MHz
   --baud <rate>             Serial rate: the ACIA headless, the host port in the app
   --serial-card <standard|pro>
                             The serial card in io5 (default: standard, the Serial Card)
@@ -97,10 +101,7 @@ Notes
   is --bin. --card-rom replaces the card's own firmware and is a different thing
   entirely from slotting one in.
 
-  There is no --freq either. PHI2 on this board is 1 MHz, so there is nothing
-  to choose.
-
-  --baud, --serial-config, --serial-card, --cts, --dcd, --peer-rts,
+  --freq, --baud, --serial-config, --serial-card, --cts, --dcd, --peer-rts,
   --breadboard and --no-serial-card set what the app's Settings panel sets, for
   that launch only: they show up in the panel, and nothing is written to your
   saved settings. Without --peer-rts the app uses its saved setting.
@@ -172,6 +173,7 @@ const OPTIONS = {
   breadboard: { type: 'string' },
   accessory: { type: 'string' },
   'no-serial-card': { type: 'boolean' },
+  freq: { type: 'string' },
   baud: { type: 'string' },
   'flow-control': { type: 'boolean' },
   'no-flow-control': { type: 'boolean' },
@@ -324,6 +326,7 @@ export async function runCommand(argv: string[]): Promise<number> {
     serialCard,
     ...(serialCardConfig ? { serialCardConfig } : {}),
     ...(breadboard !== undefined ? { breadboard: parseBreadboard(breadboard) } : {}),
+    frequency: values.freq !== undefined ? parseFrequency(values.freq) : undefined,
     baudRate: values.baud ? parseCount(values.baud, '--baud') : undefined,
     flowControl,
     maxCycles: values['max-cycles'] ? parseCount(values['max-cycles'], '--max-cycles') : undefined,

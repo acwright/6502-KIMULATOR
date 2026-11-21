@@ -10,9 +10,9 @@
  * the reader's disk into a frame on someone else's article would be answering a
  * question nobody asked.
  *
- * Where 6502-EMULATOR's version has a mute button and a clock toggle, this one
- * has neither, and for the same reason as the full app's control bar: there is
- * no sound card on this machine and PHI2 on this board is 1 MHz.
+ * Where 6502-EMULATOR's version has a mute button, this one has none: there is
+ * no sound card on this machine. Neither has a clock toggle: a page that wants
+ * 2 MHz says `freq=2`, and the full app keeps it in Settings, with its note.
  *
  * Two things here are not about operating the machine at all. The view switch is
  * what makes a frame narrower than two columns usable — without it a phone gets

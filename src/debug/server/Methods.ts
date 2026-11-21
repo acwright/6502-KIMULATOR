@@ -1,3 +1,4 @@
+import { isClockFrequency } from '../../shared/clock'
 import { CPU } from '../../core/CPU'
 import { RAM } from '../../core/RAM'
 import { ROM } from '../../core/ROM'
@@ -334,18 +335,16 @@ export function createMethods(target: DebugTarget): MethodTable {
     },
 
     /**
-     * `frequency` is reported here and cannot be set. PHI2 on this board is
-     * 1 MHz. Asking for a different one is
-     * refused rather than ignored — a client ported from 6502-EMULATOR's
-     * tooling would otherwise believe it had changed the clock.
+     * `frequency` is PHI2: 1000000, the standard, or 2000000, which the KIM
+     * Board is not cleared for (see `shared/clock.ts`). Anything else is
+     * refused before anything changes.
      */
     'session.config': (raw) => {
       const params = asObject(raw, 'session.config')
 
-      if (params.frequency !== undefined && params.frequency !== machine.frequency) {
-        throw invalidParams(
-          `frequency: PHI2 on this machine is fixed at ${machine.frequency}`
-        )
+      const frequency = optionalNumber(params, 'frequency')
+      if (frequency !== undefined && !isClockFrequency(frequency)) {
+        throw invalidParams(`frequency: expected 1000000 or 2000000 (1 or 2 MHz), got ${frequency}`)
       }
 
       const baudRate = optionalNumber(params, 'baudRate')
@@ -364,6 +363,8 @@ export function createMethods(target: DebugTarget): MethodTable {
         }
         target.setFlowControl(flowControl)
       }
+
+      if (frequency !== undefined) machine.frequency = frequency
 
       return {
         frequency: machine.frequency,

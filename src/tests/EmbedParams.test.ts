@@ -52,6 +52,25 @@ describe('decodeBase64', () => {
   })
 })
 
+describe('parseEmbedParams — freq', () => {
+  it.each([
+    ['1', 1_000_000],
+    ['2', 2_000_000],
+    ['2MHz', 2_000_000],
+    ['2000000', 2_000_000],
+  ])('reads freq=%s', (value, expected) => {
+    const params = parseEmbedParams(`freq=${value}`)
+    expect(params.frequency).toBe(expected)
+    expect(params.warnings).toEqual([])
+  })
+
+  it('falls back to 1 MHz on a clock it has no setting for, and says so', () => {
+    const params = parseEmbedParams('freq=4')
+    expect(params.frequency).toBe(1_000_000)
+    expect(params.warnings).toEqual(['freq: expected 1 or 2 (MHz), got "4" — using 1.'])
+  })
+})
+
 describe('parseEmbedParams — defaults', () => {
   it('gives a whole machine with an empty query', () => {
     const params = parseEmbedParams('')
@@ -60,6 +79,7 @@ describe('parseEmbedParams — defaults', () => {
     expect(params.binaries).toEqual([])
     expect(params.breadboard).toBeNull()
     expect(params.serialCard).toBe(true)
+    expect(params.frequency).toBe(1_000_000)
     expect(params.autostart).toBe(true)
     expect(params.autotype).toBeNull()
     expect(params.keys).toEqual([])

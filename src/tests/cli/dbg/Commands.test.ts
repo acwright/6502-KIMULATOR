@@ -244,15 +244,17 @@ describe('session commands', () => {
     expect(session.machine.cpu.a).toBe(0)
   })
 
-  /**
-   * The flag exists so a script ported from 6502-EMULATOR is told the clock did
-   * not change, rather than being quietly ignored — PHI2 on this board is fixed
-   * at 1 MHz.
-   */
-  it('config refuses a frequency this machine cannot have, and says why', async () => {
-    const { exitCode, err } = await runErr('config', ['--frequency', '2'])
-    expect(exitCode).toBe(ExitCode.ERROR)
-    expect(err).toMatch(/fixed at 1000000/)
+  it('config --frequency sets the clock to 1 or 2 MHz', async () => {
+    await run('config', ['--frequency', '2'])
+    expect(session.machine.frequency).toBe(2_000_000)
+    await run('config', ['--frequency', '1MHz'])
+    expect(session.machine.frequency).toBe(1_000_000)
+  })
+
+  it('config --frequency refuses any other clock, and says why', async () => {
+    const { exitCode, err } = await runErr('config', ['--frequency', '4'])
+    expect(exitCode).not.toBe(ExitCode.OK)
+    expect(err).toMatch(/--frequency: expected 1 or 2 \(MHz\)/)
     expect(session.machine.frequency).toBe(1_000_000)
   })
 })

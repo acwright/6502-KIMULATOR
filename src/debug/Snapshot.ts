@@ -1,3 +1,4 @@
+import { DEFAULT_FREQUENCY, isClockFrequency } from '../shared/clock'
 import { StateError } from '../core/DeviceState'
 import type { DeviceState } from '../core/DeviceState'
 import type { Machine, SlotName } from '../core/Machine'
@@ -46,7 +47,7 @@ export interface Snapshot {
   /** Informational: when the snapshot was taken, in host wall-clock time. */
   createdAt: string
 
-  /** PHI2 in Hz: 1 MHz on this board, recorded so a snapshot says what it ran at. */
+  /** PHI2 in Hz, 1 or 2 MHz, so a 2 MHz machine does not restore as a 1 MHz one. */
   frequency: number
 
   /**
@@ -227,7 +228,8 @@ export function restoreSnapshot(
     }
   })
 
-  machine.frequency = state.frequency
+  // 1 or 2 MHz, as saved; any other value restores at 1 MHz (see `shared/clock.ts`).
+  machine.frequency = isClockFrequency(state.frequency) ? state.frequency : DEFAULT_FREQUENCY
 
   machine.bus = state.bus ?? 0
   machine.cpu.deserialize(state.cpu)

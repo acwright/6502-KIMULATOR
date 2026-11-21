@@ -141,14 +141,18 @@ describe('session', () => {
 
   // PHI2 on this board is fixed, so the clock is something a client is told
   // about rather than something it sets.
-  it('reports the clock, and refuses to change it', async () => {
+  it('reports the clock, changes it to 1 or 2 MHz, and refuses any other', async () => {
     const { methods, session } = target()
 
     expect(methods['session.config']!({})).toMatchObject({ frequency: 1_000_000 })
+    expect(methods['session.config']!({ frequency: 2_000_000 })).toMatchObject({ frequency: 2_000_000 })
+    expect(session.machine.frequency).toBe(2_000_000)
+    expect(methods['session.info']!({})).toMatchObject({ frequency: 2_000_000 })
 
-    const error = await errorOf(() => methods['session.config']!({ frequency: 2_000_000 }))
+    const error = await errorOf(() => methods['session.config']!({ frequency: 3_000_000 }))
     expect(error.code).toBe(ErrorCode.INVALID_PARAMS)
-    expect(session.machine.frequency).toBe(1_000_000)
+    expect(error.message).toMatch(/expected 1000000 or 2000000/)
+    expect(session.machine.frequency).toBe(2_000_000)
   })
 
   it('reports flow control, on by default, in session.info, session.config and serial.config', () => {

@@ -1,6 +1,6 @@
 import { resolve as resolvePath } from 'node:path'
 import { parseArgs } from 'node:util'
-import { UsageError, parseAddress, parseByte, parseCount, parseCursor, parseDuration } from '../args'
+import { UsageError, parseAddress, parseByte, parseCount, parseCursor, parseDuration, parseFrequency } from '../args'
 import { resolveTarget, httpCall, RpcClientError } from './Connection'
 import { ExitCode } from './ExitCode'
 import { describeSerialCard, isDefaultSerialCard, readSerialCard } from '../../shared/serialCard'
@@ -143,15 +143,7 @@ async function reset(argv: string[]): Promise<number> {
   return ExitCode.OK
 }
 
-/**
- * `--frequency` is accepted and passed through, though nothing can come of it.
- *
- * PHI2 on this board is fixed, and the method table refuses a value that is not
- * the one the machine has rather than ignoring it — so a script ported from
- * 6502-EMULATOR's tooling is *told* the clock did not change instead of
- * believing it did. Dropping the flag here would turn that into "unknown
- * option", which says nothing about why.
- */
+/** `--frequency 1|2` sets PHI2, as `run --freq` does; anything else is a usage error. */
 async function config(argv: string[]): Promise<number> {
   const OPTIONS = {
     ...COMMON_OPTIONS,
@@ -162,10 +154,7 @@ async function config(argv: string[]): Promise<number> {
   const { values } = parse(() => parseArgs({ args: argv, options: OPTIONS, allowPositionals: true }))
 
   const params: Record<string, number | boolean> = {}
-  if (values.frequency) {
-    const mhz = Number(values.frequency)
-    params.frequency = mhz === 1 || mhz === 2 ? mhz * 1_000_000 : Number(values.frequency)
-  }
+  if (values.frequency !== undefined) params.frequency = parseFrequency(values.frequency, '--frequency')
   if (values.baud) params.baudRate = parseCount(values.baud, '--baud')
   if (values['flow-control'] !== undefined) {
     const setting = values['flow-control'].trim().toLowerCase()

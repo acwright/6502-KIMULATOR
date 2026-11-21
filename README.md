@@ -81,7 +81,7 @@ exactly as nothing stops you on the bench.
 
 | Component | Details |
 |---|---|
-| **CPU** | W65C02S, cycle-accurate, IRQ / NMI, full opcode set including the `WAI` / `STP` halt states. PHI2 is 1 MHz, as on the ACE |
+| **CPU** | W65C02S, cycle-accurate, IRQ / NMI, full opcode set including the `WAI` / `STP` halt states. PHI2 is 1 MHz, the AC6502 standard; 2 MHz in Settings or with `--freq 2`, which the KIM Board is not cleared for |
 | **RAM** | 32 KB, flat. No banks, and no persistence: a real KIM loses its RAM when you switch it off |
 | **ROM** | 32 KB BIOS (bundled, replaceable) + the Keypad Card's 8 KB AT28C64 (bundled, replaceable) |
 | **PIA** | 65C21 — Port A carries the keypad code (`PA0–PA4`) and the LCD control lines (`PA5`=RS, `PA6`=R/W, `PA7`=E); Port B is the LCD data bus. CA1 is the keypad's data-available interrupt, CA2 the encoder's output enable |
@@ -157,7 +157,7 @@ expands it to fill the window; **F11** (or **⌘ Return**) toggles fullscreen.
 | **Clipboard** | Paste — types text into the machine down the serial line, paced so the ACIA can absorb it. Accepts [bin2woz](https://github.com/acwright/bin2woz) output directly |
 | **⚙** | Open / close the Settings panel |
 
-No frequency toggle and no mute button: one clock, no sound card.
+No clock toggle and no mute button. 1 MHz is the standard and 2 MHz is the builder's risk on a KIM, so the clock is in Settings with that note beside it, not on the bar; and there is no sound card.
 
 A **KIM / TERM / BREADBOARD** switch appears at the left of the bar when the window is
 showing one panel at a time — see *Small windows* below.
@@ -202,6 +202,8 @@ stacks everything it was given rather than hiding a panel it could not bring bac
 Card ROM row is how a freshly built `KC Monitor.bin` gets tested without burning
 an AT28C64; it is the machine's own firmware rather than a cartridge, which is
 why it lives here and not on the toolbar.
+
+**CPU CLOCK** — 1 MHz, the AC6502 standard, or 2 MHz. The KIM Board is not cleared for 2 MHz: it has never run at it, and the bench KIM misread its RAM at 2 MHz, so it is the builder's risk and the panel says so. Not a power cycle; saved in the desktop app's settings (a file from before 1.5 starts at 1 MHz), and `--freq` sets it for one launch.
 
 **MACHINE** — whether a serial card is installed in `io5`, and which. Unfitting
 it is the supported keypad-only machine, not a broken one. Fitted, it is the
@@ -354,7 +356,7 @@ input it is holding can produce.
 ```
 
 The machine flags are the same either way — `--rom`, `--card-rom`, `--bin`,
-`--breadboard`, `--no-serial-card`, `--serial-card` (`standard` or `pro`) with its
+`--freq` (`1` or `2`, MHz), `--breadboard`, `--no-serial-card`, `--serial-card` (`standard` or `pro`) with its
 jumper `--cts` or `--dcd` (`ground` or `cable`), `--baud`, `--peer-rts`
 (`honour` or `ignore`; the older `--[no-]flow-control` still works), `--pause`,
 `--debug`, `--symbols`. `--serial-card ace` is refused: the ACE's serial is on
@@ -496,12 +498,10 @@ The parameters most embeds need:
 | `breadboard` | none | What is wired to `$9400` — `led-latch`, or `none` |
 | `keys` | — | A sequence keyed on the pad once the machine is up, e.g. `ESC,0,8,0,0,UP` |
 | `serialcard` | `1` | `0` gives the keypad-only machine |
+| `freq` | `1` | CPU clock, `1` or `2` (MHz). 2 MHz is untested on the KIM Board, the builder's risk. This frame only, never saved; no toggle on the control bar |
 | `autostart` | `1` | Boot on load; `0` holds the machine until the reader clicks |
 | `controls` | `minimal` | `full` \| `minimal` \| `none` |
 | `keyboard` | `auto` | The on-screen keyboard: `1`, `0`, or `auto` — on for a touch-only device |
-
-There is no `freq` — same reason as the CLI's missing `--freq` and the control
-bar's missing toggle: one clock.
 
 An embed lays itself out for the frame it is given rather than for the window, so
 a phone-sized one behaves the way the app does on a phone: one panel at a time

@@ -1,3 +1,4 @@
+import { DEFAULT_FREQUENCY } from '@shared/clock'
 import { ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import type { Machine } from '@core/Machine'
@@ -45,6 +46,8 @@ export const useEmulatorStore = defineStore('emulator', () => {
   const serialCardFitted = ref(true)
   /** RTS/CTS flow control on serial input; on by default. Carried across rebuilds. */
   const flowControl = ref(true)
+  /** PHI2 in Hz: 1 MHz, the standard, unless Settings (or `--freq`, `freq=`) say 2 MHz. Carried across rebuilds. */
+  const frequency = ref<number>(DEFAULT_FREQUENCY)
   /**
    * Which serial card io5 holds when one is fitted, and its jumper; the Serial
    * Card with `CTS EN` at ground by default. Carried across rebuilds.
@@ -97,10 +100,9 @@ export const useEmulatorStore = defineStore('emulator', () => {
       io6: circuit ?? new Empty()
     }
 
-    // PHI2 is not configurable: 1 MHz is what this board runs at, and Machine
-    // starts there.
     const s = new Session(slots)
     const m = s.machine
+    m.frequency = frequency.value
 
     s.onStop((reason) => {
       if (reason.kind !== 'trap' || reason.detail !== 'stp') return
@@ -240,6 +242,16 @@ export const useEmulatorStore = defineStore('emulator', () => {
     return machine.value?.acia() ?? null
   }
 
+  /**
+   * The CPU clock, in Hz. Not a power cycle: PHI2 changes under the running
+   * program, and every card takes its timing from it on the next cycle. Saved
+   * by the caller.
+   */
+  function setFrequency(hz: number) {
+    frequency.value = hz
+    if (machine.value) machine.value.frequency = hz
+  }
+
   /** Not a power cycle: it says what the far end of the cable does. */
   function setFlowControl(on: boolean) {
     flowControl.value = on
@@ -269,6 +281,8 @@ export const useEmulatorStore = defineStore('emulator', () => {
     serialCardFitted,
     flowControl,
     setFlowControl,
+    frequency,
+    setFrequency,
     serialCardConfig,
     setSerialCardConfig,
     romName,
