@@ -90,6 +90,11 @@ export class PIA implements IO {
   private portA_attachmentCount: number = 0
   private portB_attachmentCount: number = 0
 
+  // Every attachment once, for tick(). One wired to both ports (the LCD) is in
+  // both lists above, and ticking it from each would run its clock at twice the
+  // CPU's: the cursor blinked every 175 ms, not every 350.
+  private tickList: Attachment[] = []
+
   constructor() {
     this.reset(true)
   }
@@ -212,11 +217,8 @@ export class PIA implements IO {
   }
 
   tick(frequency: number): number {
-    for (let i = 0; i < this.portA_attachmentCount; i++) {
-      this.portA_attachments[i]?.tick(frequency)
-    }
-    for (let i = 0; i < this.portB_attachmentCount; i++) {
-      this.portB_attachments[i]?.tick(frequency)
+    for (let i = 0; i < this.tickList.length; i++) {
+      this.tickList[i]!.tick(frequency)
     }
 
     this.sampleInterruptInputs()
@@ -451,6 +453,15 @@ export class PIA implements IO {
 
     for (let i = 0; i < this.portA_attachmentCount; i++) this.portA_attachments[i] = portA[i]
     for (let i = 0; i < this.portB_attachmentCount; i++) this.portB_attachments[i] = portB[i]
+
+    this.tickList = []
+    for (const list of [this.portA_attachments, this.portB_attachments]) {
+      for (const attachment of list) {
+        if (attachment !== null && attachment !== undefined && !this.tickList.includes(attachment)) {
+          this.tickList.push(attachment)
+        }
+      }
+    }
   }
 
   /**

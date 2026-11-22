@@ -217,12 +217,13 @@ describe('PIA', () => {
       expect(probe.writesA).toEqual([])
     })
 
-    it('ticks every peripheral once per clock cycle', () => {
+    it('ticks every peripheral once per clock cycle, even one wired to both ports', () => {
       pia.tick(1000000)
       pia.tick(1000000)
-      // Wired to both ports, so it is ticked once for each — the honest encoding
-      // of a chip that answers on two of them.
-      expect(probe.ticks).toBe(4)
+      // The probe is on both ports, as the LCD is. Ticked once from each list,
+      // its clock ran at twice the CPU's, and the LCD's cursor blinked every
+      // 175 ms rather than the 350 its period says.
+      expect(probe.ticks).toBe(2)
     })
   })
 
