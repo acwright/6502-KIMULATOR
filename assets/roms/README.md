@@ -22,13 +22,23 @@ is visible on a KIM: the Kernal at `$A000–$B7FF` and the CP437 character set a
 `$B800–$BFFF`. The Keypad Card overlays everything above.
 
 - **Source** — `/Users/acwright/Developer/Assembly/6502-BIOS`, `BIOS.bin` at tag
-  **`v1.7`**, cut on branch `v1.x`, not the repository's `main`, which is BIOS
+  **`v1.8`**, cut on branch `v1.x`, not the repository's `main`, which is BIOS
   2.x
-- **Commit** — `387d29d5396b821568e7b9a41fa7e7fccf6d1b76` (2026-11-11)
-- **Version string** — `6502 BIOS v1.7`
-- **SHA-256** — `49be5865bde74220f37ad10bd773619b17f052b37c89f79c1a3564b7da51d799`
+- **Commit** — `932021a429bf2c9cdc3a9cbd6a974bef9268e183` (2026-11-23)
+- **Version string** — `6502 BIOS v1.8`
+- **SHA-256** — `0343d53e8f073cd515e67fbfd344641d1a5a35d5f903bbdd69564e97d4a3aa51`
 
-**1.7 is two probes the KIM itself found wrong** (6502-WORKING's BIOS plan, B1 and
+**1.8 is three changes on top of 1.7:**
+
+- **A `GOTO` or `GOSUB` typed at the prompt runs the program** (6502-BIOS issue
+  #3). It used to print `OK` and run nothing.
+- **The RTC probe clears a DS1501's Crystal Select bit** (issue #4). A KIM has no
+  RTC, so it doesn't show here.
+- **The serial mirror**, `POKE 774,2`, copies a video console to serial. A KIM's
+  console is the KC Monitor on serial, with no video console to copy, and every
+  boot leaves the mirror off.
+
+**1.7 was two probes the KIM itself found wrong****1.7 is two probes the KIM itself found wrong** (6502-WORKING's BIOS plan, B1 and
 B4, measured on a real KIM on 3 and 11 November 2026), and both are visible here
 now that this machine reads an empty slot as open bus, as the board does:
 
@@ -45,7 +55,7 @@ now that this machine reads an empty slot as open bus, as the board does:
   `$0378`, the first status byte.
 
 Every 1.6 routine address holds. Earlier images this repository bundled, newest
-first: 1.6 at `8acb4fc` (sha256 `4b4154af…`), the last of 1.6's in-place reissues
+first: 1.7 at `387d29d` (sha256 `49be5865…`), the two probes above; 1.6 at `8acb4fc` (sha256 `4b4154af…`), the last of 1.6's in-place reissues
 (`f858890`, `29ed506f…`; `27bd4e0`, `4ec29214…`; `71e1e66`, `fc0002d0…`, 1.6 as
 first released), whose serial flow control is what this ROM still carries: RTS
 lowered around each byte sent, the input ring never lapping its reader, the IRQ

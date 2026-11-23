@@ -23,10 +23,10 @@ const ROMS = [
   {
     name: 'BIOS.bin',
     bytes: 32768,
-    // 6502-BIOS tag v1.7 (387d29d5396b821568e7b9a41fa7e7fccf6d1b76), the 1.x line: 1.6's serial
-    // flow control, plus a SID probe that no longer takes an empty slot's open bus for a SID and a
-    // CF probe that recognises an empty slot, waits up to 3.0 s for a card, and records how long
-    sha256: '49be5865bde74220f37ad10bd773619b17f052b37c89f79c1a3564b7da51d799',
+    // 6502-BIOS tag v1.8 (932021a429bf2c9cdc3a9cbd6a974bef9268e183), the 1.x line: 1.7's probes,
+    // plus a GOTO typed at the prompt that runs, the DS1501's Crystal Select bit cleared, and the
+    // serial mirror (off at boot, and with no video console on a KIM, nothing to mirror)
+    sha256: '0343d53e8f073cd515e67fbfd344641d1a5a35d5f903bbdd69564e97d4a3aa51',
     // Guards against bundling a truncated or unrelated binary. The KIM stays on
     // BIOS 1.x permanently, so a 2.x ROM must fail here rather than ship.
     version: /6502 BIOS v1\.\d+/
